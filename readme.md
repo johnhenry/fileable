@@ -1,4 +1,4 @@
-# Re-File
+# Fileable
 
 Render a file tree using a JSX template.
 
@@ -6,14 +6,14 @@ Inspired by [React FS Renderer](https://github.com/ericvicenti/react-fs-renderer
 
 ## API -- Template
 
-Re-file can render [functional components](https://reactjs.org/docs/components-and-props.html) built with the following components:
+Fileable can render [functional components](https://reactjs.org/docs/components-and-props.html) built with the following components:
 
 ### Component: File
 
 The File component represents a file.
 
 ```javascript
-import {File} from 're-file';
+import {File} from 'fileable';
 const template = ()=><File name='readme.md'>
 # This is a sample file.
 </File>
@@ -43,7 +43,7 @@ If no name is passed, a hash of the content will be used.
 By default, the algorithm used is SHA_256, but a number of algorithms are available.
 
 ```javascript
-import {FILE_NAME_MD5, FILE_NAME_SHA_1, FILE_NAME_SHA_256, FILE_NAME_SHA_512, FILE_NAME_SHA_3} from 're-file';
+import {FILE_NAME_MD5, FILE_NAME_SHA_1, FILE_NAME_SHA_256, FILE_NAME_SHA_512, FILE_NAME_SHA_3} from 'fileable';
 const template = ()=><File name={FILE_NAME_MD5}/>;
 ```
 
@@ -187,7 +187,7 @@ const template = ()=> <File name="index.html">
 The Folder component represents a Folder;
 
 ```javascript
-import {Folder} from 're-file';
+import {Folder} from 'fileable';
 const template = ()=><Folder name='project/'/>
 ```
 
@@ -232,7 +232,7 @@ const template = ()=><Folder name='project' zip extension='.zip'>
 Wrapping components within a Clear component removes __every single file__ from the given folder context before writing.
 
 ```javascript
-import {Clear} from 're-file';
+import {Clear} from 'fileable';
 const template = ()=><Clear><File name='empty_file' /></Clear>;
 ```
 
@@ -242,7 +242,7 @@ The protect attribute can be used to specifiy files not to be removed.
 It can take the form of a specific file name, a file glob, or a regular expression.
 
 ```javascript
-import {Clear} from 're-file';
+import {Clear} from 'fileable';
 const template = ()=><Clear protect='**/*.md'><File name='empty_file' /></Clear>;
 ```
 
@@ -251,7 +251,7 @@ const template = ()=><Clear protect='**/*.md'><File name='empty_file' /></Clear>
 Like protect, but files specified in the protect attribute are removed while others are ignored.
 
 ```javascript
-import {Clear} from 're-file';
+import {Clear} from 'fileable';
 const template = ()=><Clear only={new RegExp(/\.js$/)}><File name='empty_file' /></Clear>;
 ```
 
@@ -269,36 +269,56 @@ const template = ()=><>
 
 ## API -- CLI
 
-Re-file's renderer's can be used from the command line
+Fileable's renderer's can be used from the command line
 
 ### CLI Installation
 
 ```sh
-npm install --global re-file
+npm install --global fileable
 ```
 
 ### CLI Usage
 
 ```sh
-re-file build ./template.jsx ./dist
+fileable build <template> <destination>
 ```
 
-Try `re-file -h` for more options
+```sh
+fileable build ./template.jsx ./dist
+```
+
+#### --test/--no-test flag
+
+
+```sh
+fileable build ./template.jsx ./dist --no-test
+```
+
+#### --input flag
+
+```sh
+fileable build ./template.jsx ./dist --no-test
+```
+
+
+#### --help
+
+Try `fileable --help` for more options
 
 ## API -- Application
 
-Re-file's renderer's can be used directly within applications.
+Fileable's renderer's can be used directly within applications.
 
 ### Application Installation
 
 ```sh
-npm install re-file
+npm install fileable
 ```
 
 ### Application Usage
 
 ```javascript
-import {renderFS, renderConsole} from 're-file';
+import {renderFS, renderConsole} from 'fileable';
 import template from './template.jsx';
 const directory = './dist';
 

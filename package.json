@@ -1,10 +1,10 @@
 {
-  "name": "re-file",
+  "name": "fileable",
   "version": "0.0.0",
   "description": "",
   "main": "src/index.js",
   "bin": {
-    "re-file": "./dist/bin/re-file.js"
+    "fileable": "./dist/bin/fileable.js"
   },
   "directories": {
     "example": "example"
@@ -12,7 +12,7 @@
   "scripts": {
     "test": "babel-node --presets @babel/preset-react,@babel/preset-env test/index.js",
     "node": "babel-node --presets @babel/preset-react,@babel/preset-env",
-    "build-cli": "echo '#!/usr/bin/env node' > ./dist/bin/re-file.js && rollup ./src/cli/index.js --output.format cjs >> ./dist/bin/re-file.js && chmod +x ./dist/bin/re-file.js"
+    "build-cli": "echo '#!/usr/bin/env node' > ./dist/bin/fileable.js && rollup ./src/cli/index.js --output.format cjs >> ./dist/bin/fileable.js && chmod +x ./dist/bin/fileable.js"
   },
   "keywords": [],
   "author": "",
@@ -26,6 +26,7 @@
     "@babel/runtime-corejs2": "7.1.5",
     "core-js": "2.5.7",
     "denodeify": "1.2.1",
+    "find-up": "3.0.0",
     "fs-extra": "7.0.1",
     "jszip": "3.1.5",
     "node-fetch": "2.3.0",
@@ -37,6 +38,8 @@
   },
   "devDependencies": {
     "@babel/core": "7.1.6",
-    "tape": "4.9.1"
+    "tape": "4.10.1",
+    "rimraf": "2.6.3"
+
   }
 }

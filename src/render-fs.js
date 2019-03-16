@@ -36,7 +36,7 @@ export default async (template,
             content,
             folder_context,
             } of
-            iterator(template(), {folder_context, template_context})
+            iterator(template, {folder_context, template_context})
         ) {
             const resumes = [];
             if (file) {

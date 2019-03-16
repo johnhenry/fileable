@@ -1,14 +1,13 @@
 import React, { Fragment } from "react";
-import File from "../src/File.js";
-import Clear from "../src/Clear.js";
-import Folder from "../src/Folder.js";
+import { File, Clear, Folder } from "../../src/index.js";
 const title = "TITLE";
 const description = "DESCRIPTION";
 import Head from "./head.jsx";
 
-const template = () => <Fragment>
+const template = (fldr='fldr') => {
+    return <Fragment>
     <Clear>
-        <Folder name="fldr">
+        <Folder name={fldr}>
             <File name="readme.md">
                 {`\{# ${title}\}`}
                 {`# ${description}`}
@@ -44,6 +43,6 @@ const template = () => <Fragment>
         </File>
         <File name="index.css" src="./x.css" />
     </Clear>
-</Fragment>;
+</Fragment>};
 
 export default template;

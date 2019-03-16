@@ -3,8 +3,10 @@
 
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
+var fs = require('fs');
+var fs__default = _interopDefault(fs);
 var yargs = _interopDefault(require('yargs'));
-var fs = _interopDefault(require('fs'));
+var findUp = _interopDefault(require('find-up'));
 var path = require('path');
 var child_process = require('child_process');
 
@@ -19,12 +21,18 @@ const builder = {
         type: 'boolean',
         default: true,
         desc: 'write to console instead of fs'
+    },
+    input: {
+        type: 'string',
+        default: '',
+        desc: 'imported input file (must export iterator)'
     }
 };
 const handler = ({
     template: t,
     destination: d,
-    test
+    test,
+    input
 }) => {
     const tempname = tempFileName(__dirname, ".js");
     try {
@@ -32,13 +40,14 @@ const handler = ({
         const destination = path.join(process.cwd(), d || tempFileName('', ''));
         const template_context = path.dirname(template);
         const file = `import template from '${template}';
-    import {render${test ? 'Console' : 'FS'} as render} from "${path.join(__dirname, `../../src/index.js`)}";
-    render(template, {folder_context:['${destination}'], template_context:'${template_context}'});
-    `;
-
-        fs.writeFileSync(tempname, file);
+import {render${test ? 'Console' : 'FS'} as render} from "${path.join(__dirname, `../../src/index.js`)}";
+${input ? `import input from "${path.join(process.cwd(), input)}";\n` : ''}
+render(template(${input ? `...input` : ''}), {folder_context:['${destination}'], template_context:'${template_context}'});
+`;
+        fs__default.writeFileSync(tempname, file);
         const array = [];
         let match;
+        //https://stackoverflow.com/questions/2817646/javascript-split-string-on-space-or-on-quotes-to-array
         do {
             match = regexp.exec(`${node} ${tempname}`);
             if (match !== null) {
@@ -49,11 +58,11 @@ const handler = ({
             stdio: 'inherit'
         });
         ps.on('close', function () {
-            fs.unlinkSync(tempname);
+            fs__default.unlinkSync(tempname);
         });
     } catch (error) {
-        if (fs.existsSync(tempname)) {
-            fs.unlinkSync(tempname);
+        if (fs__default.existsSync(tempname)) {
+            fs__default.unlinkSync(tempname);
         }
         throw error;
     } finally {}
@@ -66,8 +75,10 @@ var build = /*#__PURE__*/Object.freeze({
     handler: handler
 });
 
-//https://stackoverflow.com/questions/2817646/javascript-split-string-on-space-or-on-quotes-to-array
+const configPath = findUp.sync(['.myapprc', '.myapprc.json']);
+const config = configPath ? JSON.parse(fs.readFileSync(configPath)) : {};
 yargs
+    .config(config)
     .command(build)
     .demandCommand()
     .help()

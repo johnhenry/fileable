@@ -1,2 +1,3 @@
-- Asynchronou content (specifically for expandibility)
+- Asynchronous content
+    - Useful for extending
 - Make work like described API in readme.
