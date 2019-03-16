@@ -1,0 +1,2 @@
+- Asynchronou content (specifically for expandibility)
+- Make work like described API in readme.

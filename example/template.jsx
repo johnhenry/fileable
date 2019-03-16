@@ -1,7 +1,7 @@
 import React, { Fragment } from "react";
-import File from "../lib/File.js";
-import Clear from "../lib/Clear.js";
-import Folder from "../lib/Folder.js";
+import File from "../src/File.js";
+import Clear from "../src/Clear.js";
+import Folder from "../src/Folder.js";
 const title = "TITLE";
 const description = "DESCRIPTION";
 import Head from "./head.jsx";

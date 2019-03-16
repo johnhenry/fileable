@@ -280,7 +280,7 @@ npm install --global re-file
 ### CLI Usage
 
 ```sh
-re-file ./template.jsx ./dist
+re-file build ./template.jsx ./dist
 ```
 
 Try `re-file -h` for more options
