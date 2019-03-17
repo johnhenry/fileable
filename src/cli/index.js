@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { readFileSync } from 'fs';
 import yargs from 'yargs';
 import findUp from 'find-up';

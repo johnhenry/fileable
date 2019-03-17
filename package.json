@@ -10,9 +10,9 @@
     "example": "example"
   },
   "scripts": {
-    "test": "babel-node --presets @babel/preset-react,@babel/preset-env test/index.js",
-    "node": "babel-node --presets @babel/preset-react,@babel/preset-env",
-    "build-cli": "echo '#!/usr/bin/env node' > ./dist/bin/fileable.js && rollup ./src/cli/index.js --output.format cjs >> ./dist/bin/fileable.js && chmod +x ./dist/bin/fileable.js"
+    "test": "npm run build && node test/index.js | tap-nyan",
+    "test-no-build": "node test/index.js",
+    "build": "rollup --config"
   },
   "keywords": [],
   "author": "",
@@ -21,8 +21,6 @@
     "@babel/node": "7.0.0",
     "@babel/plugin-syntax-dynamic-import": "7.0.0",
     "@babel/polyfill": "7.0.0",
-    "@babel/preset-env": "7.1.6",
-    "@babel/preset-react": "7.0.0",
     "@babel/runtime-corejs2": "7.1.5",
     "core-js": "2.5.7",
     "denodeify": "1.2.1",
@@ -34,12 +32,21 @@
     "react-dom": "16.6.3",
     "rimraf": "2.6.3",
     "rollup": "1.6.0",
+    "rollup-plugin-hashbang": "2.2.2",
     "yargs": "12.0.5"
   },
   "devDependencies": {
-    "@babel/core": "7.1.6",
+    "@babel/core": "7.3.4",
+    "@babel/preset-env": "7.1.6",
+    "@babel/preset-react": "7.0.0",
+    "@babel/preset-typescript": "7.3.3",
+    "pre-commit": "1.2.2",
+    "rimraf": "2.6.3",
+    "rollup": "1.4.0",
+    "rollup-plugin-babel": "4.3.2",
+    "tap-nyan": "1.1.0",
     "tape": "4.10.1",
-    "rimraf": "2.6.3"
-
+    "tslint": "5.13.1",
+    "typescript": "3.3.3333"
   }
 }

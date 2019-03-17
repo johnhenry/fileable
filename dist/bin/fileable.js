@@ -10,62 +10,65 @@ var findUp = _interopDefault(require('find-up'));
 var path = require('path');
 var child_process = require('child_process');
 
-const node = path.join(__dirname, '../../node_modules/@babel/node/bin/babel-node.js --presets @babel/preset-react,@babel/preset-env');
-const tempFileName = (parentDirectory, suffix = '') => path.join(parentDirectory, `${Math.random()}.temp${suffix}`);
-const regexp = /[^\s"]+|"([^"]*)"/gi;
+var node = path.join(__dirname, '../../node_modules/@babel/node/bin/babel-node.js --presets @babel/preset-react,@babel/preset-env');
 
-const command = 'build <template> <destination>';
-const describe = 'Build a file tree from template into destination directory';
-const builder = {
-    test: {
-        type: 'boolean',
-        default: true,
-        desc: 'write to console instead of fs'
-    },
-    input: {
-        type: 'string',
-        default: '',
-        desc: 'imported input file (must export iterator)'
-    }
+var tempFileName = function tempFileName(parentDirectory) {
+  var suffix = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
+  return path.join(parentDirectory, "".concat(Math.random(), ".temp").concat(suffix));
 };
-const handler = ({
-    template: t,
-    destination: d,
-    test,
-    input
-}) => {
-    const tempname = tempFileName(__dirname, ".js");
-    try {
-        const template = path.join(process.cwd(), t);
-        const destination = path.join(process.cwd(), d || tempFileName('', ''));
-        const template_context = path.dirname(template);
-        const file = `import template from '${template}';
-import {render${test ? 'Console' : 'FS'} as render} from "${path.join(__dirname, `../../src/index.js`)}";
-${input ? `import input from "${path.join(process.cwd(), input)}";\n` : ''}
-render(template(${input ? `...input` : ''}), {folder_context:['${destination}'], template_context:'${template_context}'});
-`;
-        fs__default.writeFileSync(tempname, file);
-        const array = [];
-        let match;
-        //https://stackoverflow.com/questions/2817646/javascript-split-string-on-space-or-on-quotes-to-array
-        do {
-            match = regexp.exec(`${node} ${tempname}`);
-            if (match !== null) {
-                array.push(match[1] ? match[1] : match[0]);
-            }
-        } while (match !== null);
-        const ps = child_process.spawn(array.shift(), array, {
-            stdio: 'inherit'
-        });
-        ps.on('close', function () {
-            fs__default.unlinkSync(tempname);
-        });
-    } catch (error) {
-        if (fs__default.existsSync(tempname)) {
-            fs__default.unlinkSync(tempname);
-        }
-        throw error;
-    } finally {}
+
+var regexp = /[^\s"]+|"([^"]*)"/gi;
+var command = 'build <template> <destination>';
+var describe = 'Build a file tree from template into destination directory';
+var builder = {
+  test: {
+    type: 'boolean',
+    default: true,
+    desc: 'write to console instead of fs'
+  },
+  input: {
+    type: 'string',
+    default: '',
+    desc: 'imported input file (must export iterator)'
+  }
+};
+var handler = function handler(_ref) {
+  var t = _ref.template,
+      d = _ref.destination,
+      test = _ref.test,
+      input = _ref.input;
+  var tempname = tempFileName(__dirname, ".js");
+
+  try {
+    var template = path.join(process.cwd(), t);
+    var destination = path.join(process.cwd(), d || tempFileName('', ''));
+    var template_context = path.dirname(template);
+    var file = "import template from '".concat(template, "';\nimport {render").concat(test ? 'Console' : 'FS', " as render} from \"../../dist/lib/index.js\";\n").concat(input ? "import input from \"".concat(path.join(process.cwd(), input), "\";\n") : '', "\nrender(template(").concat(input ? "...input" : '', "), {folder_context:['").concat(destination, "'], template_context:'").concat(template_context, "'});\n");
+    fs__default.writeFileSync(tempname, file);
+    var array = [];
+    var match; //https://stackoverflow.com/questions/2817646/javascript-split-string-on-space-or-on-quotes-to-array
+
+    do {
+      match = regexp.exec("".concat(node, " ").concat(tempname));
+
+      if (match !== null) {
+        array.push(match[1] ? match[1] : match[0]);
+      }
+    } while (match !== null);
+
+    var ps = child_process.spawn(array.shift(), array, {
+      stdio: 'inherit'
+    });
+    ps.on('close', function () {
+      fs__default.unlinkSync(tempname);
+    });
+  } catch (error) {
+    if (fs__default.existsSync(tempname)) {
+      fs__default.unlinkSync(tempname);
+    }
+
+    throw error;
+  } finally {}
 };
 
 var build = /*#__PURE__*/Object.freeze({
@@ -75,11 +78,6 @@ var build = /*#__PURE__*/Object.freeze({
     handler: handler
 });
 
-const configPath = findUp.sync(['.myapprc', '.myapprc.json']);
-const config = configPath ? JSON.parse(fs.readFileSync(configPath)) : {};
-yargs
-    .config(config)
-    .command(build)
-    .demandCommand()
-    .help()
-    .argv;
+var configPath = findUp.sync(['.myapprc', '.myapprc.json']);
+var config = configPath ? JSON.parse(fs.readFileSync(configPath)) : {};
+yargs.config(config).command(build).demandCommand().help().argv;

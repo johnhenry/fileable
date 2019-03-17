@@ -31,7 +31,7 @@ export const handler = ({
         const destination = join(process.cwd(), d || tempFileName('', ''));
         const template_context = dirname(template);
         const file = `import template from '${template}';
-import {render${test ? 'Console' : 'FS'} as render} from "${join(__dirname, `../../src/index.js`)}";
+import {render${test ? 'Console' : 'FS'} as render} from "../../dist/lib/index.js";
 ${input ? `import input from "${join(process.cwd(), input)}";\n` : ''}
 render(template(${input ? `...input` : ''}), {folder_context:['${destination}'], template_context:'${template_context}'});
 `;
