@@ -1,5 +1,5 @@
 const tape = require('tape');
-const { main, bin: { fileable } } = require('../package.json');
+const { bin: { fileable } } = require('../package.json');
 //
 const pkgDir = require('pkg-dir');
 const {iterator, renderFS, renderConsole, File, Folder, Clear} = require(pkgDir.sync());
