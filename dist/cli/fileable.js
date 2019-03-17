@@ -29,7 +29,7 @@ var builder = {
   input: {
     type: 'string',
     default: '',
-    desc: 'imported input file (must export iterator)'
+    desc: 'imported input file (must export [asynchronous] iterator)'
   }
 };
 
@@ -50,7 +50,7 @@ var handler = function handler(_ref) {
     var destination = localizer(d || tempFileName('', ''));
     var input = localizer(i);
     var template_context = path.dirname(template);
-    var file = "import template from '".concat(template, "';\nimport {render").concat(test ? 'Console' : 'FS', " as render} from \"../../dist/lib/index.js\";\n").concat(input ? "import input from \"".concat(input, "\";\n") : '', "\nconst main = async()=>{\nrender(await template(").concat(input ? '... await input' : '', "), {folder_context:['").concat(destination, "'], template_context:'").concat(template_context, "'});\n}\nmain();\n");
+    var file = "import template from '".concat(template, "';\nimport {render").concat(test ? 'Console' : 'FS', " as render} from \"../../dist/lib/index.js\";\n").concat(input ? "import args from \"".concat(input, "\";") : '', "\nconst main = async()=>{\n").concat(input ? "const input = [];\nfor await(const arg of args){\n    input.push(arg);\n}\n" : '', "\nrender(await template(").concat(input ? '... input' : '', "), {folder_context:['").concat(destination, "'], template_context:'").concat(template_context, "'});\n}\nmain();\n");
     fs__default.writeFileSync(tempname, file);
     var array = [];
     var match; //https://stackoverflow.com/questions/2817646/javascript-split-string-on-space-or-on-quotes-to-array

@@ -16,10 +16,12 @@
     "build-docs": "cat ./static/docs/readme.md ./static/docs/todo.md > ./readme.md",
     "build": "npm run lint && npm run build-lib-cli && npm run build-docs",
     "test-no-build": "node test/index.js",
-    "test": "npm run build-lib-cli && npm run test-no-build"
+    "test": "npm run build-lib-cli && npm run test-no-build",
+    "add-built":"git add dist/"
   },
   "pre-commit": [
-    "test"
+    "test",
+    "add-built"
   ],
   "keywords": [],
   "author": "",

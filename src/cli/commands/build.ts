@@ -16,7 +16,7 @@ export const builder = {
     input: {
         type: 'string',
         default: '',
-        desc: 'imported input file (must export iterator)'
+        desc: 'imported input file (must export [asynchronous] iterator)'
     }
 };
 
@@ -38,9 +38,14 @@ export const handler = ({
         const template_context = dirname(template);
         const file = `import template from '${template}';
 import {render${test ? 'Console' : 'FS'} as render} from "../../dist/lib/index.js";
-${input ? `import input from "${input}";\n` : ''}
+${input ? `import args from "${input}";` : ''}
 const main = async()=>{
-render(await template(${input ? '... await input' : ''}), {folder_context:['${destination}'], template_context:'${template_context}'});
+${input ? `const input = [];
+for await(const arg of args){
+    input.push(arg);
+}
+`:''}
+render(await template(${input ? '... input' : ''}), {folder_context:['${destination}'], template_context:'${template_context}'});
 }
 main();
 `;
