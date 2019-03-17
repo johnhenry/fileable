@@ -1,5 +1,5 @@
 import React, { Fragment } from "react";
-import { File, Clear, Folder } from "../../src/index.js";
+import { File, Clear, Folder } from "../../dist/lib/index.js";
 const title = "TITLE";
 const description = "DESCRIPTION";
 import Head from "./head.jsx";

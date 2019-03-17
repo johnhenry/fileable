@@ -10,11 +10,11 @@ const plugins = [
 
 export default [{
     file: 'dist/bin/fileable.js',
-    input: 'src/cli/index.js',
+    input: 'src/cli/index.ts',
     plugins: [...plugins, hashbang()]
 }, {
     file: 'dist/lib/index.js',
-        input: 'src/index.js',
+    input: 'src/index.ts',
     format:'cjs'
 }].map(({
             file,

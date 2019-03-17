@@ -2,7 +2,7 @@
   "name": "fileable",
   "version": "0.0.0",
   "description": "",
-  "main": "src/index.js",
+  "main": "./dist/lib/index.js",
   "bin": {
     "fileable": "./dist/bin/fileable.js"
   },
