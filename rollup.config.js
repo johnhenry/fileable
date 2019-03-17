@@ -4,12 +4,11 @@ const plugins = [
     babel({
         exclude: 'node_modules/**',
         extensions: ['.ts']
-    }),
-    hashbang()
+    })
 ];
 
 export default [{
-    file: 'dist/bin/fileable.js',
+    file: 'dist/cli/fileable.js',
     input: 'src/cli/index.ts',
     plugins: [...plugins, hashbang()]
 }, {

@@ -10,7 +10,7 @@ const rmdir = promisify(rimraf);
 const { bin: { fileable } } = require('../package.json');
 const destination = './dist/temp';
 
-tape('build test', async ({ok, end }) => {
+tape('cli test: fileable build', async ({ok, end }) => {
     // clear directory
     await rmdir(destination);
     // run program
@@ -28,4 +28,11 @@ tape('build test', async ({ok, end }) => {
     // finish tests
     // clear directory
     await rmdir(destination);
+});
+
+const lib = require('../');
+tape('lib test', async ({
+    end
+}) => {
+    end();
 });

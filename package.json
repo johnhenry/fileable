@@ -4,52 +4,48 @@
   "description": "",
   "main": "./dist/lib/index.js",
   "bin": {
-    "fileable": "./dist/bin/fileable.js"
+    "fileable": "./dist/cli/fileable.js"
   },
   "directories": {
     "example": "example"
   },
   "scripts": {
-    "test": "npm run build && node test/index.js | tap-nyan",
+    "lint--no-fix": "tslint -c tslint.json src/**/*.ts",
+    "lint": "npm run lint--no-fix --fix",
+    "build-lib-cli": "rollup --config",
+    "build-docs": "cat ./static/docs/readme.md ./static/docs/todo.md > ./readme.md",
+    "build": "npm run lint && npm run build-lib-cli && npm run build-docs",
     "test-no-build": "node test/index.js",
-    "build-docs":"cat ./static/docs/readme.md > ./readme.md && cat ./static/docs/todo.md >> ./readme.md",
-    "build": "rollup --config",
-    "lint": "tslint -c tslint.json src/*.ts",
-    "lint-fix": "tslint -c tslint.json src/cli/commands/*.ts --fix"
+    "test": "npm run build-lib-cli && npm run test-no-build"
   },
+  "pre-commit": [
+    "test"
+  ],
   "keywords": [],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@babel/node": "7.0.0",
-    "@babel/plugin-syntax-dynamic-import": "7.0.0",
-    "@babel/polyfill": "7.0.0",
-    "@babel/runtime-corejs2": "7.1.5",
-    "core-js": "2.5.7",
-    "denodeify": "1.2.1",
+    "@babel/node": "7.2.2",
     "find-up": "3.0.0",
-    "fs-extra": "7.0.1",
-    "jszip": "3.1.5",
+    "jszip": "3.2.0",
     "node-fetch": "2.3.0",
-    "react": "16.6.3",
-    "react-dom": "16.6.3",
+    "react": "16.8.4",
+    "react-dom": "16.8.4",
     "rimraf": "2.6.3",
     "rollup": "1.6.0",
     "rollup-plugin-hashbang": "2.2.2",
-    "yargs": "12.0.5"
+    "yargs": "13.2.2"
   },
   "devDependencies": {
     "@babel/core": "7.3.4",
-    "@babel/preset-env": "7.1.6",
+    "@babel/preset-env": "7.3.4",
     "@babel/preset-react": "7.0.0",
     "@babel/preset-typescript": "7.3.3",
     "pre-commit": "1.2.2",
     "rimraf": "2.6.3",
-    "rollup": "1.4.0",
     "rollup-plugin-babel": "4.3.2",
-    "tap-nyan": "1.1.0",
     "tape": "4.10.1",
-    "tslint": "5.13.1",
+    "tslint": "5.14.0",
     "typescript": "3.3.3333"
   }
 }

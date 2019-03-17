@@ -19,21 +19,30 @@ export const builder = {
         desc: 'imported input file (must export iterator)'
     }
 };
+
+const localizer = (path, defaultPath = undefined) => path
+    ? join(process.cwd(), path)
+    : defaultPath;
+
 export const handler = ({
     template: t,
     destination: d,
-    test,
-    input
+    input: i,
+    test
 }) => {
     const tempname = tempFileName(__dirname, '.js');
     try {
-        const template = join(process.cwd(), t);
-        const destination = join(process.cwd(), d || tempFileName('', ''));
+        const template = localizer(t);
+        const destination = localizer( d || tempFileName('', ''));
+        const input = localizer(i);
         const template_context = dirname(template);
         const file = `import template from '${template}';
 import {render${test ? 'Console' : 'FS'} as render} from "../../dist/lib/index.js";
-${input ? `import input from "${join(process.cwd(), input)}";\n` : ''}
-render(template(${input ? '...input' : ''}), {folder_context:['${destination}'], template_context:'${template_context}'});
+${input ? `import input from "${input}";\n` : ''}
+const main = async()=>{
+render(await template(${input ? '...input' : ''}), {folder_context:['${destination}'], template_context:'${template_context}'});
+}
+main();
 `;
         fs.writeFileSync(tempname, file);
         const array = [];

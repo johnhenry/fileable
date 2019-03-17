@@ -5,6 +5,7 @@ import FSCOMPONENTSYMBOL from './FSCOMPONENTSYMBOL.ts';
 import JSZip from 'jszip';
 import render from './iterator.ts';
 import child_process from 'child_process';
+import fetch from 'node-fetch';
 
 import ReactDOMServer from 'react-dom/server';
 

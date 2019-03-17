@@ -14,6 +14,7 @@ var util = require('util');
 var react = require('react');
 var JSZip = _interopDefault(require('jszip'));
 var child_process = _interopDefault(require('child_process'));
+var fetch = _interopDefault(require('node-fetch'));
 var ReactDOMServer = _interopDefault(require('react-dom/server'));
 
 var FSCOMPONENTSYMBOL = Symbol.for('FSCOMPONENTSYMBOL');
