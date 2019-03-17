@@ -10,5 +10,8 @@ yargs
     .config(config)
     .command(build)
     .demandCommand()
+    .recommendCommands()
+    .strict()
     .help()
+    .alias('help', 'h')
     .argv;

@@ -87,4 +87,4 @@ var build = /*#__PURE__*/Object.freeze({
 
 var configPath = findUp.sync(['.fileable', '.fileable.json']);
 var config = configPath ? JSON.parse(fs.readFileSync(configPath)) : {};
-yargs.config(config).command(build).demandCommand().help().argv;
+yargs.config(config).command(build).demandCommand().recommendCommands().strict().help().alias('help', 'h').argv;
