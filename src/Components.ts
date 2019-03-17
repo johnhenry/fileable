@@ -12,6 +12,19 @@ import ReactDOMServer from 'react-dom/server';
 import { readFile } from 'fs';
 import { join } from 'path';
 const hash = () => '###';
+
+/**
+* File component
+* @kind function
+* @name File
+* @description Create Files
+* @example
+* ```javascript
+* // template.jsx
+*  import {File} from 'fileable';
+*  export () => <File name='readme.md'/>
+* ```
+*/
 const File = class extends Component {
     constructor(props) {
         super(props);
@@ -93,6 +106,18 @@ const File = class extends Component {
 File[FSCOMPONENTSYMBOL] = true;
 export {File};
 
+/**
+ * Folder component
+ * @kind function
+ * @name Folder
+ * @description Create Folders
+ * @example
+ *  ```javascript
+ *  // template.jsx
+ *  import {File, Folder} from 'fileable';
+ *  export () => <Folder name='project'><File name='readme.md'/></Folder>
+ * ```
+ */
 const Folder = class extends Component {
     constructor(props) {
         super(props);
@@ -177,7 +202,18 @@ const Folder = class extends Component {
 Folder[FSCOMPONENTSYMBOL] = true;
 export {Folder};
 
-
+/**
+ * Clear Component
+ * @kind function
+ * @name Clear
+ * @description Remove Files/Folders before creation
+ * @example
+ *  ```javascript
+ *  // template.jsx
+ *  import {File, Folder, Clear} from 'fileable';
+ *  export () => <Clear><Folder name='project'><File name='readme.md'/></Folder></Clear>
+ * ```
+ */
 const Clear = class extends Component {
     constructor(props) {
         super(props);

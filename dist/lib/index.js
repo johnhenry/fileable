@@ -19,7 +19,17 @@ var ReactDOMServer = _interopDefault(require('react-dom/server'));
 
 var FSCOMPONENTSYMBOL = Symbol.for('FSCOMPONENTSYMBOL');
 
-const render = async function* (element, {
+/**
+ * Iterator
+ * @kind function
+ * @name iterator
+ * @param {object} input
+ * @example
+ * ```javascript
+ * import {iterator} from 'fileable';
+ * ```
+ */
+const iterator = async function* (element, {
         folder_context = [],
         template_context =''
         } = {
@@ -39,7 +49,7 @@ const render = async function* (element, {
             ? [element.props.children]
             : [];
         for (const child of children) {
-            yield* render(child, {
+            yield* iterator(child, {
                 folder_context,
                 template_context
             });
@@ -54,6 +64,20 @@ const defaultOptions = {
     folder_context: [],
     template_context: ''
 };
+
+/**
+* Render to File System
+* @kind function
+* @name renderFS
+* @param {object} input
+* @example
+* ```javascript
+* import {renderFS} from 'fileable';
+* const main = async () =>
+* renderFS(template(), { folder_context: [directory] });
+* main();
+* ```
+*/
 var renderFs = async (template,
     {
         folder_context = defaultOptions.folder_context,
@@ -73,7 +97,7 @@ var renderFs = async (template,
             content,
             folder_context,
             } of
-            render(template, {folder_context, template_context})
+            iterator(template, {folder_context, template_context})
         ) {
             if (file) {
                 const folderPath = path__default.join(...folder_context);
@@ -107,11 +131,25 @@ const defaultOptions$1 = {
     folder_context: [],
     template_context:''
 };
+
+/**
+* Render to Console
+* @kind function
+* @name renderConsole
+* @param {object} input
+* @example
+* ```javascript
+* import {renderConsole} from 'fileable';
+* const main = async () =>
+* renderConsole(template(), { folder_context: [directory] });
+* main();
+* ```
+*/
 var renderConsole = async (template, {
     folder_context = defaultOptions$1.folder_context,
     template_context = defaultOptions$1.template_context
     } = defaultOptions$1) => {
-    for await (const output of render(template(), {
+    for await (const output of iterator(template(), {
         folder_context,
         template_context
     })) {
@@ -121,6 +159,19 @@ var renderConsole = async (template, {
 
 //Note: All components exist in same file to prevent circular-dependency errors when building for typescript
 const hash = () => '###';
+
+/**
+* File component
+* @kind function
+* @name File
+* @description Create Files
+* @example
+* ```javascript
+* // template.jsx
+*  import {File} from 'fileable';
+*  export () => <File name='readme.md'/>
+* ```
+*/
 const File = class extends react.Component {
     constructor(props) {
         super(props);
@@ -201,6 +252,18 @@ const File = class extends react.Component {
 };
 File[FSCOMPONENTSYMBOL] = true;
 
+/**
+ * Folder component
+ * @kind function
+ * @name Folder
+ * @description Create Folders
+ * @example
+ *  ```javascript
+ *  // template.jsx
+ *  import {File, Folder} from 'fileable';
+ *  export () => <Folder name='project'><File name='readme.md'/></Folder>
+ * ```
+ */
 const Folder = class extends react.Component {
     constructor(props) {
         super(props);
@@ -242,7 +305,7 @@ const Folder = class extends react.Component {
                         file,
                         content,
                         folder_context
-                    } of render(child, {
+                    } of iterator(child, {
                         folder_context: folder_context.concat(name),
                         template_context
                     })) {
@@ -270,7 +333,7 @@ const Folder = class extends react.Component {
                 };
 
                 for (const child of children) {
-                    yield* render(child, {
+                    yield* iterator(child, {
                         folder_context: folder_context.concat(name),
                         template_context
                     });
@@ -284,7 +347,18 @@ const Folder = class extends react.Component {
 };
 Folder[FSCOMPONENTSYMBOL] = true;
 
-
+/**
+ * Clear Component
+ * @kind function
+ * @name Clear
+ * @description Remove Files/Folders before creation
+ * @example
+ *  ```javascript
+ *  // template.jsx
+ *  import {File, Folder, Clear} from 'fileable';
+ *  export () => <Clear><Folder name='project'><File name='readme.md'/></Folder></Clear>
+ * ```
+ */
 const Clear = class extends react.Component {
     constructor(props) {
         super(props);
@@ -306,7 +380,7 @@ const Clear = class extends react.Component {
                 props.children :
                 props.children ? [props.children] : [];
             for (const child of children) {
-                yield* render(child, {
+                yield* iterator(child, {
                     folder_context,
                     template_context
                 });
@@ -489,7 +563,7 @@ const getFileContentIterator = async function* (
     };
 };
 
-exports.iterator = render;
+exports.iterator = iterator;
 exports.renderFS = renderFs;
 exports.renderConsole = renderConsole;
 exports.File = File;

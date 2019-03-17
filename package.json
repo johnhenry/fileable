@@ -10,16 +10,19 @@
     "example": "example"
   },
   "scripts": {
+    "fileable": "./dist/cli/fileable.js",
+    "jsdoc-md": "jsdoc-md",
     "lint-no-fix": "tslint --project src",
     "lint": "npm run lint-no-fix -- --fix",
     "build-lib-cli": "rollup --silent --config config/rollup.config.js",
-    "build-docs": "cat ./static/docs/readme.md ./static/docs/todo.md > ./readme.md",
+    "build-js-docs": "sh ./scripts/build-js-docs.sh",
+    "build-docs": "npm run build-js-docs && cat ./static/docs/readme.md ./dist/temp/api.md ./static/docs/todo.md > ./readme.md",
     "build": "npm run lint && npm run build-lib-cli && npm run build-docs",
     "test-no-build": "node test/index.js",
     "test": "npm run build-lib-cli && npm run test-no-build",
-    "demo-no-build":"node test/demo-human-input.js",
+    "demo-no-build": "node test/demo-human-input.js",
     "demo": "npm run build-lib-cli && npm run demo-no-build",
-    "add-built": "git add dist/ && git add src/"
+    "add-built": "git add dist/ && git add src/ && git add readme.md"
   },
   "pre-commit": [
     "test",
@@ -46,6 +49,7 @@
     "@babel/preset-env": "7.3.4",
     "@babel/preset-react": "7.0.0",
     "@babel/preset-typescript": "7.3.3",
+    "jsdoc-md": "2.1.0",
     "node-popup": "0.1.14",
     "pre-commit": "1.2.2",
     "rimraf": "2.6.3",

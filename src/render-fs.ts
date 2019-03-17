@@ -17,6 +17,20 @@ const defaultOptions = {
     folder_context: [],
     template_context: ''
 };
+
+/**
+* Render to File System
+* @kind function
+* @name renderFS
+* @param {object} input
+* @example
+* ```javascript
+* import {renderFS} from 'fileable';
+* const main = async () =>
+* renderFS(template(), { folder_context: [directory] });
+* main();
+* ```
+*/
 export default async (template,
     {
         folder_context = defaultOptions.folder_context,

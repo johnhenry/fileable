@@ -1,5 +1,16 @@
 import FSCOMPONENTSYMBOL from './FSCOMPONENTSYMBOL.ts';
-const render = async function* (element, {
+
+/**
+ * Iterator
+ * @kind function
+ * @name iterator
+ * @param {object} input
+ * @example
+ * ```javascript
+ * import {iterator} from 'fileable';
+ * ```
+ */
+const iterator = async function* (element, {
         folder_context = [],
         template_context =''
         } = {
@@ -19,11 +30,11 @@ const render = async function* (element, {
             ? [element.props.children]
             : [];
         for (const child of children) {
-            yield* render(child, {
+            yield* iterator(child, {
                 folder_context,
                 template_context
             });
         }
     }
 };
-export default render;
+export default iterator;

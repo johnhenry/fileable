@@ -332,6 +332,56 @@ const main = async ()=>{
 }
 main();
 ```
+## API
+
+### Table of contents
+
+- [function Clear](#function-clear)
+  - [Examples](#examples)
+- [function File](#function-file)
+  - [Examples](#examples-1)
+- [function Folder](#function-folder)
+  - [Examples](#examples-2)
+
+### function Clear
+
+Clear Component
+
+#### Examples
+
+> ```javascript
+>  // template.jsx
+>  import {File, Folder, Clear} from 'fileable';
+>  export () => <Clear><Folder name='project'><File name='readme.md'/></Folder></Clear>
+> ```
+
+* * *
+
+### function File
+
+File component
+
+#### Examples
+
+> ```javascript
+> // template.jsx
+>  import {File} from 'fileable';
+>  export () => <File name='readme.md'/>
+> ```
+
+* * *
+
+### function Folder
+
+Folder component
+
+#### Examples
+
+> ```javascript
+>  // template.jsx
+>  import {File, Folder} from 'fileable';
+>  export () => <Folder name='project'><File name='readme.md'/></Folder>
+> ```
 
 ## Todo
 

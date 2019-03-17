@@ -32,6 +32,4 @@ tape('cli test: fileable build', async ({ ok, end }) => {
     ok(existsSync(join(destination, 'index.css')), 'generic file shoud be created');
     end();
     // finish tests
-    // clear directory
-    await rmdir(destination);
 });
