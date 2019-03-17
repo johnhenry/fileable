@@ -12,7 +12,7 @@
   "scripts": {
     "lint-no-fix": "tslint --project src",
     "lint": "npm run lint-no-fix -- --fix",
-    "build-lib-cli": "rollup --config",
+    "build-lib-cli": "rollup --silent --config config/rollup.config.js",
     "build-docs": "cat ./static/docs/readme.md ./static/docs/todo.md > ./readme.md",
     "build": "npm run lint && npm run build-lib-cli && npm run build-docs",
     "test-no-build": "node test/index.js",

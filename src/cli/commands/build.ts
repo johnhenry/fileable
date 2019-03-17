@@ -40,7 +40,7 @@ export const handler = ({
 import {render${test ? 'Console' : 'FS'} as render} from "../../dist/lib/index.js";
 ${input ? `import input from "${input}";\n` : ''}
 const main = async()=>{
-render(await template(${input ? '...input' : ''}), {folder_context:['${destination}'], template_context:'${template_context}'});
+render(await template(${input ? '... await input' : ''}), {folder_context:['${destination}'], template_context:'${template_context}'});
 }
 main();
 `;

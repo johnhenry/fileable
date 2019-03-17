@@ -3,7 +3,9 @@ import hashbang from 'rollup-plugin-hashbang';
 const plugins = [
     babel({
         exclude: 'node_modules/**',
-        extensions: ['.ts']
+        extensions: ['.ts'],
+        babelrc:false,
+        presets: ['@babel/preset-env', '@babel/preset-react', '@babel/preset-typescript'],
     })
 ];
 
