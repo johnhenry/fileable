@@ -10,8 +10,8 @@
     "example": "example"
   },
   "scripts": {
-    "lint--no-fix": "tslint -c tslint.json src/**/*.ts",
-    "lint": "npm run lint--no-fix --fix",
+    "lint-no-fix": "tslint --project src",
+    "lint": "npm run lint-no-fix -- --fix",
     "build-lib-cli": "rollup --config",
     "build-docs": "cat ./static/docs/readme.md ./static/docs/todo.md > ./readme.md",
     "build": "npm run lint && npm run build-lib-cli && npm run build-docs",
@@ -29,6 +29,7 @@
     "find-up": "3.0.0",
     "jszip": "3.2.0",
     "node-fetch": "2.3.0",
+    "pkg-dir": "4.0.0",
     "react": "16.8.4",
     "react-dom": "16.8.4",
     "rimraf": "2.6.3",

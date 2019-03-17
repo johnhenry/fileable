@@ -4,7 +4,7 @@ const title = "TITLE";
 const description = "DESCRIPTION";
 import Head from "./head.jsx";
 
-const template = (fldr='fldr') => {
+const template = async (fldr='fldr') => {
     return <Fragment>
     <Clear>
         <Folder name={fldr}>
@@ -15,7 +15,7 @@ const template = (fldr='fldr') => {
                     #{title} #{description}
                 </File>
                 ```javascript
-                <File src="./x.js" />
+                <File src="./script.js" />
                 ```
                 <File cmd="date" />
             </File>
@@ -41,7 +41,7 @@ const template = (fldr='fldr') => {
                 </body>
             </html>
         </File>
-        <File name="index.css" src="./x.css" />
+        <File name="index.css" src="./style.css" />
     </Clear>
 </Fragment>};
 
