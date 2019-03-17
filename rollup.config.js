@@ -3,7 +3,7 @@ import hashbang from 'rollup-plugin-hashbang';
 const plugins = [
     babel({
         exclude: 'node_modules/**',
-        extensions: ['.ts', '.js', '.tsx', '.jsx']
+        extensions: ['.ts']
     }),
     hashbang()
 ];

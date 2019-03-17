@@ -4,7 +4,6 @@ Object.defineProperty(exports, '__esModule', { value: true });
 
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-var ReactDOMServer = _interopDefault(require('react-dom/server'));
 var fs = require('fs');
 var fs__default = _interopDefault(fs);
 require('crypto');
@@ -15,8 +14,9 @@ var util = require('util');
 var react = require('react');
 var JSZip = _interopDefault(require('jszip'));
 var child_process = _interopDefault(require('child_process'));
+var ReactDOMServer = _interopDefault(require('react-dom/server'));
 
-var FSCOMPONENTSYMBOL = Symbol.for("FSCOMPONENTSYMBOL");
+var FSCOMPONENTSYMBOL = Symbol.for('FSCOMPONENTSYMBOL');
 
 const render = async function* (element, {
         folder_context = [],
@@ -31,7 +31,7 @@ const render = async function* (element, {
             template_context,
             ...element.props
         });
-    } else if (element.type === Symbol.for("react.fragment")) {
+    } else if (element.type === Symbol.for('react.fragment')) {
         const children = Array.isArray(element.props.children)
             ? element.props.children
             : element.props.children
@@ -46,7 +46,7 @@ const render = async function* (element, {
     }
 };
 
-// import CacheMap from './cache-map.js';
+// import CacheMap from './cache-map.ts';
 const rmdir = util.promisify(rimraf);
 
 const defaultOptions = {
@@ -119,7 +119,7 @@ var renderConsole = async (template, {
 };
 
 //Note: All components exist in same file to prevent circular-dependency errors when building for typescript
-const hash = () => "###";
+const hash = () => '###';
 const File = class extends react.Component {
     constructor(props) {
         super(props);
@@ -149,7 +149,7 @@ const File = class extends react.Component {
                     sidecars.push(...sidecars2);
                 }
             }
-            if (typeof name === "function") {
+            if (typeof name === 'function') {
                 name = name({
                     currentName: name,
                     contents
@@ -157,8 +157,8 @@ const File = class extends react.Component {
             }
             if (!name && hname) {
                 if (hname) {
-                    if (typeof hname === "string") {
-                        const [key, length] = hname.split(":");
+                    if (typeof hname === 'string') {
+                        const [key, length] = hname.split(':');
                         name = hash(name).substr(0, length || Number.Infinity);
                     } else {
                         name = hash(name);
@@ -173,7 +173,7 @@ const File = class extends react.Component {
                 return;
             }
             if (!name) {
-                throw new Error("no file name provided");
+                throw new Error('no file name provided');
             }
             for (const {
                 name,
@@ -190,7 +190,7 @@ const File = class extends react.Component {
             yield {
                 file: name,
                 folder_context,
-                content: contents.flat().join("\n"),
+                content: contents.flat().join('\n'),
             };
         };
     }
@@ -217,7 +217,7 @@ const Folder = class extends react.Component {
 
             if (clear) {
                 if (clear === true) {
-                    clear = "*";
+                    clear = '*';
                 }
                 for (const target of clear.split(':')) {
                     yield {
@@ -228,7 +228,7 @@ const Folder = class extends react.Component {
 
 
             if (!name && !clear) {
-                throw new Error("no folder name provided");
+                throw new Error('no folder name provided');
             }
             const children = Array.isArray(props.children) ?
                 props.children :
@@ -258,7 +258,7 @@ const Folder = class extends react.Component {
                     file: name,
                     folder_context,
                     content: await archiveFile.generateAsync({
-                        type: "nodebuffer"
+                        type: 'nodebuffer'
                     })
                 };
                 return;
@@ -400,7 +400,7 @@ const getFileContentIterator = async function* (
             : [];
     for (const child of children) {
         if (child.type === Folder || child.type === Clear) {
-            throw new Error("files cannot contain this type of component Components");
+            throw new Error('files cannot contain this type of component Components');
         } else if (child.type === File) {
             for await (const {
                 content,
@@ -422,7 +422,7 @@ const getFileContentIterator = async function* (
                 }
             }
         }
-        else if (typeof child === "string") {
+        else if (typeof child === 'string') {
             contents.push(child);
         }
         else {
@@ -443,7 +443,7 @@ const getFileContentIterator = async function* (
     }
     transformer = transformer || (_ => _);
     if (sidecar) {
-        sidecar = typeof sidecar === "function" ?
+        sidecar = typeof sidecar === 'function' ?
             sidecar
             : ({
                 contents,
@@ -453,7 +453,7 @@ const getFileContentIterator = async function* (
                 name: currentName,
                 content: contents
             });
-        if (typeof sidecar === "function") {
+        if (typeof sidecar === 'function') {
             const sidecarCandidate = sidecar({
                 currentParentContents,
                 contents,
@@ -470,7 +470,7 @@ const getFileContentIterator = async function* (
                 sidecars,
                 content: transformer(sidecar.content)
             };
-            return
+            return;
         } else {
             sidecars.push({
                 sidecar: null,

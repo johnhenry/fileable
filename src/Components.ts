@@ -1,16 +1,16 @@
 //Note: All components exist in same file to prevent circular-dependency errors when building for typescript
 
-import { Component } from "react";
-import FSCOMPONENTSYMBOL from "./FSCOMPONENTSYMBOL";
-import JSZip from "jszip";
-import render from "./iterator";
-import child_process from "child_process";
+import { Component } from 'react';
+import FSCOMPONENTSYMBOL from './FSCOMPONENTSYMBOL.ts';
+import JSZip from 'jszip';
+import render from './iterator.ts';
+import child_process from 'child_process';
 
-import ReactDOMServer from "react-dom/server";
+import ReactDOMServer from 'react-dom/server';
 
-import { readFile } from "fs";
-import { join } from "path";
-const hash = () => "###";
+import { readFile } from 'fs';
+import { join } from 'path';
+const hash = () => '###';
 const File = class extends Component {
     constructor(props) {
         super(props);
@@ -40,7 +40,7 @@ const File = class extends Component {
                     sidecars.push(...sidecars2);
                 }
             }
-            if (typeof name === "function") {
+            if (typeof name === 'function') {
                 name = name({
                     currentName: name,
                     contents
@@ -48,8 +48,8 @@ const File = class extends Component {
             }
             if (!name && hname) {
                 if (hname) {
-                    if (typeof hname === "string") {
-                        const [key, length] = hname.split(":");
+                    if (typeof hname === 'string') {
+                        const [key, length] = hname.split(':');
                         name = hash(name).substr(0, length || Number.Infinity);
                     } else {
                         name = hash(name);
@@ -64,7 +64,7 @@ const File = class extends Component {
                 return;
             }
             if (!name) {
-                throw new Error("no file name provided");
+                throw new Error('no file name provided');
             }
             for (const {
                 name,
@@ -76,12 +76,12 @@ const File = class extends Component {
                     file: name,
                     folder_context,
                     content
-                }
+                };
             }
             yield {
                 file: name,
                 folder_context,
-                content: contents.flat().join("\n"),
+                content: contents.flat().join('\n'),
             };
         };
     }
@@ -109,18 +109,18 @@ const Folder = class extends Component {
 
             if (clear) {
                 if (clear === true) {
-                    clear = "*"
+                    clear = '*';
                 }
                 for (const target of clear.split(':')) {
                     yield {
                         clear: folder_context.concat(target)
-                    }
+                    };
                 }
             }
 
 
             if (!name && !clear) {
-                throw new Error("no folder name provided");
+                throw new Error('no folder name provided');
             }
             const children = Array.isArray(props.children) ?
                 props.children :
@@ -150,24 +150,24 @@ const Folder = class extends Component {
                     file: name,
                     folder_context,
                     content: await archiveFile.generateAsync({
-                        type: "nodebuffer"
+                        type: 'nodebuffer'
                     })
-                }
+                };
                 return;
             } else {
                 yield {
                     folder: name,
                     folder_context,
-                }
+                };
 
                 for (const child of children) {
                     yield* render(child, {
                         folder_context: folder_context.concat(name),
                         template_context
-                    })
+                    });
                 }
             }
-        }
+        };
     }
     render() {
         return null;
@@ -192,7 +192,7 @@ const Clear = class extends Component {
                 yield {
                     clear: target,
                     folder_context
-                }
+                };
             }
             const children = Array.isArray(props.children) ?
                 props.children :
@@ -201,9 +201,9 @@ const Clear = class extends Component {
                 yield* render(child, {
                     folder_context,
                     template_context
-                })
+                });
             }
-        }
+        };
     }
     render() {
         return null;
@@ -247,7 +247,7 @@ const runCommand = async (command) => new Promise((resolve, reject) => {
         }
         return resolve(output);
     });
-})
+});
 
 
 
@@ -294,7 +294,7 @@ const getFileContentIterator = async function* (
             : [];
     for (const child of children) {
         if (child.type === Folder || child.type === Clear) {
-            throw new Error("files cannot contain this type of component Components");
+            throw new Error('files cannot contain this type of component Components');
         } else if (child.type === File) {
             for await (const {
                 content,
@@ -308,7 +308,7 @@ const getFileContentIterator = async function* (
                     contents.push(content.flat().join(''));
                 }
                 if (sidecars && sidecars2.length) {
-                    sidecars.push(...sidecars2)
+                    sidecars.push(...sidecars2);
                     yield {
                         sidecars: sidecars2,
                         content: null
@@ -316,7 +316,7 @@ const getFileContentIterator = async function* (
                 }
             }
         }
-        else if (typeof child === "string") {
+        else if (typeof child === 'string') {
             contents.push(child);
         }
         else {
@@ -337,7 +337,7 @@ const getFileContentIterator = async function* (
     }
     transformer = transformer || (_ => _);
     if (sidecar) {
-        sidecar = typeof sidecar === "function" ?
+        sidecar = typeof sidecar === 'function' ?
             sidecar
             : ({
                 contents,
@@ -347,7 +347,7 @@ const getFileContentIterator = async function* (
                 name: currentName,
                 content: contents
             });
-        if (typeof sidecar === "function") {
+        if (typeof sidecar === 'function') {
             const sidecarCandidate = sidecar({
                 currentParentContents,
                 contents,
@@ -364,13 +364,13 @@ const getFileContentIterator = async function* (
                 sidecars,
                 content: transformer(sidecar.content)
             };
-            return
+            return;
         } else {
             sidecars.push({
                 sidecar: null,
                 name,
                 content: transformer(contents)
-            })
+            });
             yield {
                 sidecars
             };

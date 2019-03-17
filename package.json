@@ -12,7 +12,9 @@
   "scripts": {
     "test": "npm run build && node test/index.js | tap-nyan",
     "test-no-build": "node test/index.js",
-    "build": "rollup --config"
+    "build": "rollup --config",
+    "lint": "tslint -c tslint.json src/*.ts",
+    "lint-fix": "tslint -c tslint.json src/cli/commands/*.ts --fix"
   },
   "keywords": [],
   "author": "",

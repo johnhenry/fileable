@@ -1,5 +1,5 @@
-// import CacheMap from './cache-map.js';
-import iterator from './iterator.js'
+// import CacheMap from './cache-map.ts';
+import iterator from './iterator.ts';
 import fs from 'fs';
 import crypto from 'crypto';
 import path from 'path';
@@ -61,7 +61,7 @@ export default async (template,
             // hashMap.set(name, newHash);
         }
     } catch (e) {
-        console.log(e)
+        console.log(e);
     } finally {
         //hashMap.flush();
     }

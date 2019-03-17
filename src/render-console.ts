@@ -1,4 +1,4 @@
-import iterator from './iterator.js';
+import iterator from './iterator.ts';
 const defaultOptions = {
     folder_context: [],
     template_context:''

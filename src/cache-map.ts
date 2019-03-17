@@ -8,7 +8,7 @@ const mapToJson = (map) => {
         json[k] = v;
     }
     return JSON.stringify(json);
-}
+};
 const jsonToMap = (text) => {
     const json = JSON.parse(text);
     const map = new Map();
@@ -16,7 +16,7 @@ const jsonToMap = (text) => {
         map.set(k, json[k]);
     }
     return map;
-}
+};
 
 const mapFromFilename = (filename) => {
     return jsonToMap(fs.writeReadSync(filename));

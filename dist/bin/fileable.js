@@ -37,13 +37,13 @@ var handler = function handler(_ref) {
       d = _ref.destination,
       test = _ref.test,
       input = _ref.input;
-  var tempname = tempFileName(__dirname, ".js");
+  var tempname = tempFileName(__dirname, '.js');
 
   try {
     var template = path.join(process.cwd(), t);
     var destination = path.join(process.cwd(), d || tempFileName('', ''));
     var template_context = path.dirname(template);
-    var file = "import template from '".concat(template, "';\nimport {render").concat(test ? 'Console' : 'FS', " as render} from \"../../dist/lib/index.js\";\n").concat(input ? "import input from \"".concat(path.join(process.cwd(), input), "\";\n") : '', "\nrender(template(").concat(input ? "...input" : '', "), {folder_context:['").concat(destination, "'], template_context:'").concat(template_context, "'});\n");
+    var file = "import template from '".concat(template, "';\nimport {render").concat(test ? 'Console' : 'FS', " as render} from \"../../dist/lib/index.js\";\n").concat(input ? "import input from \"".concat(path.join(process.cwd(), input), "\";\n") : '', "\nrender(template(").concat(input ? '...input' : '', "), {folder_context:['").concat(destination, "'], template_context:'").concat(template_context, "'});\n");
     fs__default.writeFileSync(tempname, file);
     var array = [];
     var match; //https://stackoverflow.com/questions/2817646/javascript-split-string-on-space-or-on-quotes-to-array
@@ -68,7 +68,7 @@ var handler = function handler(_ref) {
     }
 
     throw error;
-  } finally {}
+  }
 };
 
 var build = /*#__PURE__*/Object.freeze({
@@ -78,6 +78,6 @@ var build = /*#__PURE__*/Object.freeze({
     handler: handler
 });
 
-var configPath = findUp.sync(['.myapprc', '.myapprc.json']);
+var configPath = findUp.sync(['.fileable', '.fileable.json']);
 var config = configPath ? JSON.parse(fs.readFileSync(configPath)) : {};
 yargs.config(config).command(build).demandCommand().help().argv;

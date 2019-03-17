@@ -1,5 +1,4 @@
-import ReactDOMServer from "react-dom/server";
-import FSCOMPONENTSYMBOL from './FSCOMPONENTSYMBOL.js';
+import FSCOMPONENTSYMBOL from './FSCOMPONENTSYMBOL.ts';
 const render = async function* (element, {
         folder_context = [],
         template_context =''
@@ -13,7 +12,7 @@ const render = async function* (element, {
             template_context,
             ...element.props
         });
-    } else if (element.type === Symbol.for("react.fragment")) {
+    } else if (element.type === Symbol.for('react.fragment')) {
         const children = Array.isArray(element.props.children)
             ? element.props.children
             : element.props.children
