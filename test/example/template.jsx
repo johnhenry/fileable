@@ -1,48 +1,56 @@
-import React, { Fragment } from "react";
+import React, { Fragment, Component } from "react";
 import { File, Clear, Folder } from "../../dist/lib/index.js";
-const title = "TITLE";
-const description = "DESCRIPTION";
-import Head from "./head.jsx";
 
-const template = async (fldr='fldr') => {
-    return <Fragment>
-    <Clear>
-        <Folder name={fldr}>
-            <File name="readme.md">
-                {`\{# ${title}\}`}
-                {`# ${description}`}
-                <File>
-                    #{title} #{description}
-                </File>
-                ```javascript
-                <File src="./script.js" />
-                ```
-                <File cmd="date" />
-            </File>
-        </Folder>
-        <File name="index.js">
-            alert('hello');
-        <File name="index.map.js"
-                sidecar={({ contents: sidecar, currentName: name }) => ({
-                    sidecar,
-                    name,
-                    content: "sourcemap"
-                })}
-            >
-            // link to sourcemap
-            </File>
-        </File>
-        <File name="index.html">
+const HEAD = class extends Component {
+  render() {
+    return <head>
+      <title> This is {this.props.name}'s application </title>{" "}
+    </head>
+  }
+};
+
+const template = async (name = 'John') => {
+    return (
+      <Fragment>
+        <Clear>
+          <File name="index.html">
             &lt;!doctype html&gt;
             <html>
-                <Head />
-                <body> Hello World
-                    <script src='index.js'></script>
-                </body>
+              <HEAD name={name} />
+              <body>
+                <link href="./index.css" rel="stylesheet" />
+                <h1> {name}'s Sample Application</h1>
+                <ul>
+                  <li>
+                    <a href="./google.html">Externally Sourced File</a>
+                  </li>
+                  <li>
+                    <a href="./created">Command Generated File</a>
+                  </li>
+                </ul>
+                <script src="./index.js" />
+              </body>
             </html>
-        </File>
-        <File name="index.css" src="./style.css" />
-    </Clear>
-</Fragment>};
+            Timestamp: <File name="created" cmd="date" />
+          </File>
+          <File name="index.css">
+            {`body{
+              color:red;}`}
+          </File>
+          <File name="index.js">
+            window.console.log({`'Hello ${name.trim()}!'`});
+          </File>
+          <File name="google.html" src="https://www.google.com" />
+          <Folder name="docs">
+            <File name="readme.md">
+              {`# ${name}`}
+              this is a sample readme
+            </File>
+          </Folder>
+          <File name="created" cmd="date" />
+        </Clear>
+      </Fragment>
+    );
+};
 
 export default template;

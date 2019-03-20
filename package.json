@@ -36,7 +36,6 @@
     "find-up": "3.0.0",
     "jszip": "3.2.0",
     "node-fetch": "2.3.0",
-    "pkg-dir": "4.0.0",
     "react": "16.8.4",
     "react-dom": "16.8.4",
     "rimraf": "2.6.3",

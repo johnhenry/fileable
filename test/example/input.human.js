@@ -1,7 +1,6 @@
 import { prompt, alert } from 'node-popup';
 const inputs = async function* () {
-    const name = await prompt('name?', 'john');
+    const name = await prompt('What\'s your name?', 'John');
     yield name;
-    alert(`check for dist/temp/${name}'s folder`);
 }
 export default inputs();

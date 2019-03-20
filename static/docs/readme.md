@@ -105,6 +105,19 @@ console.log('hello world');
 </File>;
 ```
 
+#### File Attribute: doctype
+
+Add a doctype preamble the mode of a file.
+
+```javascript
+const template = ()=><File name='index.html' doctype='html'>
+{`<html>
+    <head></head>
+    <body></body>
+</html>`}
+</File>;
+```
+
 #### File Attribute: transform
 
 Command will be transformed via given function
