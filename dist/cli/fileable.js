@@ -11,6 +11,11 @@ require('regenerator-runtime/runtime');
 var path = require('path');
 var child_process = require('child_process');
 var fetch = _interopDefault(require('node-fetch'));
+require('core-js/modules/web.dom.iterable');
+require('core-js/modules/es6.array.iterator');
+require('core-js/modules/es6.object.to-string');
+require('core-js/modules/es7.object.entries');
+require('core-js/modules/es6.function.name');
 
 function asyncGeneratorStep(gen, resolve, reject, _next, _throw, key, arg) {
   try {
@@ -48,6 +53,44 @@ function _asyncToGenerator(fn) {
   };
 }
 
+function _slicedToArray(arr, i) {
+  return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _nonIterableRest();
+}
+
+function _arrayWithHoles(arr) {
+  if (Array.isArray(arr)) return arr;
+}
+
+function _iterableToArrayLimit(arr, i) {
+  var _arr = [];
+  var _n = true;
+  var _d = false;
+  var _e = undefined;
+
+  try {
+    for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
+      _arr.push(_s.value);
+
+      if (i && _arr.length === i) break;
+    }
+  } catch (err) {
+    _d = true;
+    _e = err;
+  } finally {
+    try {
+      if (!_n && _i["return"] != null) _i["return"]();
+    } finally {
+      if (_d) throw _e;
+    }
+  }
+
+  return _arr;
+}
+
+function _nonIterableRest() {
+  throw new TypeError("Invalid attempt to destructure non-iterable instance");
+}
+
 var node = path.join(__dirname, '../../node_modules/@babel/node/bin/babel-node.js --presets @babel/preset-react,@babel/preset-env ');
 
 var tempFileName = function tempFileName(parentDirectory) {
@@ -57,6 +100,13 @@ var tempFileName = function tempFileName(parentDirectory) {
 
 var regexp = /[^\s"]+|"([^"]*)"/gi;
 var remoteFileMatch = /^(?:(?:https?)|(?:ftp)):\/\//;
+var importPreamble = '';
+
+var localizer = function localizer(path$1) {
+  var defaultPath = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : undefined;
+  return path$1 ? path.join(process.cwd(), path$1) : defaultPath;
+};
+
 var command = 'build <template> <destination>';
 var describe = 'Build a file tree from template into destination directory';
 var builder = {
@@ -71,13 +121,6 @@ var builder = {
     desc: 'imported input file (must export [asynchronous] iterator)'
   }
 };
-var importPreamble = '';
-
-var localizer = function localizer(path$1) {
-  var defaultPath = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : undefined;
-  return path$1 ? path.join(process.cwd(), path$1) : defaultPath;
-};
-
 var handler =
 /*#__PURE__*/
 function () {
@@ -222,6 +265,129 @@ var build = /*#__PURE__*/Object.freeze({
   handler: handler
 });
 
+var command$1 = 'dependencies';
+var describe$1 = 'List dependencies';
+var builder$1 = {};
+var handler$1 =
+/*#__PURE__*/
+function () {
+  var _ref = _asyncToGenerator(
+  /*#__PURE__*/
+  regeneratorRuntime.mark(function _callee() {
+    var _require, dependencies, _arr, _i, _arr$_i, name, version;
+
+    return regeneratorRuntime.wrap(function _callee$(_context) {
+      while (1) {
+        switch (_context.prev = _context.next) {
+          case 0:
+            _require = require('../../package.json'), dependencies = _require.dependencies;
+            _arr = Object.entries(dependencies);
+
+            for (_i = 0; _i < _arr.length; _i++) {
+              _arr$_i = _slicedToArray(_arr[_i], 2), name = _arr$_i[0], version = _arr$_i[1];
+              console.log("".concat(name, ": ").concat(version));
+            }
+
+          case 3:
+          case "end":
+            return _context.stop();
+        }
+      }
+    }, _callee);
+  }));
+
+  return function handler() {
+    return _ref.apply(this, arguments);
+  };
+}();
+
+var dependencies = /*#__PURE__*/Object.freeze({
+  command: command$1,
+  describe: describe$1,
+  builder: builder$1,
+  handler: handler$1
+});
+
+var command$2 = 'install <name>';
+var describe$2 = 'Install dependency';
+var builder$2 = {};
+var handler$2 =
+/*#__PURE__*/
+function () {
+  var _ref2 = _asyncToGenerator(
+  /*#__PURE__*/
+  regeneratorRuntime.mark(function _callee(_ref) {
+    var name;
+    return regeneratorRuntime.wrap(function _callee$(_context) {
+      while (1) {
+        switch (_context.prev = _context.next) {
+          case 0:
+            name = _ref.name;
+            return _context.abrupt("return", child_process.spawn('npm', ['install', '--prefix', path.join(__dirname, '../../'), name], {
+              stdio: 'inherit' // cwd: join(__dirname, '../../')
+
+            }));
+
+          case 2:
+          case "end":
+            return _context.stop();
+        }
+      }
+    }, _callee);
+  }));
+
+  return function handler(_x) {
+    return _ref2.apply(this, arguments);
+  };
+}();
+
+var install = /*#__PURE__*/Object.freeze({
+  command: command$2,
+  describe: describe$2,
+  builder: builder$2,
+  handler: handler$2
+});
+
+var command$3 = 'uninstall <name>';
+var describe$3 = 'Install dependency';
+var builder$3 = {};
+var handler$3 =
+/*#__PURE__*/
+function () {
+  var _ref2 = _asyncToGenerator(
+  /*#__PURE__*/
+  regeneratorRuntime.mark(function _callee(_ref) {
+    var name;
+    return regeneratorRuntime.wrap(function _callee$(_context) {
+      while (1) {
+        switch (_context.prev = _context.next) {
+          case 0:
+            name = _ref.name;
+            return _context.abrupt("return", child_process.spawn('npm', ['uninstall', '--prefix', path.join(__dirname, '../../'), name], {
+              stdio: 'inherit' // cwd: join(__dirname, '../../')
+
+            }));
+
+          case 2:
+          case "end":
+            return _context.stop();
+        }
+      }
+    }, _callee);
+  }));
+
+  return function handler(_x) {
+    return _ref2.apply(this, arguments);
+  };
+}();
+
+var uninstall = /*#__PURE__*/Object.freeze({
+  command: command$3,
+  describe: describe$3,
+  builder: builder$3,
+  handler: handler$3
+});
+
 var configPath = findUp.sync(['.fileable', '.fileable.json']);
 var config = configPath ? JSON.parse(fs.readFileSync(configPath)) : {};
-yargs.config(config).command(build).demandCommand().recommendCommands().strict().help().alias('help', 'h').argv;
+yargs.config(config).command(build).command(dependencies).command(install).command(uninstall).demandCommand().recommendCommands().strict().help().alias('help', 'h').argv;

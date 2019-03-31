@@ -1,5 +1,6 @@
 import babel from 'rollup-plugin-babel';
 import hashbang from 'rollup-plugin-hashbang';
+import json from 'rollup-plugin-json';
 const plugins = [
     babel({
         exclude: 'node_modules/**',
@@ -14,7 +15,7 @@ const plugins = [
 export default [{
     file: 'dist/cli/fileable.js',
     input: 'src/cli/index.ts',
-    plugins: [...plugins, hashbang()]
+    plugins: [...plugins, hashbang(), json()]
 }, {
     file: 'dist/lib/index.js',
     input: 'src/index.ts',

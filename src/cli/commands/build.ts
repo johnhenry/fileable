@@ -7,6 +7,11 @@ const tempFileName = (parentDirectory, suffix = '') => join(parentDirectory, `${
 const regexp = /[^\s"]+|"([^"]*)"/gi;
 const remoteFileMatch = /^(?:(?:https?)|(?:ftp)):\/\//;
 
+const importPreamble = '';
+
+const localizer = (path, defaultPath = undefined) =>
+  path ? join(process.cwd(), path) : defaultPath;
+
 export const command = 'build <template> <destination>';
 export const describe = 'Build a file tree from template into destination directory';
 export const builder = {
@@ -21,12 +26,6 @@ export const builder = {
         desc: 'imported input file (must export [asynchronous] iterator)'
     }
 };
-
-const importPreamble = '';
-
-const localizer = (path, defaultPath = undefined) => path
-    ? join(process.cwd(), path)
-    : defaultPath;
 
 export const handler = async ({
     template: t = '',
