@@ -29,6 +29,7 @@
     "add-built": "git add dist/ && git add src/ && git add readme.md"
   },
   "pre-commit": [
+    "build-docs",
     "test",
     "add-built"
   ],
