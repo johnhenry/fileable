@@ -296,6 +296,7 @@ npm install --global fileable
 fileable build <template> <destination>
 ```
 
+
 ```sh
 fileable build ./template.jsx ./dist
 ```
@@ -319,14 +320,9 @@ Try `fileable --help` for more options
 
 #### Remote Files
 
-Files that begin with 'http://', 'https://', or 'ftp://' can be used as input or template files with a few creavats.
+Files that begin with 'http://', 'https://', or 'ftp://' can be used as input or template files.
 
-For remote files, DO NOT import of fileable components (File, Folder, Clear), but you'll still have to import compents used for react.  In the future, you'll likey import components from another library, but for now, please bear with us.
 
-```javascript
-import React, {Fragment} from 'react';
-export default ()=><File>...
-```
 ## API
 
 ### Table of contents

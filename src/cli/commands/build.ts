@@ -22,8 +22,7 @@ export const builder = {
     }
 };
 
-const importPreamble = `import { File, Clear, Folder } from '../lib/index.js';
-`;
+const importPreamble = '';
 
 const localizer = (path, defaultPath = undefined) => path
     ? join(process.cwd(), path)

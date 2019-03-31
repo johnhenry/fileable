@@ -300,6 +300,20 @@ fileable build <template> <destination>
 fileable build ./template.jsx ./dist
 ```
 
+Local files or remote files (beginning with 'http://', 'https://', or 'ftp://') can be used as template and input files.
+
+```sh
+fileable build https://raw.githubusercontent.com/johnhenry/fileable/master/test/example/template.jsx here
+```
+
+It is not necessary to install fileable-components or react when using templates. However, the references to their components must be included.
+
+```javascript
+import React, { Fragment } from "react"; //React, and any used React components must be required
+import { File, Clear, Folder } from 'fileable-components';// Any used fileable-components must be required
+```
+
+
 #### --test/--no-test flag
 
 
@@ -316,10 +330,6 @@ fileable build ./template.jsx ./dist --no-test
 #### --help
 
 Try `fileable --help` for more options
-
-#### Remote Files
-
-Files that begin with 'http://', 'https://', or 'ftp://' can be used as input or template files with a few creavats.
 
 For remote files, DO NOT import of fileable components (File, Folder, Clear), but you'll still have to import compents used for react.  In the future, you'll likey import components from another library, but for now, please bear with us.
 

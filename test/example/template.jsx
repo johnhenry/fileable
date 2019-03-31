@@ -1,9 +1,9 @@
 import React, { Fragment, Component } from "react";
-
+import { File, Clear, Folder } from 'fileable-components';
 const HEAD = class extends Component {
   render() {
     return <head>
-      <title> This is {this.props.name}'s application </title>{" "}
+      <title> This is {this.props.name}'s application </title>
     </head>
   }
 };

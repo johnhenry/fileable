@@ -71,7 +71,7 @@ var builder = {
     desc: 'imported input file (must export [asynchronous] iterator)'
   }
 };
-var importPreamble = "import { File, Clear, Folder } from '../lib/index.js';\n";
+var importPreamble = '';
 
 var localizer = function localizer(path$1) {
   var defaultPath = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : undefined;
@@ -153,11 +153,7 @@ function () {
             }
 
           case 31:
-            file = "import template from '".concat(remoteTemplate, "';\nimport {render").concat(test ? 'Console' : 'FS', " as render} from \"../../dist/lib/index.js\";\n").concat(remoteInput ? "import args from \"".concat(remoteInput, "\";") : '', "\nconst main = async()=>{\n").concat(remoteInput ? "const input = [];\nfor await(const arg of args){\n    input.push(arg);\n}\n" : '', "\nrender(await template(").concat(remoteInput ? '... input' : '', "), {folder_context:['").concat(destination, "'], template_context:'").concat(template_context, "'});\n}\nmain();\n// "); // require('@babel/core').transform(file, {
-            //     plugins: ['@babel/plugin-syntax-dynamic-import'],
-            //     presets: ['@babel/preset-react', '@babel/preset-env']
-            // });
-
+            file = "import template from '".concat(remoteTemplate, "';\nimport {render").concat(test ? 'Console' : 'FS', " as render} from \"../../dist/lib/index.js\";\n").concat(remoteInput ? "import args from \"".concat(remoteInput, "\";") : '', "\nconst main = async()=>{\n").concat(remoteInput ? "const input = [];\nfor await(const arg of args){\n    input.push(arg);\n}\n" : '', "\nrender(await template(").concat(remoteInput ? '... input' : '', "), {folder_context:['").concat(destination, "'], template_context:'").concat(template_context, "'});\n}\nmain();\n// ");
             fs.writeFileSync(tempname, file);
             array = [];
 
