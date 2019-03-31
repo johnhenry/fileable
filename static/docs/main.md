@@ -1,4 +1,4 @@
-![fileable logo](./static/docs/logo-v3.png)
+![fileable logo](./static/docs/logo.png)
 
 # Fileable
 
