@@ -93,12 +93,12 @@ function () {
             _ref$template = _ref.template, t = _ref$template === void 0 ? '' : _ref$template, d = _ref.destination, _ref$input = _ref.input, i = _ref$input === void 0 ? '' : _ref$input, test = _ref.test;
             tempname = tempFileName(__dirname, '.js');
             _context.prev = 2;
-            template = t.match(remoteFileMatch) ? t : localizer(t);
+            template = (t || '').match(remoteFileMatch) ? t : localizer(t);
             destination = localizer(d || tempFileName('', ''));
-            input = i.match(remoteFileMatch) ? i : localizer(i);
+            input = i && i.match(remoteFileMatch) ? i : localizer(i || '');
             template_context = path.dirname(template);
-            remoteTemplate = template.match(remoteFileMatch) && tempFileName(__dirname, '.js');
-            remoteInput = input.match(remoteFileMatch) && tempFileName(__dirname, '.js');
+            remoteTemplate = template.match(remoteFileMatch) && tempFileName(__dirname, '.jsx');
+            remoteInput = input && input.match(remoteFileMatch) && tempFileName(__dirname, '.js');
 
             if (!remoteTemplate) {
               _context.next = 17;

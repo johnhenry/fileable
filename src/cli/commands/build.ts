@@ -36,13 +36,13 @@ export const handler = async ({
     let remoteTemplate;
     let remoteInput;
     try {
-        const template = t.match(remoteFileMatch) ? t : localizer(t);
+        const template = (t||'').match(remoteFileMatch) ? t : localizer(t);
         const destination = localizer(d || tempFileName('', ''));
-        const input = i.match(remoteFileMatch) ? i : localizer(i);
+        const input = (i && i.match(remoteFileMatch)) ? i : localizer(i||'');
         const template_context = dirname(template);
 
-        remoteTemplate = template.match(remoteFileMatch) && tempFileName(__dirname, '.js');
-        remoteInput = input.match(remoteFileMatch) && tempFileName(__dirname, '.js');
+        remoteTemplate = template.match(remoteFileMatch) && tempFileName(__dirname, '.jsx');
+        remoteInput = input && input.match(remoteFileMatch) && tempFileName(__dirname, '.js');
 
         if (remoteTemplate) {
             const response = await fetch(template);

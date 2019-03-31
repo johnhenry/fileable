@@ -105,6 +105,19 @@ console.log('hello world');
 </File>;
 ```
 
+#### File Attribute: doctype
+
+Add a doctype preamble the mode of a file.
+
+```javascript
+const template = ()=><File name='index.html' doctype='html'>
+{`<html>
+    <head></head>
+    <body></body>
+</html>`}
+</File>;
+```
+
 #### File Attribute: transform
 
 Command will be transformed via given function
@@ -300,10 +313,21 @@ fileable build ./template.jsx ./dist --no-test
 fileable build ./template.jsx ./dist --no-test
 ```
 
-
 #### --help
 
 Try `fileable --help` for more options
+
+#### Remote Files
+
+Files that begin with 'http://', 'https://', or 'ftp://' can be used as input or template files with a few creavats.
+
+For remote files, DO NOT import of fileable components (File, Folder, Clear), but you'll still have to import compents used for react.  In the future, you'll likey import components from another library, but for now, please bear with us.
+
+```javascript
+import React, {Fragment} from 'react';
+export default
+
+```
 
 ## API -- Application
 
@@ -342,6 +366,12 @@ main();
   - [Examples](#examples-1)
 - [function Folder](#function-folder)
   - [Examples](#examples-2)
+- [function iterator](#function-iterator)
+  - [Examples](#examples-3)
+- [function renderConsole](#function-renderconsole)
+  - [Examples](#examples-4)
+- [function renderFS](#function-renderfs)
+  - [Examples](#examples-5)
 
 ### function Clear
 
@@ -383,8 +413,65 @@ Folder component
 >  export () => <Folder name='project'><File name='readme.md'/></Folder>
 > ```
 
+* * *
+
+### function iterator
+
+Iterator
+
+| Parameter | Type   | Description |
+| :-------- | :----- | :---------- |
+| `input`   | object |             |
+
+#### Examples
+
+> ```javascript
+> import {iterator} from 'fileable';
+> ```
+
+* * *
+
+### function renderConsole
+
+Render to Console
+
+| Parameter | Type   | Description |
+| :-------- | :----- | :---------- |
+| `input`   | object |             |
+
+#### Examples
+
+> ```javascript
+> import {renderConsole} from 'fileable';
+> const main = async () =>
+> renderConsole(template(), { folder_context: [directory] });
+> main();
+> ```
+
+* * *
+
+### function renderFS
+
+Render to File System
+
+| Parameter | Type   | Description |
+| :-------- | :----- | :---------- |
+| `input`   | object |             |
+
+#### Examples
+
+> ```javascript
+> import {renderFS} from 'fileable';
+> const main = async () =>
+> renderFS(template(), { folder_context: [directory] });
+> main();
+> ```
+
 ## Todo
 
 - Asynchronous content
     - Useful for extending
 - Make work like described API in readme.
+- Handle newline trickiness
+    - inability to insert new lines easily
+    - must manually add "{'\n'}" or enclose entirely witin backticks ("'``'")
