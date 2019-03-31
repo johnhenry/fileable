@@ -1,3 +1,5 @@
+![fileable logo](./static/docs/logo-v3.png)
+
 # Fileable
 
 Render a file tree using a JSX template.
@@ -296,10 +298,23 @@ npm install --global fileable
 fileable build <template> <destination>
 ```
 
-
 ```sh
 fileable build ./template.jsx ./dist
 ```
+
+Local files or remote files (beginning with 'http://', 'https://', or 'ftp://') can be used as template and input files.
+
+```sh
+fileable build https://raw.githubusercontent.com/johnhenry/fileable/master/test/example/template.jsx here
+```
+
+It is not necessary to install fileable-components or react when using templates. However, the references to their components must be included.
+
+```javascript
+import React, { Fragment } from "react"; //React, and any used React components must be required
+import { File, Clear, Folder } from 'fileable-components';// Any used fileable-components must be required
+```
+
 
 #### --test/--no-test flag
 
@@ -318,11 +333,12 @@ fileable build ./template.jsx ./dist --no-test
 
 Try `fileable --help` for more options
 
-#### Remote Files
+For remote files, DO NOT import of fileable components (File, Folder, Clear), but you'll still have to import compents used for react.  In the future, you'll likey import components from another library, but for now, please bear with us.
 
-Files that begin with 'http://', 'https://', or 'ftp://' can be used as input or template files.
-
-
+```javascript
+import React, {Fragment} from 'react';
+export default ()=><File>...
+```
 ## API
 
 ### Table of contents
@@ -443,3 +459,6 @@ Render to File System
     - inability to insert new lines easily
     - must manually add "{'\n'}" or enclose entirely witin backticks ("'``'")
 - Eventually, get remote files working with using dynamic imports
+ Treat binary as content
+- add "reverse-build"	- add "reverse-build"
+- properly sort documentation into fileable and fileable components

@@ -1,3 +1,5 @@
+![fileable logo](./static/docs/logo-v3.png)
+
 # Fileable
 
 Render a file tree using a JSX template.
