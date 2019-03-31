@@ -6,9 +6,9 @@ const plugins = [
         extensions: ['.ts'],
         babelrc:false,
         presets: ['@babel/preset-env', '@babel/preset-react', '@babel/preset-typescript'],
+        plugins: ['@babel/plugin-syntax-dynamic-import']
     })
 ];
-
 export default [{
     file: 'dist/cli/fileable.js',
     input: 'src/cli/index.ts',

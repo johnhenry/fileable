@@ -20,9 +20,10 @@
     "build": "npm run lint && npm run build-lib-cli && npm run build-docs",
     "test-no-build": "node test/index.js",
     "test": "npm run build-lib-cli && npm run test-no-build",
-    "demo-no-build": "node test/demo-human-input.js",
-    "demo": "npm run build-lib-cli && npm run demo-no-build",
-    "add-built": "git add dist/ && git add src/ && git add readme.md"
+    "demo-no-deps": "node test/demo-human-input.js",
+    "demo": "npm run build-lib-cli && npm run demo-no-deps",
+    "add-built": "git add dist/ && git add src/ && git add readme.md",
+    "start": "npm run demo && live-server dist/temp/"
   },
   "pre-commit": [
     "test",
@@ -33,6 +34,8 @@
   "license": "MIT",
   "dependencies": {
     "@babel/node": "7.2.2",
+    "@babel/plugin-syntax-dynamic-import": "7.2.0",
+    "babel-plugin-dynamic-import-node-babel-7": "2.0.7",
     "find-up": "3.0.0",
     "jszip": "3.2.0",
     "node-fetch": "2.3.0",
@@ -49,6 +52,7 @@
     "@babel/preset-react": "7.0.0",
     "@babel/preset-typescript": "7.3.3",
     "jsdoc-md": "2.1.0",
+    "live-server": "1.2.1",
     "node-popup": "0.1.14",
     "pre-commit": "1.2.2",
     "rimraf": "2.6.3",
