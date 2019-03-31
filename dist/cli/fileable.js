@@ -4,7 +4,6 @@
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
 var fs = require('fs');
-var fs__default = _interopDefault(fs);
 var yargs = _interopDefault(require('yargs'));
 var findUp = _interopDefault(require('find-up'));
 require('core-js/modules/es6.regexp.match');
@@ -49,7 +48,7 @@ function _asyncToGenerator(fn) {
   };
 }
 
-var node = path.join(__dirname, '../../node_modules/@babel/node/bin/babel-node.js --presets @babel/preset-react,@babel/preset-env --plugins @babel/plugin-syntax-dynamic-import');
+var node = path.join(__dirname, '../../node_modules/@babel/node/bin/babel-node.js --presets @babel/preset-react,@babel/preset-env ');
 
 var tempFileName = function tempFileName(parentDirectory) {
   var suffix = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
@@ -72,6 +71,7 @@ var builder = {
     desc: 'imported input file (must export [asynchronous] iterator)'
   }
 };
+var importPreamble = "import { File, Clear, Folder } from '../lib/index.js';\n";
 
 var localizer = function localizer(path$1) {
   var defaultPath = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : undefined;
@@ -101,7 +101,7 @@ function () {
             remoteInput = input && input.match(remoteFileMatch) && tempFileName(__dirname, '.js');
 
             if (!remoteTemplate) {
-              _context.next = 17;
+              _context.next = 19;
               break;
             }
 
@@ -115,35 +115,50 @@ function () {
 
           case 15:
             text = _context.sent;
-            fs__default.writeFileSync(remoteTemplate, text);
+            fs.writeFileSync(remoteTemplate, "".concat(importPreamble).concat(text));
+            _context.next = 20;
+            break;
 
-          case 17:
+          case 19:
+            if (template) {
+              remoteTemplate = tempFileName(__dirname, '.jsx');
+              fs.writeFileSync(remoteTemplate, importPreamble);
+              fs.appendFileSync(remoteTemplate, fs.readFileSync(template));
+            }
+
+          case 20:
             if (!remoteInput) {
-              _context.next = 25;
+              _context.next = 30;
               break;
             }
 
-            _context.next = 20;
+            _context.next = 23;
             return fetch(input);
 
-          case 20:
+          case 23:
             _response = _context.sent;
-            _context.next = 23;
+            _context.next = 26;
             return _response.text();
 
-          case 23:
+          case 26:
             _text = _context.sent;
-            fs__default.writeFileSync(remoteInput, _text);
+            fs.writeFileSync(remoteInput, _text);
+            _context.next = 31;
+            break;
 
-          case 25:
-            file = "import template from '".concat(remoteTemplate || template, "';\nimport {render").concat(test ? 'Console' : 'FS', " as render} from \"../../dist/lib/index.js\";\n").concat(input ? "import args from \"".concat(remoteInput || input, "\";") : '', "\nconst main = async()=>{\n").concat(input ? "const input = [];\nfor await(const arg of args){\n    input.push(arg);\n}\n" : '', "\nrender(await template(").concat(input ? '... input' : '', "), {folder_context:['").concat(destination, "'], template_context:'").concat(template_context, "'});\n}\nmain();\n// ");
+          case 30:
+            if (input) {
+              remoteInput = tempFileName(__dirname, '.js');
+              fs.copyFileSync(input, remoteInput);
+            }
 
-            require('@babel/core').transform(file, {
-              plugins: ['@babel/plugin-syntax-dynamic-import'],
-              presets: ['@babel/preset-react', '@babel/preset-env']
-            });
+          case 31:
+            file = "import template from '".concat(remoteTemplate, "';\nimport {render").concat(test ? 'Console' : 'FS', " as render} from \"../../dist/lib/index.js\";\n").concat(remoteInput ? "import args from \"".concat(remoteInput, "\";") : '', "\nconst main = async()=>{\n").concat(remoteInput ? "const input = [];\nfor await(const arg of args){\n    input.push(arg);\n}\n" : '', "\nrender(await template(").concat(remoteInput ? '... input' : '', "), {folder_context:['").concat(destination, "'], template_context:'").concat(template_context, "'});\n}\nmain();\n// "); // require('@babel/core').transform(file, {
+            //     plugins: ['@babel/plugin-syntax-dynamic-import'],
+            //     presets: ['@babel/preset-react', '@babel/preset-env']
+            // });
 
-            fs__default.writeFileSync(tempname, file);
+            fs.writeFileSync(tempname, file);
             array = [];
 
             //https://stackoverflow.com/questions/2817646/javascript-split-string-on-space-or-on-quotes-to-array
@@ -156,46 +171,47 @@ function () {
             } while (match !== null);
 
             ps = child_process.spawn(array.shift(), array, {
-              stdio: 'inherit'
+              stdio: 'inherit',
+              cwd: path.join(__dirname, '../../')
             });
             ps.on('close', function () {
-              fs__default.unlinkSync(tempname);
+              fs.unlinkSync(tempname);
 
               if (remoteTemplate) {
-                fs__default.unlinkSync(remoteTemplate);
+                fs.unlinkSync(remoteTemplate);
               }
 
               if (remoteInput) {
-                fs__default.unlinkSync(remoteInput);
+                fs.unlinkSync(remoteInput);
               }
             });
-            _context.next = 40;
+            _context.next = 45;
             break;
 
-          case 34:
-            _context.prev = 34;
+          case 39:
+            _context.prev = 39;
             _context.t0 = _context["catch"](2);
 
-            if (fs__default.existsSync(tempname)) {
-              fs__default.unlinkSync(tempname);
+            if (fs.existsSync(tempname)) {
+              fs.unlinkSync(tempname);
             }
 
-            if (remoteTemplate && fs__default.existsSync(remoteTemplate)) {
-              fs__default.unlinkSync(remoteTemplate);
+            if (remoteTemplate && fs.existsSync(remoteTemplate)) {
+              fs.unlinkSync(remoteTemplate);
             }
 
-            if (remoteInput && fs__default.existsSync(remoteInput)) {
-              fs__default.unlinkSync(remoteInput);
+            if (remoteInput && fs.existsSync(remoteInput)) {
+              fs.unlinkSync(remoteInput);
             }
 
             throw _context.t0;
 
-          case 40:
+          case 45:
           case "end":
             return _context.stop();
         }
       }
-    }, _callee, null, [[2, 34]]);
+    }, _callee, null, [[2, 39]]);
   }));
 
   return function handler(_x) {

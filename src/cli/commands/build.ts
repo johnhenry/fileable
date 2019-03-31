@@ -1,8 +1,8 @@
-import fs from 'fs';
+import * as fs from 'fs';
 import { join, dirname } from 'path';
 import { spawn } from 'child_process';
 import fetch from 'node-fetch';
-const node = join(__dirname, '../../node_modules/@babel/node/bin/babel-node.js --presets @babel/preset-react,@babel/preset-env --plugins @babel/plugin-syntax-dynamic-import');
+const node = join(__dirname, '../../node_modules/@babel/node/bin/babel-node.js --presets @babel/preset-react,@babel/preset-env ');
 const tempFileName = (parentDirectory, suffix = '') => join(parentDirectory, `${Math.random()}.temp${suffix}`);
 const regexp = /[^\s"]+|"([^"]*)"/gi;
 const remoteFileMatch = /^(?:(?:https?)|(?:ftp)):\/\//;
@@ -21,6 +21,9 @@ export const builder = {
         desc: 'imported input file (must export [asynchronous] iterator)'
     }
 };
+
+const importPreamble = `import { File, Clear, Folder } from '../lib/index.js';
+`;
 
 const localizer = (path, defaultPath = undefined) => path
     ? join(process.cwd(), path)
@@ -47,31 +50,35 @@ export const handler = async ({
         if (remoteTemplate) {
             const response = await fetch(template);
             const text = await response.text();
-            fs.writeFileSync(remoteTemplate, text);
+            fs.writeFileSync(remoteTemplate, `${importPreamble}${text}`);
+        } else if (template) {
+            remoteTemplate = tempFileName(__dirname, '.jsx');
+            fs.writeFileSync(remoteTemplate, importPreamble);
+            fs.appendFileSync(remoteTemplate, fs.readFileSync(template), );
         }
+
         if (remoteInput) {
             const response = await fetch(input);
             const text = await response.text();
             fs.writeFileSync(remoteInput, text);
+        } else if (input) {
+            remoteInput = tempFileName(__dirname, '.js');
+            fs.copyFileSync(input, remoteInput);
         }
 
-        const file = `import template from '${remoteTemplate || template}';
+        const file = `import template from '${remoteTemplate}';
 import {render${test ? 'Console' : 'FS'} as render} from "../../dist/lib/index.js";
-${input ? `import args from "${remoteInput || input}";` : ''}
+${remoteInput ? `import args from "${remoteInput}";` : ''}
 const main = async()=>{
-${input ? `const input = [];
+${remoteInput ? `const input = [];
 for await(const arg of args){
     input.push(arg);
 }
 `: ''}
-render(await template(${input ? '... input' : ''}), {folder_context:['${destination}'], template_context:'${template_context}'});
+render(await template(${remoteInput ? '... input' : ''}), {folder_context:['${destination}'], template_context:'${template_context}'});
 }
 main();
 // `;
-        require('@babel/core').transform(file, {
-            plugins: ['@babel/plugin-syntax-dynamic-import'],
-            presets: ['@babel/preset-react', '@babel/preset-env']
-        });
         fs.writeFileSync(tempname, file);
         const array = [];
         let match;
@@ -83,7 +90,8 @@ main();
             }
         } while (match !== null);
         const ps = spawn(array.shift(), array, {
-            stdio: 'inherit'
+            stdio: 'inherit',
+            cwd: join(__dirname,'../../')
         });
         ps.on('close', function () {
             fs.unlinkSync(tempname);

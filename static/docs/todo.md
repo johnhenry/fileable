@@ -8,6 +8,3 @@
     - inability to insert new lines easily
     - must manually add "{'\n'}" or enclose entirely witin backticks ("'``'")
 - Eventually, get remote files working with using dynamic imports
-- Treat binary as content
-- add "reverse-build"
-- properly sort documentation into fileable and fileable components

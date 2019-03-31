@@ -15,6 +15,10 @@ export default [{
     file: 'dist/cli/fileable.js',
     input: 'src/cli/index.ts',
     plugins: [...plugins, hashbang()]
+}, {
+    file: 'dist/lib/index.js',
+    input: 'src/index.ts',
+    format:'cjs'
 }].map(({
             file,
             format = 'cjs',

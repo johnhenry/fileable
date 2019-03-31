@@ -1,11 +1,8 @@
 {
   "name": "fileable",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/johnhenry/fileable.git"
-  },
-  "version": "0.0.4",
+  "version": "0.0.5-5",
   "description": "",
+  "main": "./dist/lib/index.js",
   "bin": {
     "fileable": "./dist/cli/fileable.js"
   },
@@ -17,14 +14,14 @@
     "jsdoc-md": "jsdoc-md",
     "lint-no-fix": "tslint --project src",
     "lint": "npm run lint-no-fix -- --fix",
-    "build-cli": "rollup --silent --config config/rollup.config.js",
+    "build-lib-cli": "rollup --silent --config config/rollup.config.js",
     "build-js-docs": "sh ./scripts/build-js-docs.sh",
     "build-docs": "npm run build-js-docs && cat ./static/docs/main.md ./dist/temp/api.md ./static/docs/todo.md > ./readme.md",
-    "build": "npm run lint && npm run build-cli && npm run build-docs",
+    "build": "npm run lint && npm run build-lib-cli && npm run build-docs",
     "test-no-build": "node test/index.js",
-    "test": "npm run build-cli && npm run test-no-build",
+    "test": "npm run build-lib-cli && npm run test-no-build",
     "demo-no-build": "node test/demo-human-input.js",
-    "demo": "npm run build-cli && npm run demo-no-build",
+    "demo": "npm run build-lib-cli && npm run demo-no-build",
     "add-built": "git add dist/ && git add src/ && git add readme.md"
   },
   "pre-commit": [
@@ -35,23 +32,6 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "fileable-components": "0.0.1",
-    "@babel/node": "7.2.2",
-    "find-up": "3.0.0",
-    "jszip": "3.2.1",
-    "node-fetch": "2.3.0",
-    "react": "16.8.6",
-    "react-dom": "16.8.6",
-    "rimraf": "2.6.3",
-    "rollup": "1.7.4",
-    "rollup-plugin-hashbang": "2.2.2",
-    "yargs": "13.2.2"
-  },
-  "devDependencies": {
-    "@babel/core": "7.4.0",
-    "@babel/plugin-syntax-dynamic-import": "7.2.0",
-    "@babel/preset-env": "7.4.2",
-    "@babel/preset-react": "7.0.0",
     "@babel/preset-typescript": "7.3.3",
     "jsdoc-md": "2.1.0",
     "node-popup": "0.1.14",
@@ -60,6 +40,20 @@
     "rollup-plugin-babel": "4.3.2",
     "tape": "4.10.1",
     "tslint": "5.14.0",
-    "typescript": "3.4.1"
-  }
+    "typescript": "3.4.1",
+    "@babel/node": "7.2.2",
+    "find-up": "3.0.0",
+    "jszip": "3.2.1",
+    "node-fetch": "2.3.0",
+    "react": "16.8.6",
+    "react-dom": "16.8.6",
+    "rollup": "1.7.4",
+    "rollup-plugin-hashbang": "2.2.2",
+    "yargs": "13.2.2",
+    "@babel/core": "7.4.0",
+    "@babel/plugin-syntax-dynamic-import": "7.2.0",
+    "@babel/preset-env": "7.4.2",
+    "@babel/preset-react": "7.0.0"
+  },
+  "devDependencies": {}
 }

@@ -8,15 +8,12 @@ Inspired by [React FS Renderer](https://github.com/ericvicenti/react-fs-renderer
 
 Fileable can render [functional components](https://reactjs.org/docs/components-and-props.html) built with the following components:
 
-Use Fileable along wiht [Fileable Components](https://github.com/johnhenry/fileable-components)
-
-
 ### Component: File
 
 The File component represents a file.
 
 ```javascript
-import {File} from 'fileable-components';
+import {File} from 'fileable';
 const template = ()=><File name='readme.md'>
 # This is a sample file.
 </File>
@@ -203,7 +200,7 @@ const template = ()=> <File name="index.html">
 The Folder component represents a Folder;
 
 ```javascript
-import {Folder} from 'fileable-components';
+import {Folder} from 'fileable';
 const template = ()=><Folder name='project/'/>
 ```
 
@@ -248,7 +245,7 @@ const template = ()=><Folder name='project' zip extension='.zip'>
 Wrapping components within a Clear component removes __every single file__ from the given folder context before writing.
 
 ```javascript
-import {Clear} from 'fileable-components';
+import {Clear} from 'fileable';
 const template = ()=><Clear><File name='empty_file' /></Clear>;
 ```
 
@@ -323,6 +320,8 @@ Try `fileable --help` for more options
 #### Remote Files
 
 Files that begin with 'http://', 'https://', or 'ftp://' can be used as input or template files with a few creavats.
+
+For remote files, DO NOT import of fileable components (File, Folder, Clear), but you'll still have to import compents used for react.  In the future, you'll likey import components from another library, but for now, please bear with us.
 
 ```javascript
 import React, {Fragment} from 'react';

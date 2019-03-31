@@ -1,4 +1,4 @@
-import {FSCOMPONENTSYMBOL} from 'fileable-components';
+import FSCOMPONENTSYMBOL from './FSCOMPONENTSYMBOL.ts';
 
 /**
  * Iterator
