@@ -4,7 +4,7 @@
     "type": "git",
     "url": "https://github.com/johnhenry/fileable.git"
   },
-  "version": "0.0.4",
+  "version": "0.0.5-0",
   "description": "",
   "bin": {
     "fileable": "./dist/cli/fileable.js"
