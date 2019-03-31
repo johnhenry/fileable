@@ -14,6 +14,7 @@ tape('cli test: fileable build', async ({ ok, end }) => {
     await rmdir(destination);
     // run program
     // execSync(`${fileable} build ./test/example/template.jsx ${destination} --no-test`);
+    // execSync(`npm run fileable -- build http://localhost:8080/example/template.jsx ${destination} --no-test --input ./test/example/input.js `);
     execSync(`npm run fileable -- build ./test/example/template.jsx ${destination} --no-test --input ./test/example/input.js `);
     // begin tests
     ok(existsSync(destination), 'destination should be created') ;

@@ -1,5 +1,5 @@
 import React, { Fragment, Component } from "react";
-import { File, Clear, Folder } from "../../dist/lib/index.js";
+import { File, Clear, Folder } from "../../";
 
 const HEAD = class extends Component {
   render() {
@@ -11,7 +11,7 @@ const HEAD = class extends Component {
 
 const template = async (name = 'John') => {
     return (
-      <Fragment>
+      <>
         <Clear>
           <File name="index.html">
             &lt;!doctype html&gt;
@@ -49,7 +49,7 @@ const template = async (name = 'John') => {
           </Folder>
           <File name="created" cmd="date" />
         </Clear>
-      </Fragment>
+      </>
     );
 };
 
