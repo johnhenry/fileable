@@ -8,6 +8,9 @@ Inspired by [React FS Renderer](https://github.com/ericvicenti/react-fs-renderer
 
 Fileable can render [functional components](https://reactjs.org/docs/components-and-props.html) built with the following components:
 
+Use Fileable along wiht [Fileable Components](https://github.com/johnhenry/fileable-components)
+
+
 ### Component: File
 
 The File component represents a file.
@@ -321,37 +324,7 @@ Try `fileable --help` for more options
 
 Files that begin with 'http://', 'https://', or 'ftp://' can be used as input or template files with a few creavats.
 
-For remote files, DO NOT import of fileable components (File, Folder, Clear), but you'll still have to import compents used for react.  In the future, you'll likey import components from another library, but for now, please bear with us.
-
 ```javascript
 import React, {Fragment} from 'react';
 export default ()=><File>...
-```
-
-## API -- Application
-
-Fileable's renderer's can be used directly within applications.
-
-### Application Installation
-
-```sh
-npm install fileable
-```
-
-### Application Usage
-
-```javascript
-import {renderFS, renderConsole} from 'fileable';
-import template from './template.jsx';
-const directory = './dist';
-
-const main = async ()=>{
-    console.log('Preview Render');
-    for await(const output of renderFS(template())){
-        console.log('File Contents', output)
-    }
-    console.log('Render Files');
-    renderRF(template(), {folder_context:[directory]});
-}
-main();
 ```

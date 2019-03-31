@@ -1,6 +1,4 @@
 const tape = require('tape');
-const {iterator, renderFS, renderConsole, File, Folder, Clear} = require('..');
-tape('lib test', async ({end}) => {end();});
 //
 const { execSync } = require('child_process');
 const { existsSync } = require('fs');

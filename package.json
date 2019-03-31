@@ -6,7 +6,6 @@
   },
   "version": "0.0.2",
   "description": "",
-  "main": "./dist/lib/index.js",
   "bin": {
     "fileable": "./dist/cli/fileable.js"
   },
@@ -18,14 +17,14 @@
     "jsdoc-md": "jsdoc-md",
     "lint-no-fix": "tslint --project src",
     "lint": "npm run lint-no-fix -- --fix",
-    "build-lib-cli": "rollup --silent --config config/rollup.config.js",
+    "build-cli": "rollup --silent --config config/rollup.config.js",
     "build-js-docs": "sh ./scripts/build-js-docs.sh",
     "build-docs": "npm run build-js-docs && cat ./static/docs/main.md ./dist/temp/api.md ./static/docs/todo.md > ./readme.md",
-    "build": "npm run lint && npm run build-lib-cli && npm run build-docs",
+    "build": "npm run lint && npm run build-cli && npm run build-docs",
     "test-no-build": "node test/index.js",
-    "test": "npm run build-lib-cli && npm run test-no-build",
+    "test": "npm run build-cli && npm run test-no-build",
     "demo-no-build": "node test/demo-human-input.js",
-    "demo": "npm run build-lib-cli && npm run demo-no-build",
+    "demo": "npm run build-cli && npm run demo-no-build",
     "add-built": "git add dist/ && git add src/ && git add readme.md"
   },
   "pre-commit": [
