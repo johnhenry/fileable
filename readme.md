@@ -325,8 +325,7 @@ For remote files, DO NOT import of fileable components (File, Folder, Clear), bu
 
 ```javascript
 import React, {Fragment} from 'react';
-export default
-
+export default ()=><File>...
 ```
 
 ## API -- Application
@@ -475,3 +474,4 @@ Render to File System
 - Handle newline trickiness
     - inability to insert new lines easily
     - must manually add "{'\n'}" or enclose entirely witin backticks ("'``'")
+- Eventually, get remote files working with using dynamic imports

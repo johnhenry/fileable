@@ -149,7 +149,7 @@ var renderConsole = async (template, {
     folder_context = defaultOptions$1.folder_context,
     template_context = defaultOptions$1.template_context
     } = defaultOptions$1) => {
-    for await (const output of iterator(template(), {
+    for await (const output of iterator(template, {
         folder_context,
         template_context
     })) {
