@@ -115,7 +115,7 @@ function () {
 
           case 15:
             text = _context.sent;
-            fs__default.writeFileSync(remoteTemplate, "import { File, Clear, Folder } from '../../';\n".concat(text));
+            fs__default.writeFileSync(remoteTemplate, text);
 
           case 17:
             if (!remoteInput) {

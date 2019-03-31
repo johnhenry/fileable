@@ -1,5 +1,5 @@
 import React, { Fragment, Component } from "react";
-import { File, Clear, Folder } from "../../";
+import { File, Clear, Folder } from "fileable-components";
 
 const HEAD = class extends Component {
   render() {

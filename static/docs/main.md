@@ -13,7 +13,7 @@ Fileable can render [functional components](https://reactjs.org/docs/components-
 The File component represents a file.
 
 ```javascript
-import {File} from 'fileable';
+import {File} from 'fileable-components';
 const template = ()=><File name='readme.md'>
 # This is a sample file.
 </File>
@@ -200,7 +200,7 @@ const template = ()=> <File name="index.html">
 The Folder component represents a Folder;
 
 ```javascript
-import {Folder} from 'fileable';
+import {Folder} from 'fileable-components';
 const template = ()=><Folder name='project/'/>
 ```
 
@@ -245,7 +245,7 @@ const template = ()=><Folder name='project' zip extension='.zip'>
 Wrapping components within a Clear component removes __every single file__ from the given folder context before writing.
 
 ```javascript
-import {Clear} from 'fileable';
+import {Clear} from 'fileable-components';
 const template = ()=><Clear><File name='empty_file' /></Clear>;
 ```
 

@@ -47,8 +47,7 @@ export const handler = async ({
         if (remoteTemplate) {
             const response = await fetch(template);
             const text = await response.text();
-            fs.writeFileSync(remoteTemplate, `import { File, Clear, Folder } from '../../';
-${text}`);
+            fs.writeFileSync(remoteTemplate, text);
         }
         if (remoteInput) {
             const response = await fetch(input);
