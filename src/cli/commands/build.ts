@@ -86,24 +86,24 @@ main();
             stdio: 'inherit'
         });
         ps.on('close', function () {
-            fs.unlinkSync(tempname);
-            if (remoteTemplate) {
-                fs.unlinkSync(remoteTemplate);
-            }
-            if (remoteInput) {
-                fs.unlinkSync(remoteInput);
-            }
+            // fs.unlinkSync(tempname);
+            // if (remoteTemplate) {
+            //     fs.unlinkSync(remoteTemplate);
+            // }
+            // if (remoteInput) {
+            //     fs.unlinkSync(remoteInput);
+            // }
         });
     } catch (error) {
-        if (fs.existsSync(tempname)) {
-            fs.unlinkSync(tempname);
-        }
-        if (remoteTemplate && fs.existsSync(remoteTemplate)) {
-            fs.unlinkSync(remoteTemplate);
-        }
-        if (remoteInput && fs.existsSync(remoteInput)) {
-            fs.unlinkSync(remoteInput);
-        }
+        // if (fs.existsSync(tempname)) {
+        //     fs.unlinkSync(tempname);
+        // }
+        // if (remoteTemplate && fs.existsSync(remoteTemplate)) {
+        //     fs.unlinkSync(remoteTemplate);
+        // }
+        // if (remoteInput && fs.existsSync(remoteInput)) {
+        //     fs.unlinkSync(remoteInput);
+        // }
         throw error;
     }
 };

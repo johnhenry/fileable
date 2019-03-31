@@ -158,39 +158,23 @@ function () {
             ps = child_process.spawn(array.shift(), array, {
               stdio: 'inherit'
             });
-            ps.on('close', function () {
-              fs__default.unlinkSync(tempname);
-
-              if (remoteTemplate) {
-                fs__default.unlinkSync(remoteTemplate);
-              }
-
-              if (remoteInput) {
-                fs__default.unlinkSync(remoteInput);
-              }
+            ps.on('close', function () {// fs.unlinkSync(tempname);
+              // if (remoteTemplate) {
+              //     fs.unlinkSync(remoteTemplate);
+              // }
+              // if (remoteInput) {
+              //     fs.unlinkSync(remoteInput);
+              // }
             });
-            _context.next = 40;
+            _context.next = 37;
             break;
 
           case 34:
             _context.prev = 34;
             _context.t0 = _context["catch"](2);
-
-            if (fs__default.existsSync(tempname)) {
-              fs__default.unlinkSync(tempname);
-            }
-
-            if (remoteTemplate && fs__default.existsSync(remoteTemplate)) {
-              fs__default.unlinkSync(remoteTemplate);
-            }
-
-            if (remoteInput && fs__default.existsSync(remoteInput)) {
-              fs__default.unlinkSync(remoteInput);
-            }
-
             throw _context.t0;
 
-          case 40:
+          case 37:
           case "end":
             return _context.stop();
         }
