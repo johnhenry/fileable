@@ -563,9 +563,9 @@ const getFileContentIterator = async function* (
     };
 };
 
-exports.iterator = iterator;
-exports.renderFS = renderFs;
-exports.renderConsole = renderConsole;
+exports.Clear = Clear;
 exports.File = File;
 exports.Folder = Folder;
-exports.Clear = Clear;
+exports.iterator = iterator;
+exports.renderConsole = renderConsole;
+exports.renderFS = renderFs;
