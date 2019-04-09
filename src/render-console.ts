@@ -1,6 +1,6 @@
 import iterator from './iterator.ts';
 const defaultOptions = {
-    folder_context: [],
+    folder_context: '',
     template_context:''
 };
 
@@ -13,7 +13,7 @@ const defaultOptions = {
 * ```javascript
 * import {renderConsole} from 'fileable';
 * const main = async () =>
-* renderConsole(template(), { folder_context: [directory] });
+* renderConsole(template(), { folder_context: directory });
 * main();
 * ```
 */

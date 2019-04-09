@@ -4,18 +4,15 @@ import fs from 'fs';
 import crypto from 'crypto';
 import path from 'path';
 import rimraf from 'rimraf';
-import {promisify} from 'util';
+import { promisify } from 'util';
+import { glob } from 'glob';
 const rmdir = promisify(rimraf);
-
-const hashContent = (content, algorithm = 'sha256', digestType = 'hex') => {
-    const hash = crypto.createHash(algorithm);
-    hash.update(content);
-    return hash.digest(digest);
-};
+const findFiles = promisify(glob);
 
 const defaultOptions = {
-    folder_context: [],
-    template_context: ''
+    folder_context: '',
+    template_context: undefined,
+    cache:undefined
 };
 
 /**
@@ -31,48 +28,78 @@ const defaultOptions = {
 * main();
 * ```
 */
+
 export default async (template,
     {
         folder_context = defaultOptions.folder_context,
         template_context = defaultOptions.template_context,
-        cache
-    } = defalutOptions) => {
-    let hashMap;
-    if (cache) {
-        hashMap = new CacheMap(cache);
-    }
-
+        cache = defaultOptions.cache
+    } = defaultOptions) => {
     try {
         for await (const {
-            clear,
-            folder,
-            file,
+            directive,
+            target,
+            name,
+            append,
             content,
             folder_context,
-            } of
-            iterator(template, {folder_context, template_context})
+            mode
+        } of
+            iterator(template, { folder_context, template_context })
         ) {
-            const resumes = [];
-            if (file) {
-                const folderPath = path.join(...folder_context);
-                if (!fs.existsSync(folderPath)) {
-                    fs.mkdirSync(folderPath, {recursive:true});
+            switch (directive) {
+                case 'FILE': {
+                    const folderPath = path.join(folder_context);
+                    if (!fs.existsSync(folderPath)) {
+                        fs.mkdirSync(folderPath, { recursive: true });
+                    }
+                    const fileName = path.join(folderPath, name);
+                    if (append) {
+                        fs.appendFileSync(fileName, content, { mode });
+                    } else {
+                        fs.writeFileSync(fileName, content, { mode });
+                    }
+                } break;
+                case 'FOLDER': {
+                    const folderPath = path.join(folder_context, name);
+                    if (!fs.existsSync(folderPath)) {
+                        fs.mkdirSync(folderPath, { recursive: true });
+                    }
+                } break;
+                case 'CLEAR': {
+                    if (target) {
+                        let files;
+                        if (target[0] !== '!' ) {
+                            files = await findFiles(path.join(folder_context, target));
+                        } else {
+                            files = await findFiles(path.join(folder_context, '**'), { ignore: target.substring(1) });
+                        }
+                        for (const file of files) {
+                            if (fs.lstatSync(file).isDirectory()) {
+                                continue;
+                            }
+                            fs.unlinkSync(file);
+                        }
+                    } else {
+                        const folderPath = path.join(folder_context, target);
+                        fs.existsSync(folderPath);
+                        if (fs.existsSync(folderPath)) {
+                            await rmdir(folderPath);
+                        }
+                    }
+                } break;
+                default: {
+                    console.log({
+                        directive,
+                        target,
+                        name,
+                        append,
+                        content,
+                        folder_context,
+                        mode
+                    });
                 }
-                fs.writeFileSync(path.join(...folder_context, file), content);
             }
-            if (folder) {
-                const folderPath = path.join(...folder_context, folder);
-                if (!fs.existsSync(folderPath)) {
-                    fs.mkdirSync(folderPath, {recursive:true});
-                }
-            }
-            if (clear) {
-                const folderPath = path.join(...folder_context, clear);
-                if (fs.existsSync(folderPath)) {
-                    await rmdir(folderPath);
-                }
-            }
-            // hashMap.set(name, newHash);
         }
     } catch (e) {
         console.log(e);

@@ -92,10 +92,12 @@ function _nonIterableRest() {
 }
 
 var node = path.join(__dirname, '../../node_modules/@babel/node/bin/babel-node.js --presets @babel/preset-react,@babel/preset-env ');
+var CURRENT_RAND = Math.random();
+var RAND_INDEX = 0;
 
 var tempFileName = function tempFileName(parentDirectory) {
   var suffix = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
-  return path.join(parentDirectory, "".concat(Math.random(), ".temp").concat(suffix));
+  return path.join(parentDirectory, "".concat(CURRENT_RAND, "_").concat(RAND_INDEX++, ".temp").concat(suffix));
 };
 
 var regexp = /[^\s"]+|"([^"]*)"/gi;
@@ -108,7 +110,7 @@ var localizer = function localizer(path$1) {
 };
 
 var command = 'build <template> <destination>';
-var describe = 'Build a file tree from template into destination directory';
+var describe = 'Build a file tree from template into destination directory.';
 var builder = {
   test: {
     type: 'boolean',
@@ -196,7 +198,7 @@ function () {
             }
 
           case 31:
-            file = "import template from '".concat(remoteTemplate, "';\nimport {render").concat(test ? 'Console' : 'FS', " as render} from \"../../dist/lib/index.js\";\n").concat(remoteInput ? "import args from \"".concat(remoteInput, "\";") : '', "\nconst main = async()=>{\n").concat(remoteInput ? "const input = [];\nfor await(const arg of args){\n    input.push(arg);\n}\n" : '', "\nrender(await template(").concat(remoteInput ? '... input' : '', "), {folder_context:['").concat(destination, "'], template_context:'").concat(template_context, "'});\n}\nmain();\n// ");
+            file = "import template from '".concat(remoteTemplate, "';\nimport {render").concat(test ? 'Console' : 'FS', " as render} from \"../../dist/lib/index.js\";\n").concat(remoteInput ? "import args from \"".concat(remoteInput, "\";") : '', "\nconst main = async()=>{\n").concat(remoteInput ? "const input = [];\nfor await(const arg of args){\n    input.push(arg);\n}\n" : '', "\nrender(await template(").concat(remoteInput ? '... input' : '', "), {folder_context:'").concat(destination, "', template_context:'").concat(template_context, "'});\n}\nmain();\n// ");
             fs.writeFileSync(tempname, file);
             array = [];
 
@@ -266,7 +268,7 @@ var build = /*#__PURE__*/Object.freeze({
 });
 
 var command$1 = 'dependencies';
-var describe$1 = 'List dependencies';
+var describe$1 = 'List dependencies.';
 var builder$1 = {};
 var handler$1 =
 /*#__PURE__*/
@@ -349,7 +351,7 @@ var install = /*#__PURE__*/Object.freeze({
 });
 
 var command$3 = 'uninstall <name>';
-var describe$3 = 'Install dependency';
+var describe$3 = 'Uninstall dependency';
 var builder$3 = {};
 var handler$3 =
 /*#__PURE__*/
@@ -363,12 +365,13 @@ function () {
         switch (_context.prev = _context.next) {
           case 0:
             name = _ref.name;
-            return _context.abrupt("return", child_process.spawn('npm', ['uninstall', '--prefix', path.join(__dirname, '../../'), name], {
+            console.log('BE CAREFUL WHEN UNINSTALLING PACKAGES!!!');
+            child_process.spawn('npm', ['uninstall', '--prefix', path.join(__dirname, '../../'), name], {
               stdio: 'inherit' // cwd: join(__dirname, '../../')
 
-            }));
+            });
 
-          case 2:
+          case 3:
           case "end":
             return _context.stop();
         }
@@ -388,6 +391,71 @@ var uninstall = /*#__PURE__*/Object.freeze({
   handler: handler$3
 });
 
+var command$4 = 'template <path>';
+var describe$4 = 'Create template from file tree';
+var builder$4 = {
+  interactive: {
+    type: 'boolean',
+    default: false,
+    desc: 'Create template interactively'
+  },
+  binary: {
+    type: 'string',
+    default: true,
+    desc: 'Algroithm used to handle binary files [auto|ask|base64|src|raw|skip]'
+  }
+};
+var handler$4 =
+/*#__PURE__*/
+function () {
+  var _ref2 = _asyncToGenerator(
+  /*#__PURE__*/
+  regeneratorRuntime.mark(function _callee(_ref) {
+    var path, interactive;
+    return regeneratorRuntime.wrap(function _callee$(_context) {
+      while (1) {
+        switch (_context.prev = _context.next) {
+          case 0:
+            path = _ref.path, interactive = _ref.interactive;
+            console.log('NOT IMPLEMENTED!!!');
+
+          case 2:
+          case "end":
+            return _context.stop();
+        }
+      }
+    }, _callee);
+  }));
+
+  return function handler(_x) {
+    return _ref2.apply(this, arguments);
+  };
+}(); // npm run fileable template  --interactive . output.jsx
+// Adding folder 'top'...
+// Folder 'top' added.
+// Adding file 'top/index.html'
+// File 'top/index.html' added.
+// Adding file 'img.png'...
+// File 'img.png' appears to be a binary file. How would you like to handle this?
+// >-encode file as base64
+// - add as src
+// - use raw data
+// - skip
+// Encoding 'img.png' as base 64
+// File 'img.png' added
+// Adding 'index.js'...
+// File 'index.js' added
+// Tree traversed.
+// Writing 'output.jsx'
+// Done.
+
+var template = /*#__PURE__*/Object.freeze({
+  command: command$4,
+  describe: describe$4,
+  builder: builder$4,
+  handler: handler$4
+});
+
 var configPath = findUp.sync(['.fileable', '.fileable.json']);
 var config = configPath ? JSON.parse(fs.readFileSync(configPath)) : {};
-yargs.config(config).command(build).command(dependencies).command(install).command(uninstall).demandCommand().recommendCommands().strict().help().alias('help', 'h').argv;
+yargs.config(config).command(build).command(dependencies).command(install).command(uninstall).command(template).demandCommand().recommendCommands().strict().help().alias('help', 'h').argv;

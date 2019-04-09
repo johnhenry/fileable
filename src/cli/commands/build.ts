@@ -3,7 +3,11 @@ import { join, dirname } from 'path';
 import { spawn } from 'child_process';
 import fetch from 'node-fetch';
 const node = join(__dirname, '../../node_modules/@babel/node/bin/babel-node.js --presets @babel/preset-react,@babel/preset-env ');
-const tempFileName = (parentDirectory, suffix = '') => join(parentDirectory, `${Math.random()}.temp${suffix}`);
+const CURRENT_RAND = Math.random();
+let RAND_INDEX = 0;
+
+const tempFileName = (parentDirectory, suffix = '') => join(parentDirectory, `${CURRENT_RAND}_${RAND_INDEX++}.temp${suffix}`);
+
 const regexp = /[^\s"]+|"([^"]*)"/gi;
 const remoteFileMatch = /^(?:(?:https?)|(?:ftp)):\/\//;
 
@@ -13,7 +17,7 @@ const localizer = (path, defaultPath = undefined) =>
   path ? join(process.cwd(), path) : defaultPath;
 
 export const command = 'build <template> <destination>';
-export const describe = 'Build a file tree from template into destination directory';
+export const describe = 'Build a file tree from template into destination directory.';
 export const builder = {
     test: {
         type: 'boolean',
@@ -73,7 +77,7 @@ for await(const arg of args){
     input.push(arg);
 }
 `: ''}
-render(await template(${remoteInput ? '... input' : ''}), {folder_context:['${destination}'], template_context:'${template_context}'});
+render(await template(${remoteInput ? '... input' : ''}), {folder_context:'${destination}', template_context:'${template_context}'});
 }
 main();
 // `;

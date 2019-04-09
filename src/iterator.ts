@@ -1,4 +1,4 @@
-import {FSCOMPONENTSYMBOL} from 'fileable-components';
+import { FILEABLE_COMPONENT} from 'fileable-components';
 
 /**
  * Iterator
@@ -11,14 +11,16 @@ import {FSCOMPONENTSYMBOL} from 'fileable-components';
  * ```
  */
 const iterator = async function* (element, {
-        folder_context = [],
+        folder_context = '',
         template_context =''
         } = {
-            folder_context: [],
+            folder_context: '',
             template_context:''
     }) {
-    if (element.type && element.type[FSCOMPONENTSYMBOL]) {
-        yield* new element.type({
+
+    if (element.type && element.type[FILEABLE_COMPONENT]) {
+
+        yield* element.type({
             folder_context,
             template_context,
             ...element.props

@@ -26,7 +26,8 @@
     "test": "npm run build-lib-cli && npm run test-no-build",
     "demo-no-build": "node test/demo-human-input.js",
     "demo": "npm run build-lib-cli && npm run demo-no-build",
-    "add-built": "git add dist/ && git add src/ && git add readme.md"
+    "add-built": "git add dist/ && git add src/ && git add readme.md",
+    "t": "npm run fileable -- build ./test/template/file.00.jsx ./dist/temp --no-test"
   },
   "pre-commit": [
     "build-docs",
@@ -43,8 +44,12 @@
     "@babel/preset-env": "7.4.2",
     "@babel/preset-react": "7.0.0",
     "@babel/preset-typescript": "7.3.3",
-    "fileable-components": "0.0.1",
+    "fileable-component-clear": "0.0.2",
+    "fileable-component-file": "0.0.2",
+    "fileable-component-folder": "0.0.2",
+    "fileable-components": "0.0.3",
     "find-up": "3.0.0",
+    "glob": "7.1.3",
     "jsdoc-md": "2.1.0",
     "jszip": "3.2.1",
     "node-fetch": "2.3.0",

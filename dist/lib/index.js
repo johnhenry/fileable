@@ -10,6 +10,7 @@ require('crypto');
 var path = _interopDefault(require('path'));
 var rimraf = _interopDefault(require('rimraf'));
 var util = require('util');
+var glob = require('glob');
 
 /**
  * Iterator
@@ -22,14 +23,16 @@ var util = require('util');
  * ```
  */
 const iterator = async function* (element, {
-        folder_context = [],
+        folder_context = '',
         template_context =''
         } = {
-            folder_context: [],
+            folder_context: '',
             template_context:''
     }) {
-    if (element.type && element.type[fileableComponents.FSCOMPONENTSYMBOL]) {
-        yield* new element.type({
+
+    if (element.type && element.type[fileableComponents.FILEABLE_COMPONENT]) {
+
+        yield* element.type({
             folder_context,
             template_context,
             ...element.props
@@ -51,10 +54,12 @@ const iterator = async function* (element, {
 
 // import CacheMap from './cache-map.ts';
 const rmdir = util.promisify(rimraf);
+const findFiles = util.promisify(glob.glob);
 
 const defaultOptions = {
-    folder_context: [],
-    template_context: ''
+    folder_context: '',
+    template_context: undefined,
+    cache:undefined
 };
 
 /**
@@ -70,47 +75,78 @@ const defaultOptions = {
 * main();
 * ```
 */
+
 var renderFs = async (template,
     {
         folder_context = defaultOptions.folder_context,
         template_context = defaultOptions.template_context,
-        cache
-    } = defalutOptions) => {
-    let hashMap;
-    if (cache) {
-        hashMap = new CacheMap(cache);
-    }
-
+        cache = defaultOptions.cache
+    } = defaultOptions) => {
     try {
         for await (const {
-            clear,
-            folder,
-            file,
+            directive,
+            target,
+            name,
+            append,
             content,
             folder_context,
-            } of
-            iterator(template, {folder_context, template_context})
+            mode
+        } of
+            iterator(template, { folder_context, template_context })
         ) {
-            if (file) {
-                const folderPath = path.join(...folder_context);
-                if (!fs.existsSync(folderPath)) {
-                    fs.mkdirSync(folderPath, {recursive:true});
+            switch (directive) {
+                case 'FILE': {
+                    const folderPath = path.join(folder_context);
+                    if (!fs.existsSync(folderPath)) {
+                        fs.mkdirSync(folderPath, { recursive: true });
+                    }
+                    const fileName = path.join(folderPath, name);
+                    if (append) {
+                        fs.appendFileSync(fileName, content, { mode });
+                    } else {
+                        fs.writeFileSync(fileName, content, { mode });
+                    }
+                } break;
+                case 'FOLDER': {
+                    const folderPath = path.join(folder_context, name);
+                    if (!fs.existsSync(folderPath)) {
+                        fs.mkdirSync(folderPath, { recursive: true });
+                    }
+                } break;
+                case 'CLEAR': {
+                    if (target) {
+                        let files;
+                        if (target[0] !== '!' ) {
+                            files = await findFiles(path.join(folder_context, target));
+                        } else {
+                            files = await findFiles(path.join(folder_context, '**'), { ignore: target.substring(1) });
+                        }
+                        for (const file of files) {
+                            if (fs.lstatSync(file).isDirectory()) {
+                                continue;
+                            }
+                            fs.unlinkSync(file);
+                        }
+                    } else {
+                        const folderPath = path.join(folder_context, target);
+                        fs.existsSync(folderPath);
+                        if (fs.existsSync(folderPath)) {
+                            await rmdir(folderPath);
+                        }
+                    }
+                } break;
+                default: {
+                    console.log({
+                        directive,
+                        target,
+                        name,
+                        append,
+                        content,
+                        folder_context,
+                        mode
+                    });
                 }
-                fs.writeFileSync(path.join(...folder_context, file), content);
             }
-            if (folder) {
-                const folderPath = path.join(...folder_context, folder);
-                if (!fs.existsSync(folderPath)) {
-                    fs.mkdirSync(folderPath, {recursive:true});
-                }
-            }
-            if (clear) {
-                const folderPath = path.join(...folder_context, clear);
-                if (fs.existsSync(folderPath)) {
-                    await rmdir(folderPath);
-                }
-            }
-            // hashMap.set(name, newHash);
         }
     } catch (e) {
         console.log(e);
@@ -120,7 +156,7 @@ var renderFs = async (template,
 };
 
 const defaultOptions$1 = {
-    folder_context: [],
+    folder_context: '',
     template_context:''
 };
 
@@ -133,7 +169,7 @@ const defaultOptions$1 = {
 * ```javascript
 * import {renderConsole} from 'fileable';
 * const main = async () =>
-* renderConsole(template(), { folder_context: [directory] });
+* renderConsole(template(), { folder_context: directory });
 * main();
 * ```
 */

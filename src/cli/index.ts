@@ -9,6 +9,7 @@ import * as build from './commands/build.ts';
 import * as dependencies from './commands/dependencies.ts';
 import * as install from './commands/install.ts';
 import * as uninstall from './commands/uninstall.ts';
+import * as template from './commands/template.ts';
 
 yargs
     .config(config)
@@ -16,6 +17,7 @@ yargs
     .command(dependencies)
     .command(install)
     .command(uninstall)
+    .command(template)
     .demandCommand()
     .recommendCommands()
     .strict()

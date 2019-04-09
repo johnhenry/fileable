@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import {join} from 'path';
+import { join } from 'path';
 export const command = 'install <name>';
 export const describe = 'Install dependency';
 export const builder = {};
