@@ -276,21 +276,20 @@ function () {
   var _ref = _asyncToGenerator(
   /*#__PURE__*/
   regeneratorRuntime.mark(function _callee() {
-    var _require, dependencies, _arr, _i, _arr$_i, name, version;
+    var _require, dependencies, _i, _Object$entries, _Object$entries$_i, name, version;
 
     return regeneratorRuntime.wrap(function _callee$(_context) {
       while (1) {
         switch (_context.prev = _context.next) {
           case 0:
             _require = require('../../package.json'), dependencies = _require.dependencies;
-            _arr = Object.entries(dependencies);
 
-            for (_i = 0; _i < _arr.length; _i++) {
-              _arr$_i = _slicedToArray(_arr[_i], 2), name = _arr$_i[0], version = _arr$_i[1];
+            for (_i = 0, _Object$entries = Object.entries(dependencies); _i < _Object$entries.length; _i++) {
+              _Object$entries$_i = _slicedToArray(_Object$entries[_i], 2), name = _Object$entries$_i[0], version = _Object$entries$_i[1];
               console.log("".concat(name, ": ").concat(version));
             }
 
-          case 3:
+          case 2:
           case "end":
             return _context.stop();
         }

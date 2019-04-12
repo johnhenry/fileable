@@ -58,7 +58,7 @@ const findFiles = util.promisify(glob.glob);
 
 const defaultOptions = {
     folder_context: '',
-    template_context: undefined,
+    template_context: 'undefined',
     cache:undefined
 };
 
@@ -71,7 +71,7 @@ const defaultOptions = {
 * ```javascript
 * import {renderFS} from 'fileable';
 * const main = async () =>
-* renderFS(template(), { folder_context: [directory] });
+* renderFS(template(), { folder_context: directory });
 * main();
 * ```
 */
@@ -79,10 +79,10 @@ const defaultOptions = {
 var renderFs = async (template,
     {
         folder_context = defaultOptions.folder_context,
-        template_context = defaultOptions.template_context,
-        cache = defaultOptions.cache
+        template_context = defaultOptions.template_context
     } = defaultOptions) => {
     try {
+        const context = folder_context;
         for await (const {
             directive,
             target,
@@ -92,7 +92,7 @@ var renderFs = async (template,
             folder_context,
             mode
         } of
-            iterator(template, { folder_context, template_context })
+            iterator(template, { folder_context: context, template_context })
         ) {
             switch (directive) {
                 case 'FILE': {
