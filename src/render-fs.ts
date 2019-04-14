@@ -9,15 +9,18 @@ const rmdir = promisify(rimraf);
 const findFiles = promisify(glob);
 
 /**
-* Render to File System
+* Render file tree to file system
 * @kind function
 * @name renderFS
-* @param {object} input
+* @param {function} input
+* @param {object} options
+* @param {string} options.folder_context - Folder into which files should be renddered
+* @param {string} options.template_context - Location of template. Used to determine relateive
 * @example
 * ```javascript
 * import {renderFS} from 'fileable';
 * const main = async () =>
-* renderFS(template(), { folder_context: directory });
+* renderFS(template, { folder_context: '.' });
 * main();
 * ```
 */
@@ -98,6 +101,6 @@ export default async (template,
     } catch (e) {
         console.log(e);
     } finally {
-        //hashMap.flush();
+
     }
 };

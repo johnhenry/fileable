@@ -4,7 +4,9 @@ import { FILEABLE_COMPONENT} from 'fileable-components';
  * Iterator
  * @kind function
  * @name iterator
- * @param {object} input
+ * @param {object} options
+ * @param {string} options.folder_context - Folder into which files should be renddered
+ * @param {string} options.template_context - Location of template. Used to determine relateive
  * @example
  * ```javascript
  * import {iterator} from 'fileable';

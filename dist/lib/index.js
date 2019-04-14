@@ -15,7 +15,9 @@ var glob = require('glob');
  * Iterator
  * @kind function
  * @name iterator
- * @param {object} input
+ * @param {object} options
+ * @param {string} options.folder_context - Folder into which files should be renddered
+ * @param {string} options.template_context - Location of template. Used to determine relateive
  * @example
  * ```javascript
  * import {iterator} from 'fileable';
@@ -65,15 +67,18 @@ const rmdir = util.promisify(rimraf);
 const findFiles = util.promisify(glob.glob);
 
 /**
-* Render to File System
+* Render file tree to file system
 * @kind function
 * @name renderFS
-* @param {object} input
+* @param {function} input
+* @param {object} options
+* @param {string} options.folder_context - Folder into which files should be renddered
+* @param {string} options.template_context - Location of template. Used to determine relateive
 * @example
 * ```javascript
 * import {renderFS} from 'fileable';
 * const main = async () =>
-* renderFS(template(), { folder_context: directory });
+* renderFS(template, { folder_context: '.' });
 * main();
 * ```
 */
@@ -154,20 +159,23 @@ var renderFs = async (template,
     } catch (e) {
         console.log(e);
     } finally {
-        //hashMap.flush();
+
     }
 };
 
 /**
-* Render to Console
+* Render file tree to console
 * @kind function
 * @name renderConsole
-* @param {object} input
+* @param {function} input
+* @param {object} options
+* @param {string} options.folder_context - Folder into which files should be renddered
+* @param {string} options.template_context - Location of template. Used to determine relateive 'src' attributes
 * @example
 * ```javascript
-* import {renderConsole} from 'fileable';
+* import { renderConsole, iterator } from 'fileable';
 * const main = async () =>
-* renderConsole(template(), { folder_context: directory });
+* renderConsole(template, { folder_context: '.' });
 * main();
 * ```
 */
