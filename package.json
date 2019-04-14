@@ -40,7 +40,7 @@
     "@babel/preset-env": "7.4.2",
     "@babel/preset-react": "7.0.0",
     "@babel/preset-typescript": "7.3.3",
-    "fileable-components": "0.0.4",
+    "fileable-components": "0.0.5",
     "glob": "7.1.3",
     "jsdoc-md": "2.1.0",
     "pre-commit": "1.2.2",
@@ -55,8 +55,8 @@
     "yargs": "13.2.2"
   },
   "devDependencies": {
-    "fileable-component-clear": "0.0.3",
-    "fileable-component-folder": "0.0.4",
-    "fileable-component-file": "0.0.3"
+    "fileable-component-clear": "0.0.4",
+    "fileable-component-folder": "0.0.5",
+    "fileable-component-file": "0.0.5"
   }
 }
