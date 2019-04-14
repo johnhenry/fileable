@@ -31,60 +31,12 @@ npm install global fileable
 
 ### Table of contents
 
-- [function Clear](#function-clear)
-  - [Examples](#examples)
-- [function File](#function-file)
-  - [Examples](#examples-1)
-- [function Folder](#function-folder)
-  - [Examples](#examples-2)
 - [function iterator](#function-iterator)
-  - [Examples](#examples-3)
+  - [Examples](#examples)
 - [function renderConsole](#function-renderconsole)
-  - [Examples](#examples-4)
+  - [Examples](#examples-1)
 - [function renderFS](#function-renderfs)
-  - [Examples](#examples-5)
-
-### function Clear
-
-Clear Component
-
-#### Examples
-
-> ```javascript
->  // template.jsx
->  import {File, Folder, Clear} from 'fileable';
->  export () => <Clear><Folder name='project'><File name='readme.md'/></Folder></Clear>
-> ```
-
-* * *
-
-### function File
-
-File component
-
-#### Examples
-
-> ```javascript
-> // template.jsx
->  import {File} from 'fileable';
->  export () => <File name='readme.md'/>
-> ```
-
-* * *
-
-### function Folder
-
-Folder component
-
-#### Examples
-
-> ```javascript
->  // template.jsx
->  import {File, Folder} from 'fileable';
->  export () => <Folder name='project'><File name='readme.md'/></Folder>
-> ```
-
-* * *
+  - [Examples](#examples-2)
 
 ### function iterator
 
@@ -144,6 +96,7 @@ Render to File System
 - Document newline trickiness
     - inability to insert new lines easily
     - must manually add "{'\n'}" or enclose entirely witin backticks ({"``"})
+    - <File end />
 - Separate docummetation fileable, fileable-components
 - Eventually, get remote files working with using dynamic imports
 - add "reverse-build"
@@ -155,5 +108,5 @@ Render to File System
      - no input + remote templated
      - no input + local templated
 - remote template context
-- extract from fileable-components -> fileable-file, fileable-folder, fileable-clear => fileable-core?
 - generate included versions of components and include in documentation
+- typescript

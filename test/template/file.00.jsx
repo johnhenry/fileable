@@ -1,5 +1,8 @@
 import React, { Fragment } from "react";
 import File from 'fileable-component-file';
+
+const Composed = ({ position=0, ...props }) => <File {...props} name="composed" />
+
 export default async () => <>
     <File></File>
     <File name="empty" />
@@ -17,12 +20,14 @@ export default async () => <>
 - Cheesebread`
     }</File>
     <File name="permission" mode={0o655} />
-    <File name="index.html" >
-    <html>
-
-    </html>
+    <File name="index.html">
+        <html>
+            <svg width="400" height="110">
+                <rect width="300" height="100" style={{ fill: "rgb(0,0,255);stroke-width:3;stroke:rgb(0,0,0)" }} />
+            </svg>
+        </html>
     </File>
-    <File name="index-doctype.html" doctype="html">
+    <File name="index-doctype.html" doctype="html" >
         <html>
 
         </html>
@@ -30,6 +35,11 @@ export default async () => <>
     <File name="double" transform={(buff) => Buffer.concat([buff, buff])} >Hello</File>
     <File name="doubleps" transform={(buff) => Buffer.concat([buff, buff])} >Hello<File ps>Goodbye</File></File>
     <File name='doubleclone'>World<File clone /></File>;
+    <Composed />
+    <File name='append' >0</File>;
+    <File name='append' append >1</File>;
+    <File name='end' end >1</File>;
+
     {/* <File name='a.txt' end>
         hello{'\n'}
         <File clone ps='there' name='b.txt'/>

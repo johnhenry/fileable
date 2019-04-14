@@ -1,19 +1,12 @@
 // import CacheMap from './cache-map.ts';
 import iterator from './iterator.ts';
 import fs from 'fs';
-import crypto from 'crypto';
 import path from 'path';
 import rimraf from 'rimraf';
 import { promisify } from 'util';
 import { glob } from 'glob';
 const rmdir = promisify(rimraf);
 const findFiles = promisify(glob);
-
-const defaultOptions = {
-    folder_context: '',
-    template_context: 'undefined',
-    cache:undefined
-};
 
 /**
 * Render to File System
@@ -31,9 +24,10 @@ const defaultOptions = {
 
 export default async (template,
     {
-        folder_context = defaultOptions.folder_context,
-        template_context = defaultOptions.template_context
-    } = defaultOptions) => {
+        folder_context = '',
+        template_context = ''
+    } ) => {
+
     try {
         const context = folder_context;
         for await (const {

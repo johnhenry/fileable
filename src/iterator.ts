@@ -17,7 +17,7 @@ const iterator = async function* (element, {
             folder_context: '',
             template_context:''
     }) {
-
+    element = await element;
     if (element.type && element.type[FILEABLE_COMPONENT]) {
         yield* element.type({
             folder_context,
@@ -39,10 +39,12 @@ const iterator = async function* (element, {
     } else {
         if (typeof element.type === 'function') {
             yield* iterator(element.type({
-                folder_context,
-                template_context,
                 ...element.props
-            }));
+            }), {folder_context, template_context});
+        }else if (typeof element === 'function') {
+            yield* iterator(element({
+                ...element.props
+            }), { folder_context, template_context });
         }
     }
 };

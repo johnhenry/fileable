@@ -6,7 +6,6 @@ function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'defau
 
 var fileableComponents = require('fileable-components');
 var fs = _interopDefault(require('fs'));
-require('crypto');
 var path = _interopDefault(require('path'));
 var rimraf = _interopDefault(require('rimraf'));
 var util = require('util');
@@ -29,7 +28,7 @@ const iterator = async function* (element, {
             folder_context: '',
             template_context:''
     }) {
-
+    element = await element;
     if (element.type && element.type[fileableComponents.FILEABLE_COMPONENT]) {
         yield* element.type({
             folder_context,
@@ -51,10 +50,12 @@ const iterator = async function* (element, {
     } else {
         if (typeof element.type === 'function') {
             yield* iterator(element.type({
-                folder_context,
-                template_context,
                 ...element.props
-            }));
+            }), {folder_context, template_context});
+        }else if (typeof element === 'function') {
+            yield* iterator(element({
+                ...element.props
+            }), { folder_context, template_context });
         }
     }
 };
@@ -62,12 +63,6 @@ const iterator = async function* (element, {
 // import CacheMap from './cache-map.ts';
 const rmdir = util.promisify(rimraf);
 const findFiles = util.promisify(glob.glob);
-
-const defaultOptions = {
-    folder_context: '',
-    template_context: 'undefined',
-    cache:undefined
-};
 
 /**
 * Render to File System
@@ -85,9 +80,10 @@ const defaultOptions = {
 
 var renderFs = async (template,
     {
-        folder_context = defaultOptions.folder_context,
-        template_context = defaultOptions.template_context
-    } = defaultOptions) => {
+        folder_context = '',
+        template_context = ''
+    } ) => {
+
     try {
         const context = folder_context;
         for await (const {
@@ -162,11 +158,6 @@ var renderFs = async (template,
     }
 };
 
-const defaultOptions$1 = {
-    folder_context: '',
-    template_context:''
-};
-
 /**
 * Render to Console
 * @kind function
@@ -181,9 +172,9 @@ const defaultOptions$1 = {
 * ```
 */
 var renderConsole = async (template, {
-    folder_context = defaultOptions$1.folder_context,
-    template_context = defaultOptions$1.template_context
-    } = defaultOptions$1) => {
+    folder_context = '',
+    template_context = ''
+}) => {
     for await (const output of iterator(template, {
         folder_context,
         template_context

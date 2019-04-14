@@ -22,7 +22,7 @@
     "build-js-docs": "sh ./scripts/build-js-docs.sh",
     "build-docs": "npm run build-js-docs && cat ./static/docs/main.md ./dist/temp/api.md ./static/docs/todo.md > ./readme.md",
     "build": "npm run lint && npm run build-lib-cli && npm run build-docs",
-    "test-no-build": "node test/index.js",
+    "test-no-build": "./node_modules/@babel/node/bin/babel-node.js --presets @babel/preset-react,@babel/preset-env test/index.js",
     "test": "npm run build-lib-cli && npm run test-no-build",
     "demo-no-build": "node test/demo-human-input.js",
     "demo": "npm run build-lib-cli && npm run demo-no-build",
@@ -43,6 +43,8 @@
     "@babel/preset-env": "7.4.2",
     "@babel/preset-react": "7.0.0",
     "@babel/preset-typescript": "7.3.3",
+    "fileable-component-clear": "0.0.2",
+    "fileable-component-folder": "0.0.3",
     "fileable-components": "0.0.3",
     "find-up": "3.0.0",
     "glob": "7.1.3",
@@ -61,5 +63,7 @@
     "typescript": "3.4.1",
     "yargs": "13.2.2"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "fileable-component-file": "0.0.3"
+  }
 }
