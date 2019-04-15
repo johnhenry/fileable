@@ -1,5 +1,3 @@
-import { FILEABLE_COMPONENT} from 'fileable-components';
-
 /**
  * Iterator
  * @kind function
@@ -26,7 +24,7 @@ const iterator = async function* (element, {
             template_context:''
     }) {
     element = await element;
-    if (element.type && element.type[FILEABLE_COMPONENT]) {
+    if (element.type && element.type['FILEABLE COMPONENT']) {
         yield* element.type({
             folder_context,
             template_context,

@@ -4,7 +4,6 @@ Object.defineProperty(exports, '__esModule', { value: true });
 
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-var fileableComponents = require('fileable-components');
 var fs = _interopDefault(require('fs'));
 var path = _interopDefault(require('path'));
 var rimraf = _interopDefault(require('rimraf'));
@@ -37,7 +36,7 @@ const iterator = async function* (element, {
             template_context:''
     }) {
     element = await element;
-    if (element.type && element.type[fileableComponents.FILEABLE_COMPONENT]) {
+    if (element.type && element.type['FILEABLE COMPONENT']) {
         yield* element.type({
             folder_context,
             template_context,
