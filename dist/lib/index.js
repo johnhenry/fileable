@@ -14,13 +14,19 @@ var glob = require('glob');
 /**
  * Iterator
  * @kind function
+ * @description
  * @name iterator
  * @param {object} options
- * @param {string} options.folder_context - Folder into which files should be renddered
- * @param {string} options.template_context - Location of template. Used to determine relateive
+ * @param {string} options.folder_context - Folder into which files should be rendered.
+ * @param {string} options.template_context - Location of template. Used to determine relative relative paths of certain attributes.
  * @example
  * ```javascript
  * import {iterator} from 'fileable';
+ * const main = async ()=>{
+ *  for await(const output of iterator(template, {})){
+ *    console.log(output);
+ *  }
+ * }
  * ```
  */
 const iterator = async function* (element, {

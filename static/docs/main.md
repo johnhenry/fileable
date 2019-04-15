@@ -4,7 +4,7 @@
 
 Render a file tree using a JSX template.
 
-Inspired by [React FS Renderer](https://github.com/ericvicenti/react-fs-renderer)
+Inspired by [React FS Renderer](https://github.com/ericvicenti/react-fs-renderer).
 
 For the command line application, see [fileable-cli](https://github.com/johnhenry/fileable-cli)
 
@@ -19,30 +19,36 @@ npm install fileable
 ## Bacis Usage
 
 ```javascript
-import {renderFS} from 'fileable';
+import { renderConsole, renderFS } from 'fileable';
 import template from './path/to/sample-template.jsx';
-const template_context = './path/to/';
-const folder_context = './destination'
-renderFS(template, { folder_context, template_context});
+const options = {
+ template_context:'./path/to/',
+ folder_context: './destination'
+};
+renderConsole(template, options);
+renderFS(template, options);
 ```
-
-Usage is similar for 'renderConsole';
 
 ### Templates Files
 
 Templates are jsx files. The default export will be used to generate a file tree.
 (Note: You must always include a reference to 'React');
+
 ```javascript
-import React from 'react';
+import React, {Fragment} from 'react';
 export default ()=><></>;
 ```
 
 #### Components
 
-By default, the [React.Fragment]() is available, but
+By default, [React.Fragments](https://reactjs.org/docs/fragments.html) are available and other components may be imported if installed locally.
+
+```sh
+npm install fileable-component-file fileable-component-folder fileable-component-clear
+```
 
 ```javascript
-import React from 'react';
+import React, {Fragment} from 'react';
 import File from 'fileable-component-file';
 import Folder from 'fileable-component-folder';
 import Clear from 'fileable-component-clear';
@@ -69,9 +75,7 @@ export default ()=><>
 </>
 ```
 
-See [fileable-components](https://github.com/johnhenry/fileable-components) for a list of components  and to learn how to build your own.
-
-Note: components are composable and extentable.
+Components cand be composed and extended.
 
 ```javascript
 import React from 'react';
@@ -89,6 +93,8 @@ export default ()=><>
 </>
 ```
 
+See [fileable-components](https://github.com/johnhenry/fileable-components) for a list of components  and to learn how to build your own.
+
 #### Inputs
 
 If the template would accept inputs, you may pass them into the template as a function arguments;
@@ -104,15 +110,3 @@ const template_context = './path/to/';
 const folder_context = './destination';
 renderFS(template('first', 'second', 'third'), { folder_context, template_context});
 ```
-
-## API
-
-### renderFS
-
-Renders file tree to file system.
-
-### renderConsole
-
-Renders file tree to console
-
-### iterator
