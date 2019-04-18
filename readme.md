@@ -6,10 +6,6 @@ Render a file tree using a JSX template.
 
 Inspired by [React FS Renderer](https://github.com/ericvicenti/react-fs-renderer).
 
-For the command line application, see [fileable-cli](https://github.com/johnhenry/fileable-cli)
-
-
-
 ## Related Projects
 
 ### CLI
@@ -136,7 +132,7 @@ Fileable components must yield objects containing a 'directive' key -- along wit
 
 ### directive: FILE
 
-The FILE is used to create files.
+The FILE directive is used to create files.
 
 See the above File component for an example.
 
@@ -162,7 +158,7 @@ Context in which to create file.
 
 ### Directive: FOLDER
 
-The FOLDER is used to create folders.
+The FOLDER directive is used to create folders.
 
 See the above Folder component for an example.
 
@@ -176,7 +172,7 @@ Context in which to create folder.
 
 ### Directive: CLEAR
 
-The CLEAR is used to delete files and folders.
+The CLEAR directive is used to delete files and folders.
 
 See the above Clear component for an example.
 
@@ -185,6 +181,26 @@ See the above Clear component for an example.
 String representing files or folders to delete.
 May be a [glob](https://github.com/isaacs/node-glob) pattern.
 May use '!' to negate files.
+
+
+### Directive: WARNING
+
+The WARNING directive is used to denote that something went wrong but the process will continue.
+
+#### key: message
+
+Message explaining what went wrong.
+
+
+### Directive: ERROR
+
+The ERROR directive is used to denote that something went wrong but the process will continue.
+
+
+#### key: message
+
+Message explaining what went wrong.
+
 
 #### key: folder_context
 
@@ -344,3 +360,4 @@ Render file tree to file system
      - local input + local templated
      - no input + remote templated
      - no input + local templated
+- create template component

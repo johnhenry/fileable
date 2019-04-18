@@ -91,7 +91,10 @@ const findFiles = util.promisify(glob.glob);
 var renderFs = async (template,
     {
         folder_context = '',
-        template_context = ''
+        template_context = '',
+        ignoreWarning = false,
+        ignoreError = false,
+        dieOnWarning = false,
     } ) => {
 
     try {
@@ -103,7 +106,8 @@ var renderFs = async (template,
             append,
             content,
             folder_context,
-            mode
+            mode,
+            message
         } of
             iterator(template, { folder_context: context, template_context })
         ) {
@@ -146,6 +150,20 @@ var renderFs = async (template,
                         if (fs.existsSync(folderPath)) {
                             await rmdir(folderPath);
                         }
+                    }
+                } break;
+                case 'WARNING': {
+                    if (!ignoreWarning) {
+                        console.log(message);
+                        if (dieOnWarning) {
+                            throw new Error(message);
+                        }
+                    }
+                } break;
+                case 'ERROR': {
+                    if (!ignoreError) {
+                        console.log(message);
+                        throw new Error(message);
                     }
                 } break;
                 default: {

@@ -28,7 +28,10 @@ const findFiles = promisify(glob);
 export default async (template,
     {
         folder_context = '',
-        template_context = ''
+        template_context = '',
+        ignoreWarning = false,
+        ignoreError = false,
+        dieOnWarning = false,
     } ) => {
 
     try {
@@ -40,7 +43,8 @@ export default async (template,
             append,
             content,
             folder_context,
-            mode
+            mode,
+            message
         } of
             iterator(template, { folder_context: context, template_context })
         ) {
@@ -83,6 +87,20 @@ export default async (template,
                         if (fs.existsSync(folderPath)) {
                             await rmdir(folderPath);
                         }
+                    }
+                } break;
+                case 'WARNING': {
+                    if (!ignoreWarning) {
+                        console.log(message);
+                        if (dieOnWarning) {
+                            throw new Error(message);
+                        }
+                    }
+                } break;
+                case 'ERROR': {
+                    if (!ignoreError) {
+                        console.log(message);
+                        throw new Error(message);
                     }
                 } break;
                 default: {

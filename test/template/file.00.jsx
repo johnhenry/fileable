@@ -1,7 +1,20 @@
 import React, { Fragment } from "react";
 import File from 'fileable-component-file';
+import { ok } from "assert";
 
-const Composed = ({ position=0, ...props }) => <File {...props} name="composed" />
+const Composed = ({ position = 0, ...props }) => <File {...props} name="composed" >{props.children}</File>
+
+const N = ({ name, length, ...props }) => {
+    const files = [];
+    for (let i = 0; i < parseInt(length); i++){
+        files.push(
+            <File {...props} name={`${name}${i}`} key={i}>
+                {i}{':\n'}{ props.children }
+        </File >);
+    }
+    return <>{files}</>;
+}
+
 
 export default async () => <>
     <File></File>
@@ -27,7 +40,7 @@ export default async () => <>
             </svg>
         </html>
     </File>
-    <File name="index-doctype.html" doctype="html" >
+    <File name="index-doctype.html" sgmldoctype="html" >
         <html>
 
         </html>
@@ -35,11 +48,11 @@ export default async () => <>
     <File name="double" transform={(buff) => Buffer.concat([buff, buff])} >Hello</File>
     <File name="doubleps" transform={(buff) => Buffer.concat([buff, buff])} >Hello<File ps>Goodbye</File></File>
     <File name='doubleclone'>World<File clone /></File>;
-    <Composed />
+    <Composed >Hello</Composed>
     <File name='append' >0</File>;
     <File name='append' append >1</File>;
     <File name='end' end >1</File>;
-
+    <N length='3' name='multi-' >Hi</N>
     {/* <File name='a.txt' end>
         hello{'\n'}
         <File clone ps='there' name='b.txt'/>

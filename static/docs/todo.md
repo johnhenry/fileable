@@ -10,3 +10,4 @@
      - local input + local templated
      - no input + remote templated
      - no input + local templated
+- create template component
