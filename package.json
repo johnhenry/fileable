@@ -26,8 +26,8 @@
     "add-built": "git add dist/ && git add src/ && git add readme.md"
   },
   "pre-commit": [
-    "build-docs",
     "test",
+    "build-docs",
     "add-built"
   ],
   "keywords": [],
@@ -55,7 +55,7 @@
   },
   "devDependencies": {
     "fileable-component-clear": "0.0.5",
-    "fileable-component-file": "0.0.7",
+    "fileable-component-file": "0.0.8",
     "fileable-component-folder": "0.0.6",
     "testafile": "0.0.1"
   }
