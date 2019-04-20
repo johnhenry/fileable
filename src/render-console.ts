@@ -1,4 +1,4 @@
-import iterator from './iterator.ts';
+import iterator from 'fileable-iterator';
 
 /**
 * Render file tree to console

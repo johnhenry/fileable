@@ -1,5 +1,5 @@
 // import CacheMap from './cache-map.ts';
-import iterator from './iterator.ts';
+import iterator from 'fileable-iterator';
 import fs from 'fs';
 import path from 'path';
 import rimraf from 'rimraf';

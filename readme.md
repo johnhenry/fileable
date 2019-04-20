@@ -277,35 +277,10 @@ Context in which to delete targets.
 
 ### Table of contents
 
-- [function iterator](#function-iterator)
-  - [Examples](#examples)
 - [function renderConsole](#function-renderconsole)
-  - [Examples](#examples-1)
+  - [Examples](#examples)
 - [function renderFS](#function-renderfs)
-  - [Examples](#examples-2)
-
-### function iterator
-
-Iterator
-
-| Parameter                  | Type   | Description                                                                            |
-| :------------------------- | :----- | :------------------------------------------------------------------------------------- |
-| `options`                  | object |                                                                                        |
-| `options.folder_context`   | string | Folder into which files should be rendered.                                            |
-| `options.template_context` | string | Location of template. Used to determine relative relative paths of certain attributes. |
-
-#### Examples
-
-> ```javascript
-> import {iterator} from 'fileable';
-> const main = async ()=>{
->  for await(const output of iterator(template, {})){
->    console.log(output);
->  }
-> }
-> ```
-
-* * *
+  - [Examples](#examples-1)
 
 ### function renderConsole
 

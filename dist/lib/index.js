@@ -4,68 +4,12 @@ Object.defineProperty(exports, '__esModule', { value: true });
 
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
+var iterator = _interopDefault(require('fileable-iterator'));
 var fs = _interopDefault(require('fs'));
 var path = _interopDefault(require('path'));
 var rimraf = _interopDefault(require('rimraf'));
 var util = require('util');
 var glob = require('glob');
-
-/**
- * Iterator
- * @kind function
- * @description
- * @name iterator
- * @param {object} options
- * @param {string} options.folder_context - Folder into which files should be rendered.
- * @param {string} options.template_context - Location of template. Used to determine relative relative paths of certain attributes.
- * @example
- * ```javascript
- * import {iterator} from 'fileable';
- * const main = async ()=>{
- *  for await(const output of iterator(template, {})){
- *    console.log(output);
- *  }
- * }
- * ```
- */
-const iterator = async function* (element, {
-        folder_context = '',
-        template_context =''
-        } = {
-            folder_context: '',
-            template_context:''
-    }) {
-    element = await element;
-    if (element.type && element.type['FILEABLE COMPONENT']) {
-        yield* element.type({
-            folder_context,
-            template_context,
-            ...element.props
-        });
-    } else if (element.type === Symbol.for('react.fragment')) {
-        const children = Array.isArray(element.props.children)
-            ? element.props.children
-            : element.props.children
-            ? [element.props.children]
-            : [];
-        for (const child of children) {
-            yield* iterator(child, {
-                folder_context,
-                template_context
-            });
-        }
-    } else {
-        if (typeof element.type === 'function') {
-            yield* iterator(element.type({
-                ...element.props
-            }), {folder_context, template_context});
-        }else if (typeof element === 'function') {
-            yield* iterator(element({
-                ...element.props
-            }), { folder_context, template_context });
-        }
-    }
-};
 
 // import CacheMap from './cache-map.ts';
 const rmdir = util.promisify(rimraf);
@@ -214,6 +158,5 @@ var renderConsole = async (template, {
     }
 };
 
-exports.iterator = iterator;
 exports.renderConsole = renderConsole;
 exports.renderFS = renderFs;
