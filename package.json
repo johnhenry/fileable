@@ -55,7 +55,7 @@
   },
   "devDependencies": {
     "fileable-component-clear": "0.0.5",
-    "fileable-component-file": "0.0.8",
+    "fileable-component-file": "0.0.9",
     "fileable-component-folder": "0.0.6",
     "testafile": "0.0.1"
   }
