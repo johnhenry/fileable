@@ -5,12 +5,12 @@ Object.defineProperty(exports, '__esModule', { value: true });
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
 var iterator = _interopDefault(require('fileable-iterator'));
-var fs = _interopDefault(require('fs'));
-var path = _interopDefault(require('path'));
+var fs = require('fs');
+var path = require('path');
 var rimraf = _interopDefault(require('rimraf'));
 var util = require('util');
 var glob = require('glob');
-require('querystring');
+require('chalk');
 
 // import CacheMap from './cache-map.ts';
 const rmdir = util.promisify(rimraf);
@@ -91,7 +91,6 @@ var renderFs = async (template,
                         }
                     } else {
                         const folderPath = path.join(folder_context, target);
-                        fs.existsSync(folderPath);
                         if (fs.existsSync(folderPath)) {
                             await rmdir(folderPath);
                         }
@@ -131,22 +130,7 @@ var renderFs = async (template,
     }
 };
 
-/**
-* Render file tree to console
-* @kind function
-* @name renderConsole
-* @param {function} input
-* @param {object} options
-* @param {string} options.folder_context - Folder into which files should be renddered
-* @param {string} options.template_context - Location of template. Used to determine relateive 'src' attributes
-* @example
-* ```javascript
-* import { renderConsole, iterator } from 'fileable';
-* const main = async () =>
-* renderConsole(template, { folder_context: '.' });
-* main();
-* ```
-*/
+const findFiles$1 = util.promisify(glob.glob);
 
 var renderConsole = async (template, {
     folder_context = '',
@@ -156,34 +140,54 @@ var renderConsole = async (template, {
     let previousContext = folder_context;
     let currentContext = '';
     let depth = 0;
-    for await (const {directive, folder_context:context, name, content} of iterator(template, {
+    for await (const {directive, folder_context:context, name, content, target} of iterator(template, {
         folder_context,
         template_context
     })) {
+        currentContext = context;
+        if (currentContext === previousContext) ; else if (currentContext
+            .indexOf(previousContext) === 0) {//Push
+            depth++;
 
+        } else if (previousContext
+            .indexOf(currentContext) === 0) {//Pop
+            depth--;
+        }
+        const pre = [];
+        switch (depth) {
+            case 0:
+                pre.push('');
+                break;
+            default:
+                pre.push('|');
+                for (let i = 0; i < 2 * depth - 1; i++) {
+                    pre.push(' ');
+                }
+                break;
+        }
         if (directive === 'FILE' || directive === 'FOLDER') {
-            currentContext = context;
-            if (currentContext === previousContext) ; else if (currentContext
-                .indexOf(previousContext) === 0) {//Push
-                depth ++;
-
-            } else if (previousContext
-                .indexOf(currentContext) === 0) {//Pop
-                depth --;
-            }
-            const pre = [];
-            switch (depth) {
-                case 0:
-                    pre.push('');
-                    break;
-                default:
-                    pre.push('|');
-                    for (let i = 0; i < 2 * depth - 1; i++) {
-                        pre.push(' ');
+            console.log(`+${pre.join('')}├ ${name}${content ? ` (${content.length} bytes)` :''  }`);
+        } else if (directive === 'CLEAR') {
+            if (target) {
+                let files;
+                if (target[0] !== '!') {
+                    files = await findFiles$1(path.join(context, target));
+                } else {
+                    files = await findFiles$1(path.join(context, '**'), { ignore: target.substring(1) });
+                }
+                if (files && files.length) {
+                    for (const file of files) {
+                        if (fs.lstatSync(file).isDirectory()) {
+                            continue;
+                        }
+                        console.log(`-${pre.join('')}├ ${file}`);
                     }
-                    break;
+                } else {
+                    console.log(`-${pre.join('')}├ ${path.join(context, target)}`);
+                }
+            } else {
+                console.log(`-${pre.join('')}├ ${context}`);
             }
-            console.log(`${pre.join('')}├ ${name}${content ? ` (${content.length} bytes)` :''  }`);
         }
         previousContext = currentContext;
     }

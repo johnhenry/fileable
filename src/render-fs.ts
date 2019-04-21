@@ -1,7 +1,7 @@
 // import CacheMap from './cache-map.ts';
 import iterator from 'fileable-iterator';
-import fs from 'fs';
-import path from 'path';
+import { existsSync, mkdirSync, appendFileSync, writeFileSync, lstatSync, unlinkSync} from 'fs';
+import {join} from 'path';
 import rimraf from 'rimraf';
 import { promisify } from 'util';
 import { glob } from 'glob';
@@ -50,41 +50,40 @@ export default async (template,
         ) {
             switch (directive) {
                 case 'FILE': {
-                    const folderPath = path.join(folder_context);
-                    if (!fs.existsSync(folderPath)) {
-                        fs.mkdirSync(folderPath, { recursive: true });
+                    const folderPath = join(folder_context);
+                    if (!existsSync(folderPath)) {
+                        mkdirSync(folderPath, { recursive: true });
                     }
-                    const fileName = path.join(folderPath, name);
+                    const fileName = join(folderPath, name);
                     if (append) {
-                        fs.appendFileSync(fileName, content, { mode });
+                        appendFileSync(fileName, content, { mode });
                     } else {
-                        fs.writeFileSync(fileName, content, { mode });
+                        writeFileSync(fileName, content, { mode });
                     }
                 } break;
                 case 'FOLDER': {
-                    const folderPath = path.join(folder_context, name);
-                    if (!fs.existsSync(folderPath)) {
-                        fs.mkdirSync(folderPath, { recursive: true });
+                    const folderPath = join(folder_context, name);
+                    if (!existsSync(folderPath)) {
+                        mkdirSync(folderPath, { recursive: true });
                     }
                 } break;
                 case 'CLEAR': {
                     if (target) {
                         let files;
                         if (target[0] !== '!' ) {
-                            files = await findFiles(path.join(folder_context, target));
+                            files = await findFiles(join(folder_context, target));
                         } else {
-                            files = await findFiles(path.join(folder_context, '**'), { ignore: target.substring(1) });
+                            files = await findFiles(join(folder_context, '**'), { ignore: target.substring(1) });
                         }
                         for (const file of files) {
-                            if (fs.lstatSync(file).isDirectory()) {
+                            if (lstatSync(file).isDirectory()) {
                                 continue;
                             }
-                            fs.unlinkSync(file);
+                            unlinkSync(file);
                         }
                     } else {
-                        const folderPath = path.join(folder_context, target);
-                        fs.existsSync(folderPath);
-                        if (fs.existsSync(folderPath)) {
+                        const folderPath = join(folder_context, target);
+                        if (existsSync(folderPath)) {
                             await rmdir(folderPath);
                         }
                     }

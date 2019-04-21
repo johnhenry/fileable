@@ -3,7 +3,7 @@ import File from 'fileable-component-file';
 import Clear from 'fileable-component-clear';
 export default async () => <>
     <File name='i_should_not_be' />
-    <Clear>
+    <Clear target='**'>
         <File name='i_should_be' />
     </Clear>
 </>;
