@@ -31,7 +31,7 @@ export default async (template, {
     let currentContext = '';
     let depth = 0;
     let previous = null;
-    for await (const {directive, folder_context:context, name, content, target} of iterator(template, {
+    for await (const {directive, folder_context:context='', name, content, target} of iterator(template, {
         folder_context,
         template_context
     })) {

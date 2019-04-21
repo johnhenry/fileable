@@ -140,7 +140,7 @@ var renderConsole = async (template, {
     let previousContext = folder_context;
     let currentContext = '';
     let depth = 0;
-    for await (const {directive, folder_context:context, name, content, target} of iterator(template, {
+    for await (const {directive, folder_context:context='', name, content, target} of iterator(template, {
         folder_context,
         template_context
     })) {
