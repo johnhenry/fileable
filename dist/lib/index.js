@@ -10,6 +10,7 @@ var path = _interopDefault(require('path'));
 var rimraf = _interopDefault(require('rimraf'));
 var util = require('util');
 var glob = require('glob');
+require('querystring');
 
 // import CacheMap from './cache-map.ts';
 const rmdir = util.promisify(rimraf);
@@ -146,15 +147,45 @@ var renderFs = async (template,
 * main();
 * ```
 */
+
 var renderConsole = async (template, {
     folder_context = '',
     template_context = ''
 }) => {
-    for await (const output of iterator(template, {
+    console.log(folder_context);
+    let previousContext = folder_context;
+    let currentContext = '';
+    let depth = 0;
+    for await (const {directive, folder_context:context, name, content} of iterator(template, {
         folder_context,
         template_context
     })) {
-        console.log(output);
+
+        if (directive === 'FILE' || directive === 'FOLDER') {
+            currentContext = context;
+            if (currentContext === previousContext) ; else if (currentContext
+                .indexOf(previousContext) === 0) {//Push
+                depth ++;
+
+            } else if (previousContext
+                .indexOf(currentContext) === 0) {//Pop
+                depth --;
+            }
+            const pre = [];
+            switch (depth) {
+                case 0:
+                    pre.push('');
+                    break;
+                default:
+                    pre.push('|');
+                    for (let i = 0; i < 2 * depth - 1; i++) {
+                        pre.push(' ');
+                    }
+                    break;
+            }
+            console.log(`${pre.join('')}├ ${name}${content ? ` (${content.length} bytes)` :''  }`);
+        }
+        previousContext = currentContext;
     }
 };
 

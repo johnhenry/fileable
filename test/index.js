@@ -1,6 +1,6 @@
 
 
-import { renderFS } from '../';
+import { renderFS, renderConsole } from '../';
 import tester from './tester.js';
 
 import templateFile00 from './template/file.00.jsx';
