@@ -55,8 +55,8 @@
     "yargs": "13.2.2"
   },
   "devDependencies": {
-    "fileable-component-clear": "0.0.5",
-    "fileable-component-file": "0.0.11",
+    "fileable-component-clear": "0.0.6",
+    "fileable-component-file": "0.0.7",
     "fileable-component-folder": "0.0.6",
     "testafile": "0.0.1"
   }
