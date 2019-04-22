@@ -40,6 +40,7 @@
     "@babel/preset-env": "7.4.2",
     "@babel/preset-react": "7.0.0",
     "@babel/preset-typescript": "7.3.3",
+    "fileable-iterator": "0.0.3",
     "glob": "7.1.3",
     "jsdoc-md": "2.1.0",
     "pre-commit": "1.2.2",
@@ -55,9 +56,8 @@
   },
   "devDependencies": {
     "fileable-component-clear": "0.0.5",
-    "fileable-component-file": "0.0.10",
+    "fileable-component-file": "0.0.11",
     "fileable-component-folder": "0.0.6",
-    "fileable-iterator": "0.0.3",
     "testafile": "0.0.1"
   }
 }
