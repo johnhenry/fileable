@@ -101,20 +101,54 @@ whether `as="archive"` is set.
 ```
 fileable build <template> [options]
 
-  -o, --out-dir <dir>   Directory artifacts are written into
-                         (default: the template file's own directory)
-  -c, --cwd <dir>        Base directory for resolving relative src/from paths
-                         (default: same as --out-dir)
-      --allow-exec       Allow the `cmd` attribute to execute shell commands
-      --strict           Promote symlink-fallback warnings to hard errors
+  -o, --out-dir <dir>     Directory artifacts are written into
+                          (default: the template file's own directory)
+  -c, --cwd <dir>         Base directory for resolving relative src/from paths
+                          (default: same as --out-dir)
+      --var <key[:type]=value>
+                          Pass a value to a template function (repeatable)
+      --allow-exec        Allow the `cmd` attribute to execute shell commands
+      --strict            Promote symlink-fallback warnings to hard errors
       --no-cache          Force a full rebuild, ignoring .fileable-lock.json
-      --lock-file <path> Path to the incremental-build lock file
+      --lock-file <path>  Path to the incremental-build lock file
 ```
 
 `<template>` is any module whose default export is a fileable tree. Like
 `src="partials/x.jsx"` on `File`, it needs to already be compiled to plain
 JS (or loadable via a registered Node loader) -- there's no JSX/TS transform
 built in, so point the CLI at `.js`, not `.tsx`.
+
+### Passing variables with `--var`
+
+A template's default export can be a **function** instead of a tree --
+`(vars) => <Dir>...` -- and the CLI will call it with an object built from
+every `--var` flag:
+
+```tsx
+export default function template(vars: { name?: string } = {}) {
+  return <File name="hello.txt">Hello, {vars.name ?? "world"}!</File>;
+}
+```
+
+```sh
+fileable build template.js --var name=Ada
+```
+
+`key[:type]=value` uses a TypeScript-like type annotation to control how the
+string on the command line gets coerced before it reaches the template --
+`type` is one of `string` (the default), `number`, `boolean`, or `json`:
+
+```sh
+fileable build template.js \
+  --var title="Hello World" \
+  --var count:number=3 \
+  --var draft:boolean=false \
+  --var tags:json='["a","b"]'
+```
+
+`--var draft` / `--var draft:boolean` with no `=value` is shorthand for
+`true`. `--var` on a template whose default export is a plain tree (not a
+function) is ignored with a warning, not an error.
 
 ## Security
 

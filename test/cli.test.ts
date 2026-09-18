@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { main } from "../bin/fileable.js";
 
 const fixtureTemplate = join(process.cwd(), "test/fixtures/cli-template.js");
+const fixtureTemplateFn = join(process.cwd(), "test/fixtures/cli-template-fn.js");
 
 async function withTempDir(run: (dir: string) => Promise<void>): Promise<void> {
   const dir = await mkdtemp(join(tmpdir(), "fileable-cli-"));
@@ -62,6 +63,52 @@ test("a template module with no default export returns 1", async () => {
     const template = join(process.cwd(), "test/fixtures/no-default-export.js");
     const code = await main(["build", template, "--out-dir", outDir]);
     assert.equal(code, 1);
+  });
+});
+
+test("--var passes typed values into a template function", async () => {
+  await withTempDir(async (outDir) => {
+    const code = await main([
+      "build",
+      fixtureTemplateFn,
+      "--out-dir",
+      outDir,
+      "--no-cache",
+      "--var",
+      "name=Ada",
+      "--var",
+      "count:number=3",
+      "--var",
+      "draft:boolean=true",
+    ]);
+    assert.equal(code, 0);
+    const content = await readFile(join(outDir, "out/greeting.txt"), "utf8");
+    assert.equal(content, "Hello, Ada! count=3 draft=true");
+  });
+});
+
+test("a template function with no --var flags gets defaults from the template itself", async () => {
+  await withTempDir(async (outDir) => {
+    const code = await main(["build", fixtureTemplateFn, "--out-dir", outDir, "--no-cache"]);
+    assert.equal(code, 0);
+    const content = await readFile(join(outDir, "out/greeting.txt"), "utf8");
+    assert.equal(content, "Hello, World! count=0 draft=false");
+  });
+});
+
+test("an invalid --var returns 1 with a clear message, without importing the template", async () => {
+  await withTempDir(async (outDir) => {
+    const code = await main(["build", fixtureTemplateFn, "--out-dir", outDir, "--var", "count:number=abc"]);
+    assert.equal(code, 1);
+  });
+});
+
+test("--var on a plain-tree (non-function) template is ignored with a warning, not an error", async () => {
+  await withTempDir(async (outDir) => {
+    const code = await main(["build", fixtureTemplate, "--out-dir", outDir, "--no-cache", "--var", "name=Ada"]);
+    assert.equal(code, 0);
+    const content = await readFile(join(outDir, "out/hello.txt"), "utf8");
+    assert.equal(content, "Hello from CLI");
   });
 });
 

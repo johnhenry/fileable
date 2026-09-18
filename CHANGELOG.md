@@ -69,6 +69,14 @@ choice between a full/slim materialization of the same tree.
   file's own directory. All three examples switched from self-contained
   scripts (each calling `render()` itself) to `export default template;`,
   now driven by the CLI instead.
+- `fileable build --var key[:type]=value` (repeatable, `bin/vars.ts`):
+  passes typed values into a template whose default export is a function
+  (`(vars) => <Dir>...`) instead of a plain tree. TypeScript-like type
+  annotation (`key:type=value`) controls how the CLI-string value is
+  coerced -- `string` (default), `number`, `boolean`, or `json`; `--var
+  draft`/`--var draft:boolean` with no `=value` is shorthand for `true`.
+  `--var` on a plain-tree template is ignored with a warning, not an error.
+  `examples/01-hello-world` now takes an optional `--var name=...`.
 
 ### Added (examples)
 - `examples/03-docs-archive-and-single-page`: the same three `src` partials
