@@ -72,15 +72,20 @@ export default template;
 fileable build template.js
 ```
 
+produces:
+
+```
+dist/
+└── hello.txt          "Hello, world!"
+```
+
 `outDir`/`cwd` default to the template file's own directory. Prefer to drive
 it yourself instead of via the CLI? `render()` is a plain function --
 `import { render } from "fileable"; await render(template, { outDir: "." })`.
 
-See [`examples/`](./examples) for a runnable hello-world, a blog-with-index
-example (adapted from the design PRD below), a docs-archive-and-single-page
-example showing the same authored content rendered as both a `.zip` archive
-and one `join="dom-merge"` page, and a build-log example showing
-`onConflict="append"` accumulating one line per run instead of overwriting.
+See [`examples/`](./examples) for these runnable in full, plus the ones
+below. Every tree in this README reflects a real `fileable build` run
+(inline annotations added for clarity, not part of the actual output).
 
 ## The three primitives
 
@@ -189,6 +194,120 @@ fileable build template.js \
 `--var draft` / `--var draft:boolean` with no `=value` is shorthand for
 `true`. `--var` on a template whose default export is a plain tree (not a
 function) is ignored with a warning, not an error.
+
+## Examples
+
+Three more from [`examples/`](./examples), each trimmed to its
+illustrative core (full source, including partials and content files, is
+in the linked directory) with the tree `fileable build` actually produced.
+
+### Blog with an index (`examples/02-blog-with-index`)
+
+`link()` computing a correct relative path, `markdown()` rendering post
+bodies, and `symlink` pointing at the actual generated `<File>` for the
+latest post:
+
+```tsx
+import { Dir, File, Rm, link, markdown, useCollection } from "fileable";
+
+const posts = useCollection("content/posts/*.md")
+  .map(parseFrontmatter)
+  .sort((a, b) => (a.date < b.date ? 1 : -1)); // newest first
+
+const postFiles = posts.map((post) => (
+  <File name={`${post.slug}.html`} doctype="html">
+    <h1>{post.title}</h1>
+    {markdown(post.body)}
+  </File>
+));
+
+const template = (
+  <Dir name="dist">
+    <Dir name="posts">{postFiles}</Dir>
+    <File name="index.html" doctype="html">
+      <ul>
+        {posts.map((post, i) => (
+          <li><a href={link(postFiles[i])}>{post.title}</a></li>
+        ))}
+      </ul>
+    </File>
+    <File name="latest" symlink={postFiles[0]} />
+    <Rm target="*.draft.html" />
+  </Dir>
+);
+
+export default template;
+```
+
+```
+dist/
+├── index.html                      <a href="posts/second-post.html">, ...
+├── latest -> posts/second-post.html   (real symlink)
+└── posts/
+    ├── hello-world.html
+    └── second-post.html
+```
+
+### The same content as an archive *and* a single page (`examples/03-docs-archive-and-single-page`)
+
+The same three `src` references feed an `as="archive"` zip of standalone
+pages and, via nameless inlining, a `join="dom-merge"` page that folds all
+three `<head>`s into one instead of duplicating `<html>`/`<head>` tags:
+
+```tsx
+import { Dir, File } from "fileable";
+
+const docs = [
+  { slug: "getting-started", src: "docs-src/getting-started.js" },
+  { slug: "configuration", src: "docs-src/configuration.js" },
+  { slug: "faq", src: "docs-src/faq.js" },
+];
+
+const template = (
+  <Dir name="dist">
+    <Dir name="docs-archive" as="archive">
+      {docs.map((doc) => <File name={`${doc.slug}.html`} src={doc.src} />)}
+    </Dir>
+    <File name="docs-single-page.html" join="dom-merge">
+      {docs.map((doc) => <File src={doc.src} />)}
+    </File>
+  </Dir>
+);
+
+export default template;
+```
+
+```
+dist/
+├── docs-archive.zip
+│   ├── getting-started.html
+│   ├── configuration.html
+│   └── faq.html
+└── docs-single-page.html      one <head> merged from all three pages'
+```
+
+### An append-only build log (`examples/04-build-log`)
+
+```tsx
+import { Dir, File } from "fileable";
+
+export default function template(vars: { message?: string } = {}) {
+  const line = `[${new Date().toISOString()}] ${vars.message ?? "build ran"}\n`;
+  return (
+    <Dir name="dist">
+      <File name="build-log.txt" onConflict="append">{line}</File>
+    </Dir>
+  );
+}
+```
+
+Run twice (`fileable build template.js`, then again with
+`--var message="second run"`) and `dist/build-log.txt` contains both:
+
+```
+[2026-09-18T10:59:03.835Z] build ran
+[2026-09-18T10:59:03.903Z] second run
+```
 
 ## Security
 
