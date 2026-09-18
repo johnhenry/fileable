@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, lstat, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, lstat, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { render } from "../src/render.js";
+import { FileableError } from "../src/types.js";
 import type { Descriptor } from "../src/types.js";
 
 async function withTempDir(run: (dir: string) => Promise<void>): Promise<void> {
@@ -123,6 +124,65 @@ test("render() single concatenated file from a <dir> nested in a <file>", async 
     const content = await readFile(join(outDir, "docs-single-page.html"), "utf8");
     assert.equal(content, "AB");
     await assert.rejects(() => stat(join(outDir, "docs/a.html")));
+  });
+});
+
+test("render() with <dir from> filling a folder from nested source dirs keeps both same-basename files, not a silent collision", async () => {
+  await withTempDir(async (outDir) => {
+    const fixtures = join(process.cwd(), "test/fixtures");
+    const site: Descriptor = { tag: "dir", props: { name: "out" }, children: [{ tag: "dir", props: { name: "assets", from: "nested-assets/**/*" }, children: [] }] };
+    await render(site, { outDir, cwd: fixtures, cache: false });
+    assert.equal(await readFile(join(outDir, "out/assets/en/index.html"), "utf8"), "english\n");
+    assert.equal(await readFile(join(outDir, "out/assets/fr/index.html"), "utf8"), "french\n");
+    assert.equal(await readFile(join(outDir, "out/assets/img/logo.png"), "utf8"), "logo bytes\n");
+    assert.equal(await readFile(join(outDir, "out/assets/css/style.css"), "utf8"), "body { color: teal; }\n");
+  });
+});
+
+test("render() throws when two artifacts resolve to the same output path", async () => {
+  await withTempDir(async (outDir) => {
+    const a: Descriptor = { tag: "file", props: { name: "same.txt" }, children: ["A"] };
+    const b: Descriptor = { tag: "file", props: { name: "same.txt" }, children: ["B"] };
+    const site: Descriptor = { tag: "dir", props: { name: "site" }, children: [a, b] };
+    await assert.rejects(() => render(site, { outDir, cache: false }), FileableError);
+  });
+});
+
+test("onConflict=\"error\" refuses to overwrite a file that already exists from outside this build", async () => {
+  await withTempDir(async (outDir) => {
+    await mkdir(outDir, { recursive: true });
+    await writeFile(join(outDir, "existing.txt"), "pre-existing content");
+    const file: Descriptor = { tag: "file", props: { name: "existing.txt", onConflict: "error" }, children: ["new content"] };
+    await assert.rejects(() => render(file, { outDir, cache: false }), FileableError);
+    assert.equal(await readFile(join(outDir, "existing.txt"), "utf8"), "pre-existing content");
+  });
+});
+
+test("onConflict=\"append\" adds to existing content instead of replacing it", async () => {
+  await withTempDir(async (outDir) => {
+    await mkdir(outDir, { recursive: true });
+    await writeFile(join(outDir, "log.txt"), "line 1\n");
+    const file: Descriptor = { tag: "file", props: { name: "log.txt", onConflict: "append" }, children: ["line 2\n"] };
+    await render(file, { outDir, cache: false });
+    assert.equal(await readFile(join(outDir, "log.txt"), "utf8"), "line 1\nline 2\n");
+  });
+});
+
+test("onConflict=\"append\" on a path that doesn't exist yet just writes normally", async () => {
+  await withTempDir(async (outDir) => {
+    const file: Descriptor = { tag: "file", props: { name: "new.txt", onConflict: "append" }, children: ["first content"] };
+    await render(file, { outDir, cache: false });
+    assert.equal(await readFile(join(outDir, "new.txt"), "utf8"), "first content");
+  });
+});
+
+test("onConflict defaults to \"replace\" (today's behavior, unconditional overwrite)", async () => {
+  await withTempDir(async (outDir) => {
+    await mkdir(outDir, { recursive: true });
+    await writeFile(join(outDir, "existing.txt"), "old content");
+    const file: Descriptor = { tag: "file", props: { name: "existing.txt" }, children: ["new content"] };
+    await render(file, { outDir, cache: false });
+    assert.equal(await readFile(join(outDir, "existing.txt"), "utf8"), "new content");
   });
 });
 

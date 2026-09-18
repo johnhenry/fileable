@@ -56,7 +56,14 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
   let anchorCounter = 0;
   const nextAnchorId = () => `fileable-${anchorCounter++}`;
 
-  function addArtifact(node: ArtifactNode, parentId: string | null): void {
+  function addArtifact(node: ArtifactNode, parentId: string | null, path: string): void {
+    // Two artifacts landing on the same output path (e.g. two <dir from>
+    // matches sharing a basename, or a plain authoring mistake) would
+    // otherwise silently collide: both get written, whichever runs last in
+    // Write wins, with no trace anything was lost.
+    if (byId.has(node.id)) {
+      throw new FileableError(`duplicate output path "${node.outputPath}" -- two artifacts both resolve here`, path);
+    }
     artifacts.push(node);
     byId.set(node.id, node);
     if (parentId) byId.get(parentId)?.children.push(node.id);
@@ -112,6 +119,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
             children: [],
           },
           parentId,
+          path,
         );
         nextChildCtx.basePath = "";
         nextChildCtx.target = "archive";
@@ -131,6 +139,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
             children: [],
           },
           parentId,
+          path,
         );
         nextChildCtx.basePath = outputPath;
       }
@@ -169,6 +178,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
           children: [],
         },
         parentId,
+        path,
       );
       identity.set(node, { realArtifactId: artifactId, anchorId: nextAnchorId(), doctype });
 

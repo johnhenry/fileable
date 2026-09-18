@@ -64,6 +64,22 @@ test("expands <dir from> into synthesized file children", async () => {
   assert.equal((resolved.children[0] as Descriptor).props.name, "hello.txt");
 });
 
+test("<dir from> with a recursive glob preserves subdirectory structure instead of flattening to a basename", async () => {
+  const node: Descriptor = { tag: "dir", props: { name: "out", from: "nested-assets/**/*" }, children: [] };
+  const [resolved] = await resolve([node], { cwd: fixtures });
+  const names = resolved.children.map((c) => (c as Descriptor).props.name).sort();
+  assert.deepEqual(names, ["css/style.css", "en/index.html", "fr/index.html", "img/logo.png"]);
+});
+
+test("<dir from> preserving structure means same-basename files in different subdirectories no longer collide", async () => {
+  const node: Descriptor = { tag: "dir", props: { name: "out", from: "nested-assets/{en,fr}/*.html" }, children: [] };
+  const [resolved] = await resolve([node], { cwd: fixtures });
+  const byName = new Map((resolved.children as Descriptor[]).map((c) => [c.props.name, c]));
+  assert.equal(byName.size, 2);
+  assert.ok(byName.has("en/index.html"));
+  assert.ok(byName.has("fr/index.html"));
+});
+
 test("<dir from> matching a code file imports its default export, same as a direct src", async () => {
   const node: Descriptor = { tag: "dir", props: { name: "out", from: "partial.js" }, children: [] };
   const [resolved] = await resolve([node], { cwd: fixtures });

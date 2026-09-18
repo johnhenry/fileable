@@ -27,6 +27,17 @@ export interface FileProps extends BaseProps {
   symlink?: Descriptor | string;
   cmd?: string;
   join?: "concat" | "dom-merge";
+  /**
+   * What to do when Write is about to touch a path that already has
+   * content on disk from *outside* this build (not something the current
+   * tree already accounted for -- an unchanged, cache-skipped file never
+   * reaches this check at all). Default: "replace" (today's behavior,
+   * unconditional overwrite). "append" adds to existing content instead of
+   * replacing it. "error" refuses to touch it. Loose target only -- an
+   * archive is always rebuilt as one atomic unit, so there's no meaningful
+   * "does this individual entry already exist" to ask.
+   */
+  onConflict?: "replace" | "append" | "error";
 }
 
 export interface RmProps extends BaseProps {

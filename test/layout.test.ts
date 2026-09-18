@@ -161,6 +161,19 @@ test("link() across different render targets (loose <-> archive) falls back to t
   assert.equal(indexArtifact.content, "archived.html");
 });
 
+test("two artifacts resolving to the same output path throw instead of silently colliding (last-write-wins)", () => {
+  const a: Descriptor = { tag: "file", props: { name: "same.txt" }, children: ["A"] };
+  const b: Descriptor = { tag: "file", props: { name: "same.txt" }, children: ["B"] };
+  assert.throws(
+    () => layout([{ tag: "dir", props: { name: "site" }, children: [a, b] }]),
+    (error: unknown) => {
+      assert.ok(error instanceof FileableError);
+      assert.match(error.message, /duplicate output path "site\/same\.txt"/);
+      return true;
+    },
+  );
+});
+
 test("<dir>/<file> without a name at the top level throws", () => {
   assert.throws(() => layout([{ tag: "dir", props: {}, children: [] }]), FileableError);
   assert.throws(() => layout([{ tag: "file", props: {}, children: [] }]), FileableError);

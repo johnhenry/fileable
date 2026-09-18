@@ -13,13 +13,13 @@
  * the offending node's tree path before propagating (PRD SS6.2).
  */
 import { readFile } from "node:fs/promises";
-import { dirname, extname, isAbsolute, resolve as resolvePath } from "node:path";
+import { basename, extname, isAbsolute, relative as relativePath, resolve as resolvePath } from "node:path";
 import { pathToFileURL } from "node:url";
 import { glob } from "glob";
 import { cloneDescriptorTree, isDescriptor, isLinkRef, FileableError } from "./types.js";
 import type { Descriptor, DescriptorChild, RenderOptions } from "./types.js";
 import { execCommand } from "./exec.js";
-import { toPosixPattern } from "./glob-util.js";
+import { splitGlobBase, toPosixPattern } from "./glob-util.js";
 
 const CODE_EXTENSIONS = new Set([".jsx", ".tsx", ".js", ".mjs", ".ts"]);
 
@@ -93,18 +93,28 @@ export async function resolve(
 
   async function resolveNode(node: Descriptor, path: string): Promise<void> {
     if (node.tag === "dir" && node.props.from !== undefined) {
-      const matches = await resolveFromGlob(
-        node.props.from as string | Promise<string[]> | string[],
-        baseDir,
-        path,
-      );
-      const { basename } = await import("node:path");
-      const synthesized: Descriptor[] = matches.map((match) => ({
-        tag: "file",
-        props: { name: basename(match), src: match },
-        children: [],
-        __id: `${node.__id}:${match}`,
-      }));
+      const fromValue = node.props.from as string | Promise<string[]> | string[];
+      const matches = await resolveFromGlob(fromValue, baseDir, path);
+      // A pattern's fixed prefix (e.g. "assets" in "assets/**/*") is stripped
+      // from each match's path-relative-to-baseDir, so nested matches keep
+      // their subdirectory structure ("img/logo.png") instead of flattening
+      // to a bare basename -- which, beyond losing structure, could silently
+      // collide (two different "index.html"s in different source dirs
+      // landing on the exact same output path with no warning).
+      const patternBase = typeof fromValue === "string" ? splitGlobBase(toPosixPattern(fromValue)).base : "";
+      const synthesized: Descriptor[] = matches.map((match) => {
+        const relativeToBaseDir = toPosixPattern(relativePath(baseDir, match));
+        const name =
+          patternBase && relativeToBaseDir.startsWith(`${patternBase}/`)
+            ? relativeToBaseDir.slice(patternBase.length + 1)
+            : basename(match);
+        return {
+          tag: "file",
+          props: { name, src: match },
+          children: [],
+          __id: `${node.__id}:${match}`,
+        };
+      });
       node.children = [...synthesized, ...node.children];
     }
 

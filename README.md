@@ -65,9 +65,19 @@ string matched somewhere inside the JSX runtime.
 
 | Component | Purpose |
 |---|---|
-| `Dir` | A directory. `name`, `from` (glob -> one child per match), `as="loose" \| "archive"`, `mode`. |
-| `File` | A file, or -- nested inside another `File` -- a content fragment to inline. `name`, `src`, `doctype`, `mode`, `symlink`, `cmd`, `join="concat" \| "dom-merge"`. |
+| `Dir` | A directory. `name`, `from` (glob -> one child per match, keeping matched files' subdirectory structure relative to the glob's fixed prefix), `as="loose" \| "archive"`, `mode`. |
+| `File` | A file, or -- nested inside another `File` -- a content fragment to inline. `name`, `src`, `doctype`, `mode`, `symlink`, `cmd`, `join="concat" \| "dom-merge"`, `onConflict="replace" \| "append" \| "error"`. |
 | `Rm` | A removal. `target` (glob, supports `!` negation). |
+
+Two artifacts resolving to the same output path (e.g. two `from` matches
+that still land on the same relative path, or a plain authoring mistake)
+throw rather than silently colliding -- there's no "last write wins" for
+content produced *within* one build. `onConflict` (default `"replace"`,
+today's behavior) instead governs what happens when Write is about to
+touch a path that already has content from *outside* the build -- `"append"`
+adds to it, `"error"` refuses to touch it. Loose target only; an archive is
+always rebuilt as one atomic unit, so there's no per-entry "already exists"
+to ask.
 
 Any other JSX tag (`<h1>`, `<ul>`, `<a>`, ...) is plain markup content, not a
 fileable primitive -- it's stringified into whichever `File` contains it.

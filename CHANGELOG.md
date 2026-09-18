@@ -77,6 +77,25 @@ choice between a full/slim materialization of the same tree.
   draft`/`--var draft:boolean` with no `=value` is shorthand for `true`.
   `--var` on a plain-tree template is ignored with a warning, not an error.
   `examples/01-hello-world` now takes an optional `--var name=...`.
+- `<Dir from>` now preserves matched files' subdirectory structure relative
+  to the glob's fixed prefix (`assets/**/*` matching `assets/en/index.html`
+  produces a child named `en/index.html`, not just `index.html`) instead of
+  flattening every match to a bare basename -- which, besides losing
+  structure, meant two matches sharing a basename in different source
+  subdirectories silently collided on write with no warning (confirmed and
+  fixed after being asked about "filling" a folder from existing files).
+- Two artifacts resolving to the same output path within one build now
+  throw a clear `FileableError` instead of silently colliding (previously:
+  both got written, whichever ran last in Write won, with no trace the
+  other was ever lost). Kept as an unconditional error rather than a
+  choice, since it's essentially always an authoring mistake.
+- `onConflict="replace" | "append" | "error"` on `<File>` (default
+  `"replace"`, matching prior behavior): governs what happens when Write
+  is about to touch a path with content already on disk from *outside*
+  this build (not something the current tree already produced or a
+  cache-skipped-as-unchanged file). `"append"` restores the `append`
+  behavior v1's `FILE` directive had and this rewrite hadn't carried
+  forward; `"error"` refuses to touch it. Loose target only.
 
 ### Added (examples)
 - `examples/03-docs-archive-and-single-page`: the same three `src` partials

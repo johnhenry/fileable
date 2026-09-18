@@ -5,15 +5,25 @@
  * degrade (archive/inline can't hold a real symlink); this OS-level failure
  * can only be discovered here.
  */
-import { chmod, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { access, appendFile, chmod, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { glob } from "glob";
-import { toPosixPattern } from "../glob-util.js";
+import { splitGlobBase, toPosixPattern } from "../glob-util.js";
+import { FileableError } from "../types.js";
 import type { HashedArtifact } from "../types.js";
 
 export interface LooseWriteResult {
   written: string[];
   warnings: string[];
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function writeLoose(
@@ -54,6 +64,22 @@ export async function writeLoose(
         if (file.mode) await chmod(fullPath, parseInt(file.mode, 8));
       }
     } else {
+      const onConflict = (file.descriptor.props.onConflict as "replace" | "append" | "error" | undefined) ?? "replace";
+      if (onConflict !== "replace") {
+        const alreadyExists = await pathExists(fullPath);
+        if (alreadyExists && onConflict === "error") {
+          throw new FileableError(
+            `refusing to overwrite existing file (onConflict="error"): ${file.outputPath}`,
+            file.outputPath,
+          );
+        }
+        if (alreadyExists && onConflict === "append") {
+          await appendFile(fullPath, file.content ?? "");
+          if (file.mode) await chmod(fullPath, parseInt(file.mode, 8));
+          written.push(file.outputPath);
+          continue;
+        }
+      }
       // `writeFile`'s own `mode` option only takes effect when it *creates* the
       // file -- on a rewrite of an existing file (e.g. only `mode` changed) it's
       // silently ignored, so `mode` is always applied via an explicit chmod.
@@ -64,21 +90,6 @@ export async function writeLoose(
   }
 
   return { written, warnings };
-}
-
-/**
- * Splits a glob pattern into its fixed directory prefix and the remaining
- * glob-bearing suffix, e.g. "site/posts/*.draft.html" -> { base:
- * "site/posts", rest: "*.draft.html" }. Used so a negated `<rm>` scoped to
- * a subdirectory only cleans *that* subdirectory instead of the whole
- * outDir -- `**` alone has no notion of "relative to this rm's own context".
- */
-function splitGlobBase(pattern: string): { base: string; rest: string } {
-  const specialIndex = pattern.search(/[*?{[]/);
-  if (specialIndex === -1) return { base: "", rest: pattern };
-  const slashIndex = pattern.lastIndexOf("/", specialIndex);
-  if (slashIndex === -1) return { base: "", rest: pattern };
-  return { base: pattern.slice(0, slashIndex), rest: pattern.slice(slashIndex + 1) };
 }
 
 export async function applyRemovals(removals: string[], outDir: string): Promise<string[]> {
