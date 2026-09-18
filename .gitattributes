@@ -1,1 +1,7 @@
 * text=auto eol=lf
+
+# Explicit, not left to the text=auto heuristic (which can misfire on tiny
+# files) -- these must round-trip byte-exact, since they're binary-content
+# test fixtures (see content-util.ts).
+*.png binary
+*.zip binary

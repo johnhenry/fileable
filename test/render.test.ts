@@ -186,6 +186,29 @@ test("onConflict defaults to \"replace\" (today's behavior, unconditional overwr
   });
 });
 
+test("render() writes a binary src (PNG) byte-exact, both loose and inside a zip archive", async () => {
+  await withTempDir(async (outDir) => {
+    const fixtures = join(process.cwd(), "test/fixtures");
+    const original = await readFile(join(fixtures, "logo.png"));
+    const looseFile: Descriptor = { tag: "file", props: { name: "logo.png", src: "logo.png" }, children: [] };
+    const archivedFile: Descriptor = { tag: "file", props: { name: "logo.png", src: "logo.png" }, children: [] };
+    const tree: Descriptor = {
+      tag: "dir",
+      props: { name: "out" },
+      children: [looseFile, { tag: "dir", props: { name: "bundle", as: "archive" }, children: [archivedFile] }],
+    };
+    await render(tree, { outDir, cwd: fixtures, cache: false });
+
+    const looseCopy = await readFile(join(outDir, "out/logo.png"));
+    assert.ok(looseCopy.equals(original));
+
+    const { unzipSync } = await import("fflate");
+    const zipBuffer = await readFile(join(outDir, "out/bundle.zip"));
+    const entries = unzipSync(new Uint8Array(zipBuffer));
+    assert.ok(Buffer.from(entries["logo.png"]).equals(original));
+  });
+});
+
 test("the same src partial reused across two independent pages resolves each page's link()s independently", async () => {
   await withTempDir(async (outDir) => {
     const fixtures = join(process.cwd(), "test/fixtures");

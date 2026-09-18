@@ -24,7 +24,11 @@ export async function writeArchives(
       if (artifact.kind === "dir") {
         entries[`${artifact.outputPath}/`] = new Uint8Array(0);
       } else {
-        entries[artifact.outputPath] = strToU8(artifact.content ?? "");
+        // A Buffer (binary content -- SS2.2) is already raw bytes and a
+        // Node Buffer *is* a Uint8Array, so it's used as-is; only a string
+        // needs strToU8's UTF-8 encoding.
+        entries[artifact.outputPath] =
+          typeof artifact.content === "string" ? strToU8(artifact.content) : artifact.content ?? new Uint8Array(0);
       }
     }
     const zipped = zipSync(entries);

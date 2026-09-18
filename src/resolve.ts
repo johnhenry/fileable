@@ -18,6 +18,7 @@ import { pathToFileURL } from "node:url";
 import { glob } from "glob";
 import { cloneDescriptorTree, isDescriptor, isLinkRef, FileableError } from "./types.js";
 import type { Descriptor, DescriptorChild, RenderOptions } from "./types.js";
+import { bufferToContent, combineContent } from "./content-util.js";
 import { execCommand } from "./exec.js";
 import { splitGlobBase, toPosixPattern } from "./glob-util.js";
 
@@ -31,13 +32,16 @@ async function loadSrc(
   src: string,
   baseDir: string,
   path: string,
-): Promise<{ content?: string; children?: Descriptor[] }> {
+): Promise<{ content?: string | Buffer; children?: Descriptor[] }> {
   if (/^https?:\/\//.test(src)) {
     const res = await fetch(src);
     if (!res.ok) {
       throw new FileableError(`src fetch failed: ${src} (${res.status})`, path);
     }
-    return { content: await res.text() };
+    // Binary-safe: decide text vs. binary by round-trip rather than assuming
+    // text (see content-util.ts) -- a fetched image/font/etc. must come back
+    // byte-exact, not UTF-8-decoded.
+    return { content: bufferToContent(Buffer.from(await res.arrayBuffer())) };
   }
   const absolute = isAbsolute(src) ? src : resolvePath(baseDir, src);
   if (CODE_EXTENSIONS.has(extname(absolute))) {
@@ -59,7 +63,11 @@ async function loadSrc(
     return { children: build(cloneDescriptorTree(mod.default)) };
   }
   try {
-    return { content: await readFile(absolute, "utf8") };
+    // No encoding forced -- read raw bytes, then let bufferToContent decide
+    // text vs. binary. Forcing "utf8" here used to silently corrupt any
+    // non-text src (confirmed with a real PNG: every non-UTF-8 byte came
+    // back as a replacement character).
+    return { content: bufferToContent(await readFile(absolute)) };
   } catch (cause) {
     throw new FileableError(`failed to read src file "${src}"`, path, cause);
   }
@@ -119,18 +127,22 @@ export async function resolve(
     }
 
     if (node.tag === "file") {
+      const props = node.props as { __resolvedContent?: string | Buffer };
       const src = node.props.src as string | Promise<string> | undefined;
       if (src !== undefined) {
         if (isThenable(src)) {
+          // An author-supplied Promise is documented as resolving to a
+          // string (an "already resolved async value", PRD SS2.2) -- unlike
+          // the file-read/URL-fetch paths, there's no raw bytes to sniff.
           try {
-            (node.props as { __resolvedContent?: string }).__resolvedContent = await src;
+            props.__resolvedContent = combineContent(props.__resolvedContent, await src);
           } catch (cause) {
             throw new FileableError("`src` promise rejected", path, cause);
           }
         } else {
           const loaded = await loadSrc(src, baseDir, path);
           if (loaded.content !== undefined) {
-            (node.props as { __resolvedContent?: string }).__resolvedContent = loaded.content;
+            props.__resolvedContent = combineContent(props.__resolvedContent, loaded.content);
           }
           if (loaded.children !== undefined) {
             node.children = [...loaded.children, ...node.children];
@@ -149,8 +161,7 @@ export async function resolve(
         const stdout = await execCommand(cmd, baseDir).catch((cause: unknown) => {
           throw new FileableError(`cmd execution failed: ${cmd}`, path, cause);
         });
-        const existing = (node.props as { __resolvedContent?: string }).__resolvedContent ?? "";
-        (node.props as { __resolvedContent?: string }).__resolvedContent = existing + stdout;
+        props.__resolvedContent = combineContent(props.__resolvedContent, bufferToContent(stdout));
       }
     }
 

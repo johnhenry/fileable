@@ -63,7 +63,7 @@ test("link() to a target inlined in the same artifact emits an in-page anchor", 
     children: [target, "ref:", linkRef(target)],
   };
   const result = layout([root]);
-  const content = result.artifacts[0].content!;
+  const content = result.artifacts[0].content as string;
   assert.match(content, /<span id="([^"]+)"><\/span>TARGET/);
   const anchorId = /<span id="([^"]+)">/.exec(content)![1];
   assert.equal(content.includes(`ref:#${anchorId}`), true);
@@ -196,7 +196,7 @@ test("join=\"dom-merge\" merges nested full-document fragments into one document
     children: [header, "<main>M</main>", footer],
   };
   const result = layout([root]);
-  const content = result.artifacts[0].content!;
+  const content = result.artifacts[0].content as string;
   assert.match(content, /<title>T<\/title>/);
   assert.match(content, /<header>H<\/header>/);
   assert.match(content, /<main>M<\/main>/);

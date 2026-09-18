@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { resolve } from "../src/resolve.js";
 import { FileableError } from "../src/types.js";
@@ -11,6 +12,29 @@ test("reads a plain-text src file into __resolvedContent", async () => {
   const node: Descriptor = { tag: "file", props: { name: "out.txt", src: "hello.txt" }, children: [] };
   const [resolved] = await resolve([node], { cwd: fixtures });
   assert.equal((resolved.props as { __resolvedContent?: string }).__resolvedContent, "Hello from a file\n");
+});
+
+test("reads a binary src file (PNG) as a byte-exact Buffer, not UTF-8-decoded text", async () => {
+  const node: Descriptor = { tag: "file", props: { name: "out.png", src: "logo.png" }, children: [] };
+  const [resolved] = await resolve([node], { cwd: fixtures });
+  const content = (resolved.props as { __resolvedContent?: string | Buffer }).__resolvedContent;
+  assert.ok(Buffer.isBuffer(content));
+  const original = await readFile(join(fixtures, "logo.png"));
+  assert.ok((content as Buffer).equals(original));
+});
+
+test("cmd with binary stdout is preserved byte-exact, not UTF-8-decoded", async () => {
+  // `cat` doesn't exist on Windows -- shell out via node itself instead, so
+  // this is portable across the CI matrix's shells (sh vs. cmd.exe).
+  const pngPath = join(fixtures, "logo.png");
+  const script = `process.stdout.write(require("fs").readFileSync(${JSON.stringify(pngPath)}))`;
+  const cmd = `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)}`;
+  const node: Descriptor = { tag: "file", props: { name: "out.png", cmd }, children: [] };
+  const [resolved] = await resolve([node], { cwd: fixtures, allowExec: true });
+  const content = (resolved.props as { __resolvedContent?: string | Buffer }).__resolvedContent;
+  assert.ok(Buffer.isBuffer(content));
+  const original = await readFile(pngPath);
+  assert.ok((content as Buffer).equals(original));
 });
 
 test("imports a code src file's default export as inlined children", async () => {

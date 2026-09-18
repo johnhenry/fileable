@@ -183,7 +183,8 @@ export interface ArtifactNode {
   target: RenderTarget;
   /** For target === "archive": the .zip file's own outputPath. */
   archivePath?: string;
-  content?: string;
+  /** A `Buffer` for binary content (see content-util.ts); plain text stays a `string`. */
+  content?: string | Buffer;
   mode?: string;
   /** Resolved relative target for a real symlink (loose target only). */
   symlinkTo?: string;

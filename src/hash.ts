@@ -36,6 +36,22 @@ function sha256(input: string): string {
   return `${HASH_ALGORITHM}:${createHash(HASH_ALGORITHM).update(input).digest("hex")}`;
 }
 
+/**
+ * Hashes `content` (string or binary Buffer -- SS2.2) followed by a text
+ * suffix via two separate `update()` calls rather than string-concatenating
+ * first. `hash.update(a).update(b)` is exactly equivalent to
+ * `hash.update(a + b)` for a string `a`, so this changes nothing for text
+ * content; for a Buffer it avoids coercing binary bytes to a string (which
+ * would hash an already-corrupted lossy representation instead of the
+ * actual bytes being written).
+ */
+function sha256WithContent(content: string | Buffer | undefined, suffix: string): string {
+  const digest = createHash(HASH_ALGORITHM);
+  if (content !== undefined) digest.update(content);
+  digest.update(suffix);
+  return `${HASH_ALGORITHM}:${digest.digest("hex")}`;
+}
+
 function collectDescendants(byId: Map<string, ArtifactNode>, id: string): ArtifactNode[] {
   const node = byId.get(id);
   if (!node) return [];
@@ -60,9 +76,8 @@ export function hash(layoutResult: LayoutResult, collectionPatterns: string[] = 
     for (const pattern of collectionPatterns) dependsOn.push(`${pattern} (collection)`);
     dependsOnById.set(artifact.id, dependsOn);
 
-    const digestInput =
-      (artifact.content ?? "") + collectionSuffix + (artifact.symlinkTo ?? "") + ` mode:${artifact.mode ?? ""}`;
-    leafHashes.set(artifact.id, sha256(digestInput));
+    const suffix = collectionSuffix + (artifact.symlinkTo ?? "") + ` mode:${artifact.mode ?? ""}`;
+    leafHashes.set(artifact.id, sha256WithContent(artifact.content, suffix));
   }
 
   const artifacts: HashedArtifact[] = layoutResult.artifacts.map((artifact) => {

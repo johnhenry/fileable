@@ -41,11 +41,17 @@ archive, or one concatenated file) from the same authored tree.
   downloadable zip (plugin package, release bundle) from the same source
   that also produces the live/loose output.
 
+`src`/`cmd` are binary-safe -- content is read/decided text-vs-binary by a
+UTF-8 round-trip, so pointing `src` at an image or having `cmd` shell out to
+a binary tool passes the bytes through byte-exact (loose, or inside a zip).
+There's no *processing* pipeline, though: no resizing, transcoding, or
+optimization built in -- that's still a real gap, just not a hard boundary
+the way it first looked.
+
 Not a fit: runtime UI (no hydration, explicitly out of scope -- see
-Non-Goals in the design PRD), image/binary asset pipelines, distributed or
-parallel builds, or anywhere a mature, battle-tested tool matters more
-than the composition model -- this is a fresh rewrite with no real-world
-users yet.
+Non-Goals in the design PRD), distributed or parallel builds, or anywhere a
+mature, battle-tested tool matters more than the composition model -- this
+is a fresh rewrite with no real-world users yet.
 
 ## Installation
 

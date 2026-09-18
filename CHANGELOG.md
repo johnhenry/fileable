@@ -106,6 +106,23 @@ choice between a full/slim materialization of the same tree.
   timestamped line per `fileable build` run into `build-log.txt` instead
   of overwriting it each time; also takes an optional `--var message=...`.
 
+### Fixed (binary content, found by testing the README's own claims)
+- `src` (file reads and URL fetches) and `cmd` stdout forced UTF-8 decoding
+  unconditionally, silently corrupting anything that wasn't valid UTF-8
+  text -- confirmed by round-tripping a real PNG through `src`: every
+  non-UTF-8 byte came back as a replacement character, growing a 69-byte
+  file to 83 corrupted bytes. Fixed (`content-util.ts`): read raw bytes
+  always, then decide text vs. binary by UTF-8 round-trip -- text stays a
+  plain `string` (identical behavior/hash for every existing text
+  scenario, zero test breakage), binary becomes a `Buffer`, preserved
+  byte-exact through Layout's content composition, Hash's digest (`Buffer`
+  fed directly to `crypto`'s `update()`, not string-concatenated first),
+  the loose writer (`fs.writeFile` already accepts a `Buffer`), and the
+  archive writer (a `Buffer` *is* a `Uint8Array`, used directly instead of
+  `fflate`'s `strToU8`). Verified round-trip-identical for `src`, `cmd`,
+  and inside a `.zip`. The README's "Not a fit: image/binary asset
+  pipelines" line was wrong as stated -- corrected.
+
 ### Fixed (found while closing test-coverage gaps, before first release)
 - `src="partial.js"` reused across two separate `<file src>` occurrences
   spliced the *same* object (Node's `import()` cache memoizes module

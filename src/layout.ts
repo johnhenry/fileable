@@ -340,8 +340,20 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
     if (artifact.symlinkTo !== undefined) continue;
     const node = artifact.descriptor;
     const join = (node.props.join as "concat" | "dom-merge") ?? "concat";
-    const base = (node.props as { __resolvedContent?: string }).__resolvedContent ?? "";
-    artifact.content = base + serializeChildren(node.children, join, { anchorIds });
+    const base = (node.props as { __resolvedContent?: string | Buffer }).__resolvedContent;
+    const inner = serializeChildren(node.children, join, { anchorIds });
+    if (base === undefined) {
+      artifact.content = inner;
+    } else if (typeof base === "string") {
+      artifact.content = base + inner;
+    } else {
+      // Binary base content (a Buffer, from a binary src/cmd -- SS2.2) with
+      // no markup children stays byte-exact; splicing JSX markup into it
+      // (unusual -- text content doesn't compose with raw binary bytes
+      // meaningfully) falls back to a plain byte concat rather than
+      // erroring, since it's what was literally authored.
+      artifact.content = inner === "" ? base : Buffer.concat([base, Buffer.from(inner, "utf8")]);
+    }
   }
   for (const artifact of artifacts) {
     const copyFromId = (artifact as ArtifactNode & { __copyFromId?: string }).__copyFromId;

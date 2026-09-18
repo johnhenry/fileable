@@ -51,7 +51,13 @@ function renderMarkupTag(node: Descriptor, ctx: SerializeCtx): string {
 
 function serializeStructural(node: Descriptor, ctx: SerializeCtx): string {
   const innerJoin = (node.props.join as "concat" | "dom-merge") ?? "concat";
-  const base = (node.props as { __resolvedContent?: string }).__resolvedContent ?? "";
+  const rawBase = (node.props as { __resolvedContent?: string | Buffer }).__resolvedContent;
+  // Inlining always produces a string (it's being spliced into a larger
+  // text document) -- a Buffer here means a binary src was nested inside
+  // another file's text content, which decodes lossily as a last resort
+  // rather than erroring. Binary content is only preserved byte-exact as a
+  // file's own top-level content (layout.ts), not when inlined into text.
+  const base = rawBase === undefined ? "" : typeof rawBase === "string" ? rawBase : rawBase.toString("utf8");
   const inner = serializeChildren(node.children, innerJoin, ctx);
   const combined = base + inner;
   const anchorId = ctx.anchorIds.get(node);
