@@ -18,6 +18,35 @@ Docker-flavored build discipline"**: a small, closed set of primitives
 and three interchangeable output shapes (a folder of loose files, a zip
 archive, or one concatenated file) from the same authored tree.
 
+## Where this fits
+
+- **Scaffolding / project generators** (Plop/Hygen/Yeoman territory) --
+  `Dir`/`File`/`Rm` plus the CLI's `--var` make a JSX-native "generate a
+  skeleton from a template with parameters" tool. `onConflict` matters
+  here specifically: `"error"` protects hand-edited files from a re-run
+  generator clobbering them, `"append"` lets a generator add to something
+  ongoing (a changelog, a registry file) instead of overwriting it.
+- **Static site / docs generators**, with one trick most don't have: the
+  same authored tree renders as loose files, a zip, *or* one concatenated
+  page (nameless inlining + `join="dom-merge"`) without rewriting
+  anything -- see `examples/03-docs-archive-and-single-page`.
+- **Build-time codegen with incremental caching** -- deriving config or
+  manifest files from a data model (CI workflows, client stubs,
+  docker-compose), where `.fileable-lock.json` skipping unchanged output
+  starts to matter once the generated set gets large.
+- **Append-only build artifacts** -- logs, manifests, audit trails that
+  should accumulate across runs instead of regenerating from scratch; see
+  `examples/04-build-log`.
+- **Distributable bundle packaging** -- `as="archive"` for producing a
+  downloadable zip (plugin package, release bundle) from the same source
+  that also produces the live/loose output.
+
+Not a fit: runtime UI (no hydration, explicitly out of scope -- see
+Non-Goals in the design PRD), image/binary asset pipelines, distributed or
+parallel builds, or anywhere a mature, battle-tested tool matters more
+than the composition model -- this is a fresh rewrite with no real-world
+users yet.
+
 ## Installation
 
 ```sh
