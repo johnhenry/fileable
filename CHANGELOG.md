@@ -106,6 +106,22 @@ choice between a full/slim materialization of the same tree.
   timestamped line per `fileable build` run into `build-log.txt` instead
   of overwriting it each time; also takes an optional `--var message=...`.
 
+### Fixed (consistency audit)
+A diagnostic-only pass (checked docs against actual code/CLI output
+directly, not from memory) found two real issues, fixed after:
+- README's CLI options block had drifted from the real `--help` output --
+  `-o, --out-dir`'s description was missing the build-vs-clean distinction
+  added when `clean` shipped. Resynced.
+- `as`, `join`, and `onConflict` were validated with inconsistent rigor:
+  `as` got a check for the *nested-archive-conflict* case, but none of
+  the three rejected an outright unrecognized value (a typo like
+  `onConflict="repalce"` silently behaved like `"replace"`, with no error
+  -- inconsistent with this codebase's own established fail-loudly
+  convention everywhere else). All three now throw a clear `FileableError`
+  for an unrecognized value. Also consolidated `join`'s parsing (layout.ts
+  and serialize.ts each did the same unchecked cast independently) into
+  one validated `parseJoin()` helper both call.
+
 ### Added (completeness audit: duals and supplementary states)
 Prompted by an explicit "find missing duals/complementary/supplementary
 operations" pass. Real gaps found and closed:

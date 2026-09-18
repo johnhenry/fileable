@@ -10,7 +10,7 @@
  * needs to know which descriptors are anchor targets that actually need an
  * injected `<span id="...">` marker.
  */
-import { isDescriptor } from "./types.js";
+import { FileableError, isDescriptor } from "./types.js";
 import type { Descriptor, DescriptorChild } from "./types.js";
 import { mergeHtmlFragments } from "./dom-merge.js";
 
@@ -18,6 +18,22 @@ const VOID_TAGS = new Set([
   "area", "base", "br", "col", "embed", "hr", "img", "input",
   "link", "meta", "param", "source", "track", "wbr",
 ]);
+
+/**
+ * Validates `join` once, shared between layout.ts's top-level content
+ * assembly and this module's inline-composition path (both previously
+ * did the same `(props.join as ...) ?? "concat"` cast independently, with
+ * no validation either place) -- an unrecognized value now throws a clear
+ * error instead of silently behaving as `"concat"`, matching how the rest
+ * of this codebase (reserved tags, duplicate paths, missing `name`, `cmd`
+ * without `allowExec`) fails loudly rather than doing the wrong thing quietly.
+ */
+export function parseJoin(props: Record<string, unknown>, path: string): "concat" | "dom-merge" {
+  const value = props.join;
+  if (value === undefined) return "concat";
+  if (value === "concat" || value === "dom-merge") return value;
+  throw new FileableError(`invalid join="${String(value)}" -- expected "concat" or "dom-merge"`, path);
+}
 
 export interface SerializeCtx {
   anchorIds: Map<Descriptor, string>;
@@ -50,7 +66,7 @@ function renderMarkupTag(node: Descriptor, ctx: SerializeCtx): string {
 }
 
 function serializeStructural(node: Descriptor, ctx: SerializeCtx): string {
-  const innerJoin = (node.props.join as "concat" | "dom-merge") ?? "concat";
+  const innerJoin = parseJoin(node.props, `<${String(node.tag)}${node.props.name ? `[${node.props.name}]` : ""}> (inlined)`);
   const rawBase = (node.props as { __resolvedContent?: string | Buffer }).__resolvedContent;
   // Inlining always produces a string (it's being spliced into a larger
   // text document) -- a Buffer here means a binary src was nested inside

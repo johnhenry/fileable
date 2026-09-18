@@ -28,6 +28,27 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
+const ON_CONFLICT_VALUES = new Set(["replace", "append", "prepend", "skip", "error"]);
+
+/**
+ * A typo (e.g. `onConflict="repalce"`) used to silently fall through to
+ * unconditional overwrite -- exactly what "replace" does anyway -- so the
+ * author would never learn their `"append"`/`"skip"`/etc. was never
+ * applied. Now it throws instead, matching how the rest of this codebase
+ * fails loudly on an unrecognized value (reserved tags, `<Dir as>`, `join`).
+ */
+function parseOnConflict(props: Record<string, unknown>, path: string): "replace" | "append" | "prepend" | "skip" | "error" {
+  const value = props.onConflict;
+  if (value === undefined) return "replace";
+  if (typeof value === "string" && ON_CONFLICT_VALUES.has(value)) {
+    return value as "replace" | "append" | "prepend" | "skip" | "error";
+  }
+  throw new FileableError(
+    `invalid onConflict="${String(value)}" -- expected "replace", "append", "prepend", "skip", or "error"`,
+    path,
+  );
+}
+
 export async function writeLoose(
   artifacts: HashedArtifact[],
   outDir: string,
@@ -78,9 +99,7 @@ export async function writeLoose(
         if (file.mode) await chmod(fullPath, parseInt(file.mode, 8));
       }
     } else {
-      const onConflict =
-        (file.descriptor.props.onConflict as "replace" | "append" | "prepend" | "error" | "skip" | undefined) ??
-        "replace";
+      const onConflict = parseOnConflict(file.descriptor.props, file.outputPath);
       if (onConflict !== "replace") {
         const alreadyExists = await pathExists(fullPath);
         if (alreadyExists && onConflict === "error") {

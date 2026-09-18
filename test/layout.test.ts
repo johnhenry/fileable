@@ -85,6 +85,41 @@ test("nested archives and un-archiving mid-tree throw instead of silently doing 
   );
 });
 
+test("an invalid as= value throws instead of silently behaving like the default", () => {
+  assert.throws(
+    () => layout([{ tag: "dir", props: { name: "out", as: "zip" }, children: [] }]),
+    (error: unknown) => {
+      assert.ok(error instanceof FileableError);
+      assert.match(error.message, /invalid as="zip"/);
+      return true;
+    },
+  );
+});
+
+test("an invalid join= value throws instead of silently behaving like \"concat\" (top-level file)", () => {
+  assert.throws(
+    () => layout([{ tag: "file", props: { name: "out.html", join: "bogus" }, children: ["x"] }]),
+    (error: unknown) => {
+      assert.ok(error instanceof FileableError);
+      assert.match(error.message, /invalid join="bogus"/);
+      return true;
+    },
+  );
+});
+
+test("an invalid join= value throws instead of silently behaving like \"concat\" (inlined fragment)", () => {
+  const inner: Descriptor = { tag: "file", props: { join: "bogus" }, children: ["x"] };
+  const outer: Descriptor = { tag: "file", props: { name: "out.html" }, children: [inner] };
+  assert.throws(
+    () => layout([outer]),
+    (error: unknown) => {
+      assert.ok(error instanceof FileableError);
+      assert.match(error.message, /invalid join="bogus"/);
+      return true;
+    },
+  );
+});
+
 test("linkTo() to a target inlined in the same artifact emits an in-page anchor", () => {
   const target: Descriptor = { tag: "file", props: {}, children: ["TARGET"] };
   const root: Descriptor = {

@@ -126,7 +126,9 @@ rebuilt as one atomic unit, so there's no per-entry "already exists" to ask.
 `as="archive"` can't be requested again, or switched back to `as="loose"`,
 once already nested inside an archive -- both throw rather than silently
 doing nothing, since neither nested archives nor "escaping" an archive
-mid-tree are supported.
+mid-tree are supported. An unrecognized value for `as`, `join`, or
+`onConflict` (a typo, e.g. `onConflict="repalce"`) also throws, rather than
+silently falling back to the default as if nothing were wrong.
 
 Any other JSX tag (`<h1>`, `<ul>`, `<a>`, ...) is plain markup content, not a
 fileable primitive -- it's stringified into whichever `File` contains it.
@@ -161,8 +163,9 @@ whether `as="archive"` is set.
 fileable build <template> [options]
 fileable clean [dir] [options]
 
-  -o, --out-dir <dir>     Directory artifacts are written into
-                          (default: the template file's own directory)
+  -o, --out-dir <dir>     Directory artifacts are written into (default for
+                          build: the template file's own directory; default
+                          for clean: [dir] or ".")
   -c, --cwd <dir>         Base directory for resolving relative src/from paths
                           (build only; default: same as --out-dir)
       --var <key[:type]=value>

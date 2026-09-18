@@ -23,7 +23,7 @@ import type {
   RenderOptions,
   RenderTarget,
 } from "./types.js";
-import { serializeChildren } from "./serialize.js";
+import { parseJoin, serializeChildren } from "./serialize.js";
 
 interface IdentityInfo {
   realArtifactId: string;
@@ -102,6 +102,12 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
       }
 
       const requestedAs = node.props.as as RenderTarget | undefined;
+      if (requestedAs !== undefined && requestedAs !== "loose" && requestedAs !== "archive") {
+        throw new FileableError(
+          `invalid as="${String(requestedAs)}" -- expected "loose" or "archive"`,
+          path,
+        );
+      }
       // Any explicit <Dir as> nested inside an archive used to be silently
       // ignored: as="archive" again (starting a *second*, nested zip) fell
       // through to "regular nested dir" (still just an entry in the outer
@@ -353,7 +359,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
     if (artifact.kind !== "file") continue;
     if (artifact.symlinkTo !== undefined) continue;
     const node = artifact.descriptor;
-    const join = (node.props.join as "concat" | "dom-merge") ?? "concat";
+    const join = parseJoin(node.props, artifact.outputPath);
     const base = (node.props as { __resolvedContent?: string | Buffer }).__resolvedContent;
     const inner = serializeChildren(node.children, join, { anchorIds });
     if (base === undefined) {

@@ -222,6 +222,13 @@ test("onConflict defaults to \"replace\" (today's behavior, unconditional overwr
   });
 });
 
+test("an invalid onConflict= value throws instead of silently behaving like \"replace\"", async () => {
+  await withTempDir(async (outDir) => {
+    const file: Descriptor = { tag: "file", props: { name: "out.txt", onConflict: "repalce" }, children: ["x"] };
+    await assert.rejects(() => render(file, { outDir, cache: false }), FileableError);
+  });
+});
+
 test("onConflict=\"skip\" leaves an existing file completely untouched and continues the build", async () => {
   await withTempDir(async (outDir) => {
     await mkdir(outDir, { recursive: true });
