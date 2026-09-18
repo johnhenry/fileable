@@ -48,9 +48,10 @@ it yourself instead of via the CLI? `render()` is a plain function --
 `import { render } from "fileable"; await render(template, { outDir: "." })`.
 
 See [`examples/`](./examples) for a runnable hello-world, a blog-with-index
-example (adapted from the design PRD below), and a docs-archive-and-single-page
+example (adapted from the design PRD below), a docs-archive-and-single-page
 example showing the same authored content rendered as both a `.zip` archive
-and one `join="dom-merge"` page.
+and one `join="dom-merge"` page, and a build-log example showing
+`onConflict="append"` accumulating one line per run instead of overwriting.
 
 ## The three primitives
 

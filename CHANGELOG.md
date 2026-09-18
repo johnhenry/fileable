@@ -102,6 +102,9 @@ choice between a full/slim materialization of the same tree.
   feed both an `as="archive"` zip of individually-addressable pages and a
   `join="dom-merge"` single page, demonstrating SS5.2 ("three
   materializations of the same authored tree") concretely.
+- `examples/04-build-log`: `onConflict="append"` accumulating one
+  timestamped line per `fileable build` run into `build-log.txt` instead
+  of overwriting it each time; also takes an optional `--var message=...`.
 
 ### Fixed (found while closing test-coverage gaps, before first release)
 - `src="partial.js"` reused across two separate `<file src>` occurrences
