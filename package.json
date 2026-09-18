@@ -27,8 +27,12 @@
       "default": "./dist/src/jsx-dev-runtime.js"
     }
   },
+  "bin": {
+    "fileable": "./dist/bin/fileable.js"
+  },
   "files": [
     "dist/src",
+    "dist/bin",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"

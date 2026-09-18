@@ -7,13 +7,8 @@
  * bringing its own <title>/<style>) into one shared <head> instead of
  * duplicating <html>/<head> tags.
  *
- * Run with: npm run build && node dist/examples/03-docs-archive-and-single-page/template.js
+ * Run with: npm run build && node dist/bin/fileable.js build dist/examples/03-docs-archive-and-single-page/template.js
  */
-import { fileURLToPath } from "node:url";
-import { render } from "fileable";
-
-const here = fileURLToPath(new URL(".", import.meta.url));
-
 const docs = [
   { slug: "getting-started", src: "docs-src/getting-started.js" },
   { slug: "configuration", src: "docs-src/configuration.js" },
@@ -40,4 +35,4 @@ const template = (
   </dir>
 );
 
-await render(template, { outDir: here, cwd: here, cache: false });
+export default template;

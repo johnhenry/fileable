@@ -1,6 +1,7 @@
 /**
- * Adapts PRD SS9 ("Blog with Index"). Run with:
- *   npm run build && node dist/examples/02-blog-with-index/template.js
+ * Adapts PRD SS9 ("Blog with Index"). Run with (from the repo root -- see
+ * the contentDir note below):
+ *   npm run build && node dist/bin/fileable.js build dist/examples/02-blog-with-index/template.js
  *
  * Post bodies are markdown, rendered to HTML via the `markdown()` runtime
  * helper (a thin wrapper around `marked` -- convenience only, not a new
@@ -17,9 +18,8 @@
  *    "dist/" while already inside `<dir name="dist">`.
  */
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { render, link, markdown, useCollection } from "fileable";
+import { link, markdown, useCollection } from "fileable";
 import type { Descriptor } from "fileable";
 
 interface Post {
@@ -40,12 +40,11 @@ function parseFrontmatter(path: string): Post {
   return { title: meta.title, slug: meta.slug, date: meta.date, body: match[2].trim() };
 }
 
-// Where the compiled template.js itself runs from (partials compile
-// alongside it, so they're resolved relative to this).
-const here = fileURLToPath(new URL(".", import.meta.url));
-
 // content/*.md are plain data, not TypeScript -- tsc doesn't copy them into
-// dist, so they're only ever found at their original source location.
+// dist, so they're only ever found at their original source location. This
+// resolves relative to wherever `fileable build` is invoked from (the repo
+// root in the usage note above), independent of --out-dir/--cwd, which only
+// affect the render() side (partials/, which *are* compiled, and output).
 const contentDir = join(process.cwd(), "examples/02-blog-with-index/content");
 
 const posts = useCollection(join(contentDir, "posts/*.md"))
@@ -83,4 +82,4 @@ const template = (
   </dir>
 );
 
-await render(template, { outDir: here, cwd: here, cache: false });
+export default template;

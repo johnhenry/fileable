@@ -17,5 +17,5 @@
     "jsxImportSource": "fileable",
     "resolveJsonModule": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx", "examples/**/*.tsx"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "bin/**/*.ts", "test/**/*.ts", "test/**/*.tsx", "examples/**/*.tsx"]
 }

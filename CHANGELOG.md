@@ -57,6 +57,13 @@ choice between a full/slim materialization of the same tree.
   `<file>`/`<dir>`/`<rm>` tags -- for authors who'd rather have an
   importable symbol to jump to than a string matched inside the JSX
   runtime. Also callable directly without JSX, e.g. `File({ name: "a.txt" })`.
+- `fileable build <template>` CLI (`bin/fileable.ts`, `dist/bin/fileable.js`
+  via the `fileable` bin entry): imports a template module's default
+  export and renders it, so templates don't each need their own `await
+  render(tree, {...})` boilerplate. `outDir`/`cwd` default to the template
+  file's own directory. All three examples switched from self-contained
+  scripts (each calling `render()` itself) to `export default template;`,
+  now driven by the CLI instead.
 
 ### Added (examples)
 - `examples/03-docs-archive-and-single-page`: the same three `src` partials

@@ -29,16 +29,22 @@ npm install fileable
 
 ```tsx
 /** @jsxImportSource fileable */
-import { render } from "fileable";
-
 const template = (
   <dir name="dist">
     <file name="hello.txt">Hello, world!</file>
   </dir>
 );
 
-await render(template, { outDir: "." });
+export default template;
 ```
+
+```sh
+fileable build template.js
+```
+
+`outDir`/`cwd` default to the template file's own directory. Prefer to drive
+it yourself instead of via the CLI? `render()` is a plain function --
+`import { render } from "fileable"; await render(template, { outDir: "." })`.
 
 See [`examples/`](./examples) for a runnable hello-world, a blog-with-index
 example (adapted from the design PRD below), and a docs-archive-and-single-page
@@ -85,6 +91,26 @@ whether `as="archive"` is set.
   wrapper around `marked`). Convenience only, not a new mechanism -- content
   transformation is otherwise just calling any function you like inline,
   e.g. `{myOwnTransform(text)}`, with no fileable involvement at all.
+
+## CLI
+
+```
+fileable build <template> [options]
+
+  -o, --out-dir <dir>   Directory artifacts are written into
+                         (default: the template file's own directory)
+  -c, --cwd <dir>        Base directory for resolving relative src/from paths
+                         (default: same as --out-dir)
+      --allow-exec       Allow the `cmd` attribute to execute shell commands
+      --strict           Promote symlink-fallback warnings to hard errors
+      --no-cache          Force a full rebuild, ignoring .fileable-lock.json
+      --lock-file <path> Path to the incremental-build lock file
+```
+
+`<template>` is any module whose default export is a fileable tree. Like
+`src="partials/x.jsx"` on `<file>`, it needs to already be compiled to plain
+JS (or loadable via a registered Node loader) -- there's no JSX/TS transform
+built in, so point the CLI at `.js`, not `.tsx`.
 
 ## Security
 
