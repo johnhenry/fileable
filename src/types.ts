@@ -107,6 +107,11 @@ export function isLinkRef(value: unknown): value is LinkRef {
   );
 }
 
+/** Shared by Build (rejecting an unresolved Promise as JSX content) and Resolve (props). */
+export function isThenable(value: unknown): value is Promise<unknown> {
+  return !!value && typeof value === "object" && typeof (value as Promise<unknown>).then === "function";
+}
+
 /**
  * Deep-clones a descriptor/LinkRef/array structure, preserving internal
  * identity relationships (two references to the same original object

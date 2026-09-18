@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { build } from "../src/build.js";
-import { FRAGMENT } from "../src/types.js";
+import { FRAGMENT, FileableError } from "../src/types.js";
 import type { Descriptor } from "../src/types.js";
 
 function file(name: string, children: unknown[] = []): Descriptor {
@@ -38,6 +38,16 @@ test("coerces an unexpected child (e.g. a plain object an author mistakenly rend
   const weird = { toString: () => "weird-object" };
   const [root] = build({ tag: "file", props: { name: "a.txt" }, children: [weird] });
   assert.deepEqual(root.children, ["weird-object"]);
+});
+
+test("a Promise as JSX content throws instead of silently stringifying to \"[object Promise]\"", () => {
+  // The realistic trigger is an async component: `<AsyncFoo/>` invokes it
+  // immediately and gets back a Promise (its eventual result), not the
+  // resolved value -- fileable only ever awaits promise-valued *props*.
+  assert.throws(
+    () => build({ tag: "file", props: { name: "a.txt" }, children: [Promise.resolve("later")] }),
+    FileableError,
+  );
 });
 
 test("assigns a stable __id to every descriptor", () => {

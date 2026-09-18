@@ -13,7 +13,7 @@
  * Promise-valued props (`src`, `cmd`, ...) are left untouched -- Resolve (Stage 2)
  * is responsible for those.
  */
-import { FRAGMENT, isDescriptor, isLinkRef } from "./types.js";
+import { FRAGMENT, isDescriptor, isLinkRef, isThenable, FileableError } from "./types.js";
 import type { Descriptor, DescriptorChild } from "./types.js";
 
 export function build(root: unknown): Descriptor[] {
@@ -51,6 +51,21 @@ export function build(root: unknown): Descriptor[] {
       if (isLinkRef(item) || typeof item === "string") {
         flat.push(item);
         continue;
+      }
+      if (isThenable(item)) {
+        // A Promise ending up as JSX *content* (not a prop) -- e.g. calling
+        // an async component (`<AsyncFoo/>` invokes it immediately and gets
+        // back a Promise, not its eventual result) or writing `{somePromise}`
+        // directly as a child -- used to silently stringify to the useless
+        // "[object Promise]" instead of erroring, since Resolve (Stage 2)
+        // only ever awaits promise-valued *props* (`src`, `cmd`, ...), never
+        // arbitrary child content. Fail loudly instead: await it yourself
+        // (or pass it via a prop fileable already resolves) before rendering.
+        throw new FileableError(
+          "a Promise can't be used directly as JSX content (only as a prop value, e.g. `src`/`cmd`, or any " +
+            "other prop) -- await it yourself before rendering, or pass it as a prop instead",
+          "<jsx child>",
+        );
       }
       // Anything else (e.g. an object an author mistakenly rendered directly)
       // is coerced to a string rather than silently dropped.

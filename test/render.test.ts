@@ -76,6 +76,77 @@ test("render() skips unchanged artifacts on a second run via .fileable-lock.json
   });
 });
 
+test("render() rewrites a file whose hash is unchanged but whose real output was deleted by hand", async () => {
+  await withTempDir(async (outDir) => {
+    const tree = (): Descriptor => ({ tag: "file", props: { name: "a.txt" }, children: ["same content"] });
+    const first = await render(tree(), { outDir });
+    assert.ok(first.written.includes("a.txt"));
+
+    await rm(join(outDir, "a.txt"));
+    const second = await render(tree(), { outDir });
+    assert.ok(second.written.includes("a.txt"));
+    assert.equal(second.skipped.includes("a.txt"), false);
+    assert.equal(await readFile(join(outDir, "a.txt"), "utf8"), "same content");
+
+    // A genuine no-op rebuild afterward still skips, now that the file is
+    // really there again.
+    const third = await render(tree(), { outDir });
+    assert.ok(third.skipped.includes("a.txt"));
+  });
+});
+
+test("render() recreates a dir artifact whose hash is unchanged but whose real directory was deleted by hand", async () => {
+  await withTempDir(async (outDir) => {
+    const tree = (): Descriptor => ({
+      tag: "dir",
+      props: { name: "empty-dir" },
+      children: [],
+    });
+    await render(tree(), { outDir });
+    await stat(join(outDir, "empty-dir"));
+
+    await rm(join(outDir, "empty-dir"), { recursive: true });
+    const second = await render(tree(), { outDir });
+    assert.ok(second.written.includes("empty-dir"));
+    await stat(join(outDir, "empty-dir"));
+  });
+});
+
+test("render() called twice on the exact same tree object doesn't leak mutations between calls", async () => {
+  await withTempDir(async (outDir) => {
+    const pngPath = join(process.cwd(), "test/fixtures/logo.png");
+    const tree: Descriptor = { tag: "file", props: { name: "logo.png", src: pngPath }, children: [] };
+
+    const outDirA = join(outDir, "a");
+    const outDirB = join(outDir, "b");
+    await render(tree, { outDir: outDirA, cache: false });
+    await render(tree, { outDir: outDirB, cache: false });
+
+    const a = await readFile(join(outDirA, "logo.png"));
+    const b = await readFile(join(outDirB, "logo.png"));
+    const original = await readFile(pngPath);
+    assert.ok(a.equals(original));
+    assert.ok(b.equals(original));
+  });
+});
+
+test("render() called twice on the same <Dir from> tree doesn't duplicate synthesized children", async () => {
+  await withTempDir(async (outDir) => {
+    const assetsDir = join(outDir, "assets");
+    await mkdir(assetsDir, { recursive: true });
+    await writeFile(join(assetsDir, "a.txt"), "one");
+
+    const tree: Descriptor = { tag: "dir", props: { name: "out", from: join(assetsDir, "*") }, children: [] };
+
+    const outDirA = join(outDir, "a");
+    const outDirB = join(outDir, "b");
+    const first = await render(tree, { outDir: outDirA, cache: false });
+    const second = await render(tree, { outDir: outDirB, cache: false });
+    assert.deepEqual(first.written.sort(), ["out", "out/a.txt"]);
+    assert.deepEqual(second.written.sort(), ["out", "out/a.txt"]);
+  });
+});
+
 test("render() writes a real symlink for a loose target", async () => {
   await withTempDir(async (outDir) => {
     const target: Descriptor = { tag: "file", props: { name: "hello.html" }, children: ["HELLO"] };
@@ -267,6 +338,62 @@ test("onConflict=\"prepend\" on a path that doesn't exist yet just writes normal
     const file: Descriptor = { tag: "file", props: { name: "new.txt", onConflict: "prepend" }, children: ["only content"] };
     await render(file, { outDir, cache: false });
     assert.equal(await readFile(join(outDir, "new.txt"), "utf8"), "only content");
+  });
+});
+
+test("onConflict is honored for a symlink File, not just a regular one", async () => {
+  await withTempDir(async (outDir) => {
+    await writeFile(join(outDir, "latest"), "pre-existing, not created by fileable");
+    const targetDescriptor: Descriptor = { tag: "file", props: { name: "hello.html" }, children: ["HELLO"] };
+    const link: Descriptor = {
+      tag: "file",
+      props: { name: "latest", symlink: targetDescriptor, onConflict: "error" },
+      children: [],
+    };
+    await assert.rejects(() => render([targetDescriptor, link], { outDir, cache: false }), FileableError);
+    assert.equal(await readFile(join(outDir, "latest"), "utf8"), "pre-existing, not created by fileable");
+  });
+});
+
+test("onConflict=\"skip\" on a symlink File leaves a pre-existing path untouched", async () => {
+  await withTempDir(async (outDir) => {
+    await writeFile(join(outDir, "latest"), "pre-existing, not created by fileable");
+    const targetDescriptor: Descriptor = { tag: "file", props: { name: "hello.html" }, children: ["HELLO"] };
+    const link: Descriptor = {
+      tag: "file",
+      props: { name: "latest", symlink: targetDescriptor, onConflict: "skip" },
+      children: [],
+    };
+    const result = await render([targetDescriptor, link], { outDir, cache: false });
+    assert.ok(result.skipped.includes("latest"));
+    assert.equal(await readFile(join(outDir, "latest"), "utf8"), "pre-existing, not created by fileable");
+  });
+});
+
+test("onConflict=\"append\"/\"prepend\" on a symlink File throws when there's something to conflict with", async () => {
+  await withTempDir(async (outDir) => {
+    await writeFile(join(outDir, "latest"), "pre-existing");
+    const targetDescriptor: Descriptor = { tag: "file", props: { name: "hello.html" }, children: ["HELLO"] };
+    const link: Descriptor = {
+      tag: "file",
+      props: { name: "latest", symlink: targetDescriptor, onConflict: "append" },
+      children: [],
+    };
+    await assert.rejects(() => render([targetDescriptor, link], { outDir, cache: false }), FileableError);
+  });
+});
+
+test("onConflict=\"append\" on a symlink File with nothing pre-existing just creates the symlink", async () => {
+  await withTempDir(async (outDir) => {
+    const targetDescriptor: Descriptor = { tag: "file", props: { name: "hello.html" }, children: ["HELLO"] };
+    const link: Descriptor = {
+      tag: "file",
+      props: { name: "latest", symlink: targetDescriptor, onConflict: "append" },
+      children: [],
+    };
+    await render([targetDescriptor, link], { outDir, cache: false });
+    const info = await lstat(join(outDir, "latest"));
+    assert.ok(info.isSymbolicLink());
   });
 });
 

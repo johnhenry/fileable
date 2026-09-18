@@ -13,6 +13,44 @@ philosophy -- a small closed instruction set, `src` as an explicit
 layer caching, and `as="loose" | "archive"` as a multi-stage-build-style
 choice between a full/slim materialization of the same tree.
 
+### Fixed (pre-release bug hunt)
+A general correctness pass before the first real release, verified by
+actually reproducing each one in a scratch directory before fixing it, not
+just by reasoning about the code:
+- **Incremental cache didn't check the output still existed.** `isUnchanged`
+  only compared hashes -- if a previous build's file, directory, or archive
+  was deleted by hand (or a previous run was interrupted partway), a rebuild
+  with caching on (the default) silently reported "skip" forever and never
+  recreated it. Now every "unchanged by hash" artifact is also checked
+  against disk before being skipped; if it's missing, it's rewritten
+  regardless of the hash. Applies to loose files, loose dirs, and archives.
+- **Calling `render()` twice on the same tree object corrupted the second
+  call.** Build/Resolve mutate descriptor nodes in place (folding resolved
+  `src`/`cmd` content into `props.__resolvedContent`, splicing `<Dir from>`
+  matches into `children`) -- reusing one tree object across two `render()`
+  calls (a natural SDK pattern: build a tree once, render it under different
+  options) leaked the first call's mutations into the second. Confirmed with
+  a real PNG: its content literally doubled on the second call. Fixed by
+  deep-cloning the tree once at the top of `render()`, before Build ever
+  touches it.
+- **A loose `symlink` pointing at a target inside an archive silently
+  pointed at nothing.** Archive-internal artifacts' `outputPath` is relative
+  to the archive's own root, not the real filesystem, but Layout was
+  computing a real symlink target from it anyway. Now throws a clear error
+  instead of producing a symlink to a path that doesn't exist.
+- **`onConflict` was silently ignored for symlink `<File>`s.** A pre-existing
+  path (real content, not something fileable wrote) got force-removed and
+  replaced with a symlink regardless of `onConflict="error"`/`"skip"`. Now
+  honored the same as for regular files; `"append"`/`"prepend"` (which don't
+  make sense for a symlink) throw when there's actually something to
+  conflict with, and behave like a normal write when there isn't.
+- **A Promise used directly as JSX content silently stringified to
+  `"[object Promise]"`.** The realistic trigger is an async component --
+  `<AsyncFoo/>` invokes it immediately and gets back a Promise, not its
+  eventual result, since Resolve only ever awaits promise-valued *props*
+  (`src`, `cmd`, ...), never arbitrary child content. Now throws instead of
+  silently writing garbage.
+
 ### Added
 - Fileable's own JSX runtime (`fileable/jsx-runtime`, `fileable/jsx-dev-runtime`)
   -- no React/Solid/Astro dependency.

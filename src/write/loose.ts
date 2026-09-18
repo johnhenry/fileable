@@ -19,7 +19,7 @@ export interface LooseWriteResult {
   warnings: string[];
 }
 
-async function pathExists(path: string): Promise<boolean> {
+export async function pathExists(path: string): Promise<boolean> {
   try {
     await access(path);
     return true;
@@ -74,8 +74,36 @@ export async function writeLoose(
   for (const file of files) {
     const fullPath = join(outDir, file.outputPath);
     if (!dryRun) await mkdir(dirname(fullPath), { recursive: true });
+    const onConflict = parseOnConflict(file.descriptor.props, file.outputPath);
 
     if (file.symlinkTo !== undefined) {
+      // onConflict used to be silently ignored for symlinks -- a pre-existing
+      // file at this path (real content, not something fileable itself put
+      // there) got force-removed and replaced with the symlink regardless of
+      // onConflict="error"/"skip" (confirmed by actually building this case).
+      // "append"/"prepend" still don't make sense for a symlink -- there's no
+      // content to append to -- so those throw whenever there's something to
+      // conflict with in the first place; with nothing there yet, creating
+      // the symlink normally is no different from any other onConflict mode.
+      if (onConflict !== "replace" && (await pathExists(fullPath))) {
+        if (onConflict === "error") {
+          throw new FileableError(
+            `refusing to overwrite existing file (onConflict="error"): ${file.outputPath}`,
+            file.outputPath,
+          );
+        }
+        if (onConflict === "skip") {
+          skipped.push(file.outputPath);
+          continue;
+        }
+        if (onConflict === "append" || onConflict === "prepend") {
+          throw new FileableError(
+            `onConflict="${onConflict}" doesn't apply to a symlink -- there's no existing content at ` +
+              `${file.outputPath} to ${onConflict} to`,
+            file.outputPath,
+          );
+        }
+      }
       if (dryRun) {
         // Whether a real symlink succeeds or EPERM-falls-back-to-copy on
         // Windows can only be discovered by actually attempting it -- a
@@ -99,7 +127,6 @@ export async function writeLoose(
         if (file.mode) await chmod(fullPath, parseInt(file.mode, 8));
       }
     } else {
-      const onConflict = parseOnConflict(file.descriptor.props, file.outputPath);
       if (onConflict !== "replace") {
         const alreadyExists = await pathExists(fullPath);
         if (alreadyExists && onConflict === "error") {

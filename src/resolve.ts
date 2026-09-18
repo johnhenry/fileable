@@ -16,17 +16,13 @@ import { readFile } from "node:fs/promises";
 import { basename, extname, isAbsolute, relative as relativePath, resolve as resolvePath } from "node:path";
 import { pathToFileURL } from "node:url";
 import { glob } from "glob";
-import { cloneDescriptorTree, isDescriptor, isLinkRef, FileableError } from "./types.js";
+import { cloneDescriptorTree, isDescriptor, isLinkRef, isThenable, FileableError } from "./types.js";
 import type { Descriptor, DescriptorChild, RenderOptions } from "./types.js";
 import { bufferToContent, combineContent } from "./content-util.js";
 import { execCommand } from "./exec.js";
 import { splitGlobBase, toPosixPattern } from "./glob-util.js";
 
 const CODE_EXTENSIONS = new Set([".jsx", ".tsx", ".js", ".mjs", ".ts"]);
-
-function isThenable(value: unknown): value is Promise<unknown> {
-  return !!value && typeof value === "object" && typeof (value as Promise<unknown>).then === "function";
-}
 
 async function loadSrc(
   src: string,

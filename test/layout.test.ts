@@ -192,6 +192,16 @@ test("strict:true promotes a symlink degrade to a thrown error", () => {
   );
 });
 
+test("a loose symlink targeting a descriptor that lives inside an archive throws instead of pointing at nothing", () => {
+  const archived: Descriptor = { tag: "file", props: { name: "inside.txt" }, children: ["hi"] };
+  const archive: Descriptor = { tag: "dir", props: { name: "bundle", as: "archive" }, children: [archived] };
+  const link: Descriptor = { tag: "file", props: { name: "latest", symlink: archived }, children: [] };
+  assert.throws(
+    () => layout([{ tag: "dir", props: { name: "site" }, children: [archive, link] }]),
+    FileableError,
+  );
+});
+
 test("symlink also accepts a plain string target (not just a Descriptor)", () => {
   const link: Descriptor = { tag: "file", props: { name: "latest", symlink: "../elsewhere/hello.html" }, children: [] };
   const result = layout([{ tag: "dir", props: { name: "site" }, children: [link] }]);

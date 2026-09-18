@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { strFromU8, unzipSync } from "fflate";
@@ -81,6 +81,27 @@ test("an unchanged archive is skipped on rebuild; a changed one is rewritten", a
     assert.ok(second.skipped.includes("docs.zip"));
     const third = await render(build("v2"), { outDir });
     assert.ok(third.written.includes("docs.zip"));
+  } finally {
+    await rm(outDir, { recursive: true, force: true });
+  }
+});
+
+test("an archive whose hash is unchanged but whose .zip was deleted by hand gets rewritten, not skipped", async () => {
+  const outDir = await mkdtemp(join(tmpdir(), "fileable-archive-cache-"));
+  try {
+    const build = (): Descriptor => ({
+      tag: "dir",
+      props: { name: "docs", as: "archive" },
+      children: [{ tag: "file", props: { name: "a.txt" }, children: ["v1"] }],
+    });
+    const first = await render(build(), { outDir });
+    assert.ok(first.written.includes("docs.zip"));
+
+    await rm(join(outDir, "docs.zip"));
+    const second = await render(build(), { outDir });
+    assert.ok(second.written.includes("docs.zip"));
+    assert.equal(second.skipped.includes("docs.zip"), false);
+    await stat(join(outDir, "docs.zip"));
   } finally {
     await rm(outDir, { recursive: true, force: true });
   }

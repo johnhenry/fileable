@@ -237,6 +237,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
     const artifact = byId.get(pending.artifactId)!;
     let targetOutputPath: string;
     let targetRealArtifactId: string | undefined;
+    let targetArtifact: ArtifactNode | undefined;
     // A string target is the literal symlink text (same semantics as `ln -s
     // TARGET LINK` -- interpreted relative to the symlink's own directory),
     // so it's never run through the root-relative-path computation below,
@@ -251,7 +252,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
         throw new FileableError("symlink target is not a descriptor present in this tree", pending.path);
       }
       targetRealArtifactId = info.realArtifactId;
-      const targetArtifact = byId.get(info.realArtifactId);
+      targetArtifact = byId.get(info.realArtifactId);
       targetOutputPath = targetArtifact ? targetArtifact.outputPath : "";
       usedAnchors.add(pending.targetRef);
     }
@@ -264,6 +265,19 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
         throw new FileableError(message, pending.path);
       }
       warnings.push(message);
+    } else if (!targetIsLiteral && targetArtifact && targetArtifact.target !== "loose") {
+      // The symlink itself is loose (a real `fs.symlink` will be attempted),
+      // but the target lives inside an archive -- there's no real filesystem
+      // path a symlink could point at; `targetOutputPath` above is only
+      // meaningful relative to the archive's own internal root, not the real
+      // filesystem. Silently emitting a symlink to that non-path would
+      // "succeed" while pointing at nothing (confirmed by actually building
+      // this case: the resulting symlink target didn't exist anywhere).
+      throw new FileableError(
+        `symlink target "${targetOutputPath}" lives inside an archive (${targetArtifact.archivePath}) -- ` +
+          "a real symlink needs a real filesystem path; content inside a .zip has no addressable path outside it",
+        pending.path,
+      );
     } else {
       // Real symlink is attempted first at Write time; __copyFromId is kept as
       // a fallback for the Windows EPERM case (SS5.3), where Write degrades to
