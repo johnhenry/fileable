@@ -106,6 +106,40 @@ choice between a full/slim materialization of the same tree.
   timestamped line per `fileable build` run into `build-log.txt` instead
   of overwriting it each time; also takes an optional `--var message=...`.
 
+### Added (`eject` -- build's other dual)
+`build` turns a JSX tree into a real filesystem tree; nothing did the
+reverse. Added `fileable eject <path>` (SDK: `reflect(path, options)`),
+which walks a real path and generates the fileable TSX source that would
+build it, so `fileable build`'s output and `eject`'s output round-trip
+through each other, byte-for-byte including binary files.
+
+The one decision `build` never has to make that `eject` does: per file, is
+its content **inlined** as source text, or **referenced** via `src="..."`
+pointing back at the real file? `contentMode` (default `"infer"`) sniffs
+via the same UTF-8 round-trip check `content-util.ts` already built for
+binary-safe `src`/`cmd` -- text inlines, binary references, for free.
+`"inline"`/`"ref"` force one for every file (forcing `"inline"` on binary
+content throws -- there's no safe way to put raw bytes into source text).
+`content` overrides (`glob -> mode`) win over the global mode for specific
+files. `"ask"` defers the decision -- to an interactive CLI prompt, or an
+`onAsk` callback for SDK callers -- for *text* files only, since binary
+content has exactly one valid answer and there's nothing to ask about it.
+
+Referenced files default to **not** being copied -- `src` points at the
+real file's original location, computed relative to `outFile`/`--out`
+(default: a sibling `<name>.tsx` next to the ejected path, so the
+reference collapses to pointing right back into the directory being
+described). `copyAssets`/`--copy-assets` copies referenced files into an
+`assets/` directory next to the output instead, for a template that can
+be moved independently of the tree it came from.
+
+Deliberately not captured: file mode/permission bits, and the
+`useCollection`/`linkTo` authoring-time relationships that produced a tree
+-- `eject` reconstructs structure and content, not how a human got there.
+`.fileable-lock.json` is skipped on the way in, since it's fileable's own
+bookkeeping, not a real asset -- ejecting a tree that fileable itself just
+built shouldn't produce a giant inlined JSON blob as a side effect.
+
 ### Fixed (consistency audit)
 A diagnostic-only pass (checked docs against actual code/CLI output
 directly, not from memory) found two real issues, fixed after:

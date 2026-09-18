@@ -162,6 +162,7 @@ whether `as="archive"` is set.
 ```
 fileable build <template> [options]
 fileable clean [dir] [options]
+fileable eject <path> [options]
 
   -o, --out-dir <dir>     Directory artifacts are written into (default for
                           build: the template file's own directory; default
@@ -175,6 +176,14 @@ fileable clean [dir] [options]
       --no-cache          Force a full rebuild, ignoring .fileable-lock.json
       --lock-file <path>  Path to the incremental-build lock file
       --dry-run           Report what would happen without touching disk
+      --out <file>        eject only: write generated source here instead of stdout
+      --content-mode <infer|inline|ref|ask>
+                          eject only: how to decide, per file, whether its
+                          content is inlined or referenced (default: infer)
+      --content <glob>=<inline|ref>
+                          eject only: force a mode for matching files (repeatable)
+      --copy-assets       eject only: copy referenced files into assets/ next
+                          to --out instead of pointing at their original location
 ```
 
 `<template>` is any module whose default export is a fileable tree. Like
@@ -197,6 +206,59 @@ fileable clean .             # removes exactly those, plus .fileable-lock.json
 was (or its default, the template's own directory) -- not a subfolder your
 tree's own `<Dir name="...">` happens to create inside it, since paths in
 the lock file are recorded relative to `[dir]` itself, not to that subfolder.
+
+### `eject` -- build's other dual
+
+`build` turns a JSX tree into a real filesystem tree. `fileable eject
+<path>` runs that in reverse: it walks a real path and prints the fileable
+TSX source that would build it. `fileable build`'s own output is a
+reasonable input to `eject`, and vice versa -- round-tripping recreates the
+same tree, byte-for-byte, including binary files:
+
+```sh
+fileable eject dist                    # prints generated source to stdout
+fileable eject dist --out dist.tsx     # writes it to a file instead
+```
+
+```
+$ fileable eject dist
+import { Dir, File } from "fileable";
+
+export default (
+  <Dir name="dist">
+    <File name="hello.txt">{`Hello, world!
+`}</File>
+    <File name="logo.png" src="./dist/logo.png" />
+  </Dir>
+);
+```
+
+For every file, `eject` decides whether its content is **inlined** as
+source text or **referenced** via `src="..."` pointing back at the real
+file -- that's `--content-mode`, default `infer`: text inlines, binary
+references (it sniffs bytes the same UTF-8 round-trip check that makes
+`src`/`cmd` binary-safe already uses, so this is free). Force one mode for
+everything with `--content-mode inline|ref` (forcing `inline` on binary
+content throws -- there's no safe way to put raw bytes into source text),
+or override specific files with `--content <glob>=inline|ref`, checked
+before the global mode. `--content-mode ask` prompts interactively for each
+*text* file instead of guessing (binary content is never asked about --
+`ref` is its only valid answer).
+
+Referenced files are **not copied** by default -- `src` points at the real
+file in its original location, computed relative to wherever the generated
+source is meant to live (`--out`, or its default: a sibling `<name>.tsx`
+next to the ejected path). Pass `--copy-assets` to copy referenced files
+into an `assets/` directory next to `--out` instead, for a template that
+can survive being moved independently of the tree it was ejected from.
+
+Not captured: file mode/permission bits, and the `useCollection`/`linkTo`
+authoring-time relationships that produced a tree in the first place --
+`eject` reconstructs structure and content, not how you got there.
+
+The SDK equivalent is `reflect(path, options)`, returning the generated
+source as a string; the interactive prompt is CLI-only, so an SDK caller
+using `contentMode: "ask"` must supply its own `onAsk(file)` callback.
 
 ### `--dry-run` -- preview without touching disk
 

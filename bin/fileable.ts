@@ -18,18 +18,29 @@
  * previous build wrote, using `.fileable-lock.json`'s own record of that
  * (not a guess at what "looks generated"), then removes the lock file
  * itself. `--dry-run` (on either command) previews without touching disk.
+ *
+ * `fileable eject <path>` is build's *other* dual, in the opposite
+ * direction: it walks a real filesystem path and prints (or writes) the
+ * fileable TSX source that would build it. See src/eject.ts for the
+ * content-mode decision (inline vs. reference) this has to make per file;
+ * this file only adds the interactive "ask" prompt, since that's a CLI
+ * concern the SDK's `reflect()` deliberately doesn't have an opinion on.
  */
 import { dirname, relative as relativePath, resolve as resolvePath } from "node:path";
-import { rm } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { createInterface } from "node:readline/promises";
 import { pathToFileURL } from "node:url";
 import { render } from "../src/render.js";
 import { readLockFile } from "../src/lock.js";
+import { CONTENT_MODES, reflect } from "../src/eject.js";
+import type { ContentMode, ContentOverride, EjectFileInfo } from "../src/eject.js";
 import type { RenderOptions } from "../src/types.js";
 import { parseVarFlag } from "./vars.js";
 
 function printHelp(): void {
   console.log(`Usage: fileable build <template> [options]
        fileable clean [dir] [options]
+       fileable eject <path> [options]
 
 build renders a template module's default export -- a fileable JSX tree,
 or a function (vars) => <Dir>... that receives --var-supplied values.
@@ -40,6 +51,12 @@ must be the *same* directory build's --out-dir was (or its default, the
 template's own directory) -- not a subfolder your tree's own <Dir name>
 happens to create inside it, since that's just an artifact's output path,
 recorded in the lock file relative to [dir] itself.
+
+eject walks a real filesystem path and prints the fileable TSX source that
+would build it -- build's dual, in the opposite direction. Prints to
+stdout by default; pass --out to write it to a file instead. Referenced
+(non-inlined) files point back at their original location unless
+--copy-assets is given.
 
 Options:
   -o, --out-dir <dir>    Directory artifacts are written into
@@ -61,6 +78,20 @@ Options:
       --no-cache          Force a full rebuild, ignoring .fileable-lock.json
       --lock-file <path>  Path to the incremental-build lock file
       --dry-run           Report what would happen without touching disk
+      --out <file>        eject only: write the generated source here
+                          instead of printing it to stdout
+      --content-mode <infer|inline|ref|ask>
+                          eject only: how to decide, per file, whether its
+                          content is inlined or referenced via src="...".
+                          Default: infer (text inlines, binary references).
+                          "ask" prompts interactively for each text file
+                          (binary content is always "ref" -- nothing to ask).
+      --content <glob>=<inline|ref>
+                          eject only: force a mode for files matching glob,
+                          overriding --content-mode (repeatable)
+      --copy-assets       eject only: copy referenced files into an
+                          assets/ dir next to --out instead of pointing at
+                          their original location
   -h, --help              Show this help
 `);
 }
@@ -77,10 +108,23 @@ interface ParsedArgs {
   dryRun: boolean;
   lockFile?: string;
   help: boolean;
+  out?: string;
+  contentMode?: ContentMode;
+  content: ContentOverride[];
+  copyAssets: boolean;
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
-  const args: ParsedArgs = { vars: {}, allowExec: false, strict: false, cache: true, dryRun: false, help: false };
+  const args: ParsedArgs = {
+    vars: {},
+    allowExec: false,
+    strict: false,
+    cache: true,
+    dryRun: false,
+    help: false,
+    content: [],
+    copyAssets: false,
+  };
   const positionals: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -116,6 +160,30 @@ function parseArgs(argv: string[]): ParsedArgs {
         break;
       case "--lock-file":
         args.lockFile = argv[++i];
+        break;
+      case "--out":
+        args.out = argv[++i];
+        break;
+      case "--content-mode": {
+        const value = argv[++i];
+        if (!CONTENT_MODES.has(value)) {
+          throw new Error(`invalid --content-mode "${value}" -- expected infer|inline|ref|ask`);
+        }
+        args.contentMode = value as ContentMode;
+        break;
+      }
+      case "--content": {
+        const raw = argv[++i] ?? "";
+        const eqIndex = raw.lastIndexOf("=");
+        const mode = eqIndex === -1 ? "" : raw.slice(eqIndex + 1);
+        if (eqIndex === -1 || (mode !== "inline" && mode !== "ref")) {
+          throw new Error(`invalid --content "${raw}" -- expected <glob>=inline|ref`);
+        }
+        args.content.push({ pattern: raw.slice(0, eqIndex), mode });
+        break;
+      }
+      case "--copy-assets":
+        args.copyAssets = true;
         break;
       default:
         positionals.push(arg);
@@ -221,6 +289,56 @@ async function runClean(args: ParsedArgs): Promise<number> {
   return 0;
 }
 
+/**
+ * `reflect()`'s `onAsk` is never called for binary content (it has only
+ * one valid answer, "ref"), so this prompt only ever needs to phrase the
+ * question for text files.
+ */
+async function askAboutFile(file: EjectFileInfo): Promise<"inline" | "ref"> {
+  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    const answer = await rl.question(
+      `fileable eject: ${file.relativePath} (text, ${file.size} bytes) -- inline or reference? [i/r] `,
+    );
+    return answer.trim().toLowerCase().startsWith("r") ? "ref" : "inline";
+  } finally {
+    rl.close();
+  }
+}
+
+async function runEject(args: ParsedArgs): Promise<number> {
+  if (!args.template) {
+    printHelp();
+    return 1;
+  }
+  const rootPath = resolvePath(process.cwd(), args.template);
+  const outFile = args.out ? resolvePath(process.cwd(), args.out) : undefined;
+
+  let source: string;
+  try {
+    source = await reflect(rootPath, {
+      contentMode: args.contentMode,
+      content: args.content,
+      copyAssets: args.copyAssets,
+      outFile,
+      onAsk: args.contentMode === "ask" ? askAboutFile : undefined,
+    });
+  } catch (error) {
+    console.error("fileable: eject failed");
+    console.error(error);
+    return 1;
+  }
+
+  if (outFile && !args.dryRun) {
+    await mkdir(dirname(outFile), { recursive: true });
+    await writeFile(outFile, source, "utf8");
+    console.log(`fileable: wrote ${relativePath(process.cwd(), outFile)}`);
+  } else {
+    process.stdout.write(source);
+  }
+  return 0;
+}
+
 export async function main(argv: string[]): Promise<number> {
   let args: ParsedArgs;
   try {
@@ -236,6 +354,7 @@ export async function main(argv: string[]): Promise<number> {
   }
   if (args.command === "build") return runBuild(args);
   if (args.command === "clean") return runClean(args);
+  if (args.command === "eject") return runEject(args);
 
   printHelp();
   return 1;
