@@ -4,6 +4,7 @@
  */
 import { globSync } from "glob";
 import { recordCollectionDependency, recordWarning } from "./context.js";
+import { toPosixPattern } from "./glob-util.js";
 import type { Descriptor, LinkOptions } from "./types.js";
 
 /**
@@ -22,7 +23,7 @@ export function warn(message: string): void {
 
 /** One-off, non-cached glob expansion -- no dependency tracking. */
 export function glob(pattern: string): string[] {
-  return globSync(pattern);
+  return globSync(toPosixPattern(pattern));
 }
 
 /**
@@ -32,5 +33,5 @@ export function glob(pattern: string): string[] {
  */
 export function useCollection(pattern: string): string[] {
   recordCollectionDependency(pattern);
-  return globSync(pattern);
+  return globSync(toPosixPattern(pattern));
 }

@@ -8,6 +8,7 @@
 import { chmod, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { glob } from "glob";
+import { toPosixPattern } from "../glob-util.js";
 import type { HashedArtifact } from "../types.js";
 
 export interface LooseWriteResult {
@@ -63,16 +64,17 @@ export async function writeLoose(
 export async function applyRemovals(removals: string[], outDir: string): Promise<string[]> {
   const removed: string[] = [];
   for (const pattern of removals) {
-    const negated = pattern.startsWith("!");
-    const matches = await glob(negated ? "**" : pattern, {
+    const posixPattern = toPosixPattern(pattern);
+    const negated = posixPattern.startsWith("!");
+    const matches = await glob(negated ? "**" : posixPattern, {
       cwd: outDir,
-      ignore: negated ? [pattern.slice(1)] : undefined,
+      ignore: negated ? [posixPattern.slice(1)] : undefined,
       nodir: true,
       absolute: false,
     });
     for (const match of matches) {
       await rm(join(outDir, match), { force: true });
-      removed.push(match);
+      removed.push(match.replace(/\\/g, "/"));
     }
   }
   return removed;

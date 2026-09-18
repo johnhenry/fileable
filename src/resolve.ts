@@ -19,6 +19,7 @@ import { glob } from "glob";
 import { isDescriptor, isLinkRef, FileableError } from "./types.js";
 import type { Descriptor, DescriptorChild, RenderOptions } from "./types.js";
 import { execCommand } from "./exec.js";
+import { toPosixPattern } from "./glob-util.js";
 
 const CODE_EXTENSIONS = new Set([".jsx", ".tsx", ".js", ".mjs", ".ts"]);
 
@@ -75,7 +76,7 @@ async function resolveFromGlob(
     }
   }
   try {
-    return await glob(pattern, { cwd: baseDir, absolute: true, nodir: true });
+    return await glob(toPosixPattern(pattern), { cwd: baseDir, absolute: true, nodir: true });
   } catch (cause) {
     throw new FileableError(`\`from\` glob expansion failed for "${pattern}"`, path, cause);
   }
