@@ -14,10 +14,9 @@ package.
 It ships its own JSX runtime (no React/Solid/Astro dependency) and is best
 described as **"JSX for describing filesystem artifacts, with
 Docker-flavored build discipline"**: a small, closed set of primitives
-(`<dir>`, `<file>`, `<rm>`), content-hash layer caching
-(`.fileable-lock.json`), and three interchangeable output shapes (a folder of
-loose files, a zip archive, or one concatenated file) from the same authored
-tree.
+(`Dir`, `File`, `Rm`), content-hash layer caching (`.fileable-lock.json`),
+and three interchangeable output shapes (a folder of loose files, a zip
+archive, or one concatenated file) from the same authored tree.
 
 ## Installation
 
@@ -29,10 +28,12 @@ npm install fileable
 
 ```tsx
 /** @jsxImportSource fileable */
+import { Dir, File } from "fileable";
+
 const template = (
-  <dir name="dist">
-    <file name="hello.txt">Hello, world!</file>
-  </dir>
+  <Dir name="dist">
+    <File name="hello.txt">Hello, world!</File>
+  </Dir>
 );
 
 export default template;
@@ -53,32 +54,35 @@ and one `join="dom-merge"` page.
 
 ## The three primitives
 
-| Element | Purpose |
+`Dir`/`File`/`Rm` are ordinary functions exported from `"fileable"` --
+`import { Dir, File, Rm } from "fileable"` and use them as JSX components
+(`<File name="a.txt">...</File>`) or call them directly with no JSX at all
+(`File({ name: "a.txt" })`). The bare lowercase `<dir>`/`<file>`/`<rm>` tags
+are **reserved and throw** if written directly (a clear error pointing at
+the correct import) -- they're not a shortcut, so there's always one real,
+importable, "go to definition"-able symbol for each primitive rather than a
+string matched somewhere inside the JSX runtime.
+
+| Component | Purpose |
 |---|---|
-| `<dir>` | A directory. `name`, `from` (glob -> one child per match), `as="loose" \| "archive"`, `mode`. |
-| `<file>` | A file, or -- nested inside another `<file>` -- a content fragment to inline. `name`, `src`, `doctype`, `mode`, `symlink`, `cmd`, `join="concat" \| "dom-merge"`. |
-| `<rm>` | A removal. `target` (glob, supports `!` negation). |
+| `Dir` | A directory. `name`, `from` (glob -> one child per match), `as="loose" \| "archive"`, `mode`. |
+| `File` | A file, or -- nested inside another `File` -- a content fragment to inline. `name`, `src`, `doctype`, `mode`, `symlink`, `cmd`, `join="concat" \| "dom-merge"`. |
+| `Rm` | A removal. `target` (glob, supports `!` negation). |
 
 Any other JSX tag (`<h1>`, `<ul>`, `<a>`, ...) is plain markup content, not a
-fileable primitive -- it's stringified into whichever `<file>` contains it.
+fileable primitive -- it's stringified into whichever `File` contains it.
+Only `dir`/`file`/`rm` are reserved; any other lowercase tag name is fine to
+use directly, exactly as shown in the examples.
 
-If the lowercase tags feel too "magic" (matched as special strings inside
-the JSX runtime, with no symbol to jump to), `File`/`Dir`/`Rm` are also
-exported as ordinary functions -- `import { File, Dir, Rm } from "fileable"`
-and write `<File name="a.txt">...</File>` instead of `<file>`. Both
-spellings are fully interchangeable and produce the exact same tree; `File`
-etc. are also just callable directly without JSX at all, e.g.
-`File({ name: "a.txt" })`.
-
-A `<file>` or `<dir>` nested inside another `<file>` isn't a separate path --
-it's folded into the parent's content (nameless inlining). This single rule
-is what lets the same authored tree render as loose files, a zip archive, or
+A `File` or `Dir` nested inside another `File` isn't a separate path -- it's
+folded into the parent's content (nameless inlining). This single rule is
+what lets the same authored tree render as loose files, a zip archive, or
 one concatenated file, just by choosing where the nesting happens and
 whether `as="archive"` is set.
 
 ## Runtime API
 
-- `link(target, options?)` -- a reference to another `<file>` node, aware of
+- `link(target, options?)` -- a reference to another `File` node, aware of
   where both ultimately land (an in-page anchor if inlined together, a
   relative path/URL otherwise).
 - `warn(message)` -- a non-fatal build warning (thrown errors are still
@@ -108,7 +112,7 @@ fileable build <template> [options]
 ```
 
 `<template>` is any module whose default export is a fileable tree. Like
-`src="partials/x.jsx"` on `<file>`, it needs to already be compiled to plain
+`src="partials/x.jsx"` on `File`, it needs to already be compiled to plain
 JS (or loadable via a registered Node loader) -- there's no JSX/TS transform
 built in, so point the CLI at `.js`, not `.tsx`.
 
@@ -126,9 +130,10 @@ without that flag, encountering `cmd` throws immediately.
 - The `react`/`react-dom` dependency is gone -- fileable ships its own JSX
   runtime (`fileable/jsx-runtime`), selected via a `@jsxImportSource fileable`
   pragma or `compilerOptions.jsxImportSource`.
-- The `FILE`/`FOLDER`/`CLEAR` yieldable directives are replaced by
-  `<file>`/`<dir>`/`<rm>` JSX elements. `WARNING`/`ERROR` directives are
-  replaced by a plain `throw` (fatal) or the `warn()` helper (non-fatal).
+- The `FILE`/`FOLDER`/`CLEAR` yieldable directives are replaced by the
+  `File`/`Dir`/`Rm` JSX components (`import { File, Dir, Rm } from
+  "fileable"`). `WARNING`/`ERROR` directives are replaced by a plain `throw`
+  (fatal) or the `warn()` helper (non-fatal).
 
 ## Design background
 

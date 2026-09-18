@@ -53,10 +53,15 @@ choice between a full/slim materialization of the same tree.
   involvement needed. `examples/02-blog-with-index` now renders post bodies
   through it instead of dumping raw markdown text into the HTML output.
 - `File`/`Dir`/`Rm` exported as ordinary functions (`import { File, Dir, Rm }
-  from "fileable"`), equivalent to and interchangeable with the lowercase
-  `<file>`/`<dir>`/`<rm>` tags -- for authors who'd rather have an
-  importable symbol to jump to than a string matched inside the JSX
-  runtime. Also callable directly without JSX, e.g. `File({ name: "a.txt" })`.
+  from "fileable"`) -- **and now the only supported way to reach the three
+  primitives.** The bare lowercase `<dir>`/`<file>`/`<rm>` tags are reserved
+  and throw a clear error pointing at the correct import if authored
+  directly (`jsx-runtime.ts`'s `RESERVED_TAGS`); they briefly worked as
+  interchangeable spellings before this was tightened up. Every template
+  now has one real, importable, "go to definition"-able symbol per
+  primitive instead of a string matched inside the JSX runtime dispatch.
+  Also callable directly without JSX, e.g. `File({ name: "a.txt" })`. All
+  three examples updated to `<Dir>`/`<File>`/`<Rm>`.
 - `fileable build <template>` CLI (`bin/fileable.ts`, `dist/bin/fileable.js`
   via the `fileable` bin entry): imports a template module's default
   export and renders it, so templates don't each need their own `await

@@ -1,18 +1,28 @@
 /**
  * Fileable's own JSX runtime (PRD SS7.2) -- selected via a per-file
  * `@jsxImportSource fileable` pragma or `compilerOptions.jsxImportSource`.
- * No React/Solid/Astro runtime involved: structural tags (dir/file/rm)
- * become descriptor nodes; everything else (plain markup tags, function
- * components) is evaluated immediately, mirroring the JSX call tree 1:1.
- * Normalization (flattening fragments/arrays, dropping nullish children,
- * assigning stable ids) happens in the Build stage (`build.ts`), not here.
+ * No React/Solid/Astro runtime involved: structural tags become descriptor
+ * nodes; everything else (plain markup tags, function components) is
+ * evaluated immediately, mirroring the JSX call tree 1:1. Normalization
+ * (flattening fragments/arrays, dropping nullish children, assigning
+ * stable ids) happens in the Build stage (`build.ts`), not here.
+ *
+ * `dir`/`file`/`rm` are reserved and NOT treated as structural when
+ * written as bare lowercase tags -- authoring `<dir>`/`<file>`/`<rm>`
+ * directly throws. `Dir`/`File`/`Rm`, imported from "fileable" (see
+ * `components.ts`), are the only supported way to reach the three
+ * primitives, so every template has an explicit, importable, "go to
+ * definition"-able symbol for them rather than a bare string matched
+ * somewhere inside this dispatch.
  */
 import type { Descriptor, DescriptorChild, Tag } from "./types.js";
-import { FRAGMENT } from "./types.js";
+import { FRAGMENT, FileableError } from "./types.js";
 
 export const Fragment = FRAGMENT;
 
 type ComponentFn = (props: Record<string, unknown>) => unknown;
+
+const RESERVED_TAGS: Record<string, string> = { dir: "Dir", file: "File", rm: "Rm" };
 
 function toChildArray(children: unknown): DescriptorChild[] {
   if (children === undefined) return [];
@@ -20,7 +30,7 @@ function toChildArray(children: unknown): DescriptorChild[] {
 }
 
 /**
- * Declared to return `Descriptor` for authoring ergonomics (so `<file>...`
+ * Declared to return `Descriptor` for authoring ergonomics (so `<File>...`
  * expressions can flow into `Descriptor`-typed variables, arrays, and the
  * `link()`/`symlink` params without a cast) even though a function
  * component may, at runtime, return something else (a fragment's array, a
@@ -34,6 +44,14 @@ export function jsx(
   const allProps = props ?? {};
   if (typeof type === "function") {
     return type(allProps) as Descriptor;
+  }
+  if (typeof type === "string" && type in RESERVED_TAGS) {
+    const component = RESERVED_TAGS[type];
+    throw new FileableError(
+      `<${type}> is reserved and not a fileable primitive on its own -- ` +
+        `import { ${component} } from "fileable" and write <${component}> instead of the bare lowercase tag`,
+      `<${type}>`,
+    );
   }
   const { children, ...rest } = allProps;
   const descriptor: Descriptor = {
@@ -54,24 +72,11 @@ export namespace JSX {
     children?: unknown;
   }
   export interface IntrinsicElements {
-    dir: CommonProps & {
-      name?: string;
-      from?: string | Promise<string[]> | string[];
-      as?: "loose" | "archive";
-      mode?: string;
-    };
-    file: CommonProps & {
-      name?: string;
-      src?: string | Promise<string>;
-      doctype?: string;
-      mode?: string;
-      symlink?: Descriptor | string;
-      cmd?: string;
-      join?: "concat" | "dom-merge";
-    };
-    rm: CommonProps & {
-      target: string;
-    };
+    // `dir`/`file`/`rm` are deliberately NOT declared here (they fall
+    // through to the index signature below, loosely typed) -- import
+    // Dir/File/Rm from "fileable" for both proper prop types and to
+    // actually reach the structural primitives; the bare tags throw
+    // at runtime (see RESERVED_TAGS above).
     [elemName: string]: CommonProps;
   }
   export type Element = Descriptor;

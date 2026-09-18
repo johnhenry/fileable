@@ -9,6 +9,8 @@
  *
  * Run with: npm run build && node dist/bin/fileable.js build dist/examples/03-docs-archive-and-single-page/template.js
  */
+import { Dir, File } from "fileable";
+
 const docs = [
   { slug: "getting-started", src: "docs-src/getting-started.js" },
   { slug: "configuration", src: "docs-src/configuration.js" },
@@ -16,23 +18,23 @@ const docs = [
 ];
 
 const template = (
-  <dir name="dist">
+  <Dir name="dist">
     {/* Materialization 1: a .zip of individually-addressable pages. */}
-    <dir name="docs-archive" as="archive">
+    <Dir name="docs-archive" as="archive">
       {docs.map((doc) => (
-        <file name={`${doc.slug}.html`} src={doc.src} />
+        <File name={`${doc.slug}.html`} src={doc.src} />
       ))}
-    </dir>
+    </Dir>
 
     {/* Materialization 2: the SAME three `src`s, flattened into one page
-        via nameless inlining (<file> containing further <file>s) with
+        via nameless inlining (<File> containing further <File>s) with
         join="dom-merge" combining their <head>s instead of raw concat. */}
-    <file name="docs-single-page.html" join="dom-merge">
+    <File name="docs-single-page.html" join="dom-merge">
       {docs.map((doc) => (
-        <file src={doc.src} />
+        <File src={doc.src} />
       ))}
-    </file>
-  </dir>
+    </File>
+  </Dir>
 );
 
 export default template;

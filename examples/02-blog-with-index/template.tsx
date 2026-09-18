@@ -10,16 +10,16 @@
  *
  * Two deliberate deviations from the PRD's literal text (both noted in the
  * PR description):
- *  - `symlink` targets the actual generated `<file>` descriptor for the
+ *  - `symlink` targets the actual generated `<File>` descriptor for the
  *    latest post, matching the documented `FileNode | string` type, rather
  *    than a plain frontmatter data object.
- *  - `<rm target>` is written relative to the current `dist/` context
+ *  - `<Rm target>` is written relative to the current `dist/` context
  *    (matching v1's CLEAR semantics), rather than repeating a leading
- *    "dist/" while already inside `<dir name="dist">`.
+ *    "dist/" while already inside `<Dir name="dist">`.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { link, markdown, useCollection } from "fileable";
+import { Dir, File, Rm, link, markdown, useCollection } from "fileable";
 import type { Descriptor } from "fileable";
 
 interface Post {
@@ -52,20 +52,20 @@ const posts = useCollection(join(contentDir, "posts/*.md"))
   .sort((a, b) => (a.date < b.date ? 1 : -1)); // newest first
 
 const postFiles: Descriptor[] = posts.map((post) => (
-  <file name={`${post.slug}.html`} doctype="html">
-    <file src="partials/header.js" />
+  <File name={`${post.slug}.html`} doctype="html">
+    <File src="partials/header.js" />
     <h1>{post.title}</h1>
     {markdown(post.body)}
-    <file src="partials/footer.js" />
-  </file>
+    <File src="partials/footer.js" />
+  </File>
 ));
 
 const template = (
-  <dir name="dist">
-    <dir name="posts">{postFiles}</dir>
+  <Dir name="dist">
+    <Dir name="posts">{postFiles}</Dir>
 
-    <file name="index.html" doctype="html">
-      <file src="partials/header.js" />
+    <File name="index.html" doctype="html">
+      <File src="partials/header.js" />
       <ul>
         {posts.map((post, i) => (
           <li>
@@ -73,13 +73,13 @@ const template = (
           </li>
         ))}
       </ul>
-      <file src="partials/footer.js" />
-    </file>
+      <File src="partials/footer.js" />
+    </File>
 
-    <file name="latest" symlink={postFiles[0]} />
+    <File name="latest" symlink={postFiles[0]} />
 
-    <rm target="*.draft.html" />
-  </dir>
+    <Rm target="*.draft.html" />
+  </Dir>
 );
 
 export default template;

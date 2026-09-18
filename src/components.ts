@@ -1,25 +1,34 @@
 /**
- * Explicit, importable wrappers around the three structural primitives.
- * `<File>`/`<Dir>`/`<Rm>` are just ordinary functions that call `jsx()`
- * with a fixed tag -- "go to definition" on them shows exactly what they
- * do, instead of `<file>`/`<dir>`/`<rm>` being matched as special strings
- * somewhere inside jsx-runtime.ts. Both spellings are fully equivalent and
- * interchangeable: these don't replace the lowercase primitives (the PRD's
- * documented spelling), they're just a less "magical" way to reach the
- * same three tags, and (since they're plain functions) callable directly
- * without JSX syntax too, e.g. `File({ name: "a.txt" })`.
+ * The only supported way to reach the three structural primitives.
+ * `<File>`/`<Dir>`/`<Rm>` (or `File(props)`/`Dir(props)`/`Rm(props)` called
+ * directly, no JSX needed) are ordinary functions with an explicit,
+ * importable, "go to definition"-able identity -- unlike the lowercase
+ * `<file>`/`<dir>`/`<rm>` tags, which are reserved and throw if authored
+ * directly (see jsx-runtime.ts's RESERVED_TAGS). These build the descriptor
+ * directly rather than going through `jsx()`, since `jsx()` is exactly
+ * where that lowercase-tag rejection lives -- these three are the sanctioned
+ * bypass, not a loophole.
  */
-import { jsx } from "./jsx-runtime.js";
-import type { Descriptor, DirProps, FileProps, RmProps } from "./types.js";
+import type { Descriptor, DescriptorChild, DirProps, FileProps, RmProps } from "./types.js";
+
+function toChildArray(children: unknown): DescriptorChild[] {
+  if (children === undefined) return [];
+  return ([] as DescriptorChild[]).concat(children as DescriptorChild);
+}
+
+function structural(tag: "dir" | "file" | "rm", props: Record<string, unknown>): Descriptor {
+  const { children, ...rest } = props;
+  return { tag, props: rest, children: toChildArray(children) };
+}
 
 export function File(props: FileProps): Descriptor {
-  return jsx("file", props);
+  return structural("file", props);
 }
 
 export function Dir(props: DirProps): Descriptor {
-  return jsx("dir", props);
+  return structural("dir", props);
 }
 
 export function Rm(props: RmProps): Descriptor {
-  return jsx("rm", props);
+  return structural("rm", props);
 }
