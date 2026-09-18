@@ -153,6 +153,9 @@ export interface HashResult {
 
 export interface LockFileShape {
   version: 1;
+  /** Recorded so a bare hex digest never quietly represents a different policy across releases. */
+  algorithm: string;
+  /** Keyed by ArtifactNode.id, not outputPath -- outputPath alone collides across sibling archives. */
   artifacts: Record<string, { hash: string; dependsOn: string[] }>;
 }
 

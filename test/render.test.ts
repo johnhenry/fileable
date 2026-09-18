@@ -69,6 +69,50 @@ test("render() removes files matched by <rm target>", async () => {
   });
 });
 
+test("<rm target=\"!negated\"> removes everything except the negated pattern, scoped to its own dir", async () => {
+  await withTempDir(async (outDir) => {
+    const keepImportant: Descriptor = { tag: "file", props: { name: "keep.important.txt" }, children: ["keep"] };
+    const a: Descriptor = { tag: "file", props: { name: "a.txt" }, children: ["a"] };
+    const b: Descriptor = { tag: "file", props: { name: "b.txt" }, children: ["b"] };
+    // Same filename OUTSIDE "site" -- must survive, since negation is scoped
+    // to the <rm>'s own directory context, not the whole outDir.
+    const outsideFile: Descriptor = { tag: "file", props: { name: "a.txt" }, children: ["outside, keep me"] };
+
+    const site: Descriptor = { tag: "dir", props: { name: "site" }, children: [keepImportant, a, b] };
+    await render({ tag: "dir", props: { name: "top" }, children: [site, outsideFile] }, { outDir, cache: false });
+    await stat(join(outDir, "top/site/a.txt"));
+
+    const rmNode: Descriptor = { tag: "rm", props: { target: "!*.important.txt" }, children: [] };
+    const siteAfterRm: Descriptor = { tag: "dir", props: { name: "site" }, children: [keepImportant, rmNode] };
+    const result = await render(
+      { tag: "dir", props: { name: "top" }, children: [siteAfterRm, outsideFile] },
+      { outDir, cache: false },
+    );
+    assert.ok(result.removed.includes("top/site/a.txt"));
+    assert.ok(result.removed.includes("top/site/b.txt"));
+    await assert.rejects(() => stat(join(outDir, "top/site/a.txt")));
+    await assert.rejects(() => stat(join(outDir, "top/site/b.txt")));
+    assert.equal(await readFile(join(outDir, "top/site/keep.important.txt"), "utf8"), "keep");
+    assert.equal(await readFile(join(outDir, "top/a.txt"), "utf8"), "outside, keep me");
+  });
+});
+
+test("render() applies `mode`, including on a rewrite where only mode changed", { skip: process.platform === "win32" }, async () => {
+  await withTempDir(async (outDir) => {
+    const build = (mode: string): Descriptor => ({ tag: "file", props: { name: "run.sh", mode }, children: ["#!/bin/sh"] });
+
+    await render(build("0644"), { outDir });
+    assert.equal((await stat(join(outDir, "run.sh"))).mode & 0o777, 0o644);
+
+    // Same content, different mode: the hash must still change (SS4.4) so
+    // Write actually re-chmods it -- `fs.writeFile`'s own `mode` option is a
+    // no-op on an existing file, so this exercises the explicit chmod path.
+    const result = await render(build("0755"), { outDir });
+    assert.ok(result.written.includes("run.sh"));
+    assert.equal((await stat(join(outDir, "run.sh"))).mode & 0o777, 0o755);
+  });
+});
+
 test("render() single concatenated file from a <dir> nested in a <file>", async () => {
   await withTempDir(async (outDir) => {
     const a: Descriptor = { tag: "file", props: { name: "a.html" }, children: ["A"] };

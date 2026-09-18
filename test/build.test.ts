@@ -34,6 +34,12 @@ test("coerces number children to strings", () => {
   assert.deepEqual(root.children, ["1", "2", "3"]);
 });
 
+test("coerces an unexpected child (e.g. a plain object an author mistakenly rendered) to its String() form", () => {
+  const weird = { toString: () => "weird-object" };
+  const [root] = build({ tag: "file", props: { name: "a.txt" }, children: [weird] });
+  assert.deepEqual(root.children, ["weird-object"]);
+});
+
 test("assigns a stable __id to every descriptor", () => {
   const [root] = build({ tag: "dir", props: { name: "root" }, children: [file("a.txt")] });
   assert.ok(root.__id);

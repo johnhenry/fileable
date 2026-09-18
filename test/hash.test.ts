@@ -43,3 +43,38 @@ test("an archive root's hash changes when any descendant's content changes", () 
   };
   assert.notEqual(build("v1").hash, build("v2").hash);
 });
+
+test("an archive root's hash detects two files swapping content (path must bind to hash, not just a bag of hashes)", () => {
+  const build = (aContent: string, bContent: string) => {
+    const a: Descriptor = { tag: "file", props: { name: "a.txt" }, children: [aContent] };
+    const b: Descriptor = { tag: "file", props: { name: "b.txt" }, children: [bContent] };
+    const dir: Descriptor = { tag: "dir", props: { name: "out", as: "archive" }, children: [a, b] };
+    return hash(layout([dir])).artifacts.find((x) => x.kind === "dir")!;
+  };
+  // Same multiset of file contents ("X", "Y"), swapped across paths.
+  const before = build("X", "Y");
+  const after = build("Y", "X");
+  assert.notEqual(before.hash, after.hash);
+});
+
+test("changing a file's mode invalidates its hash (Write only re-chmods a file it actually rewrites)", () => {
+  const build = (mode: string) => {
+    const file: Descriptor = { tag: "file", props: { name: "run.sh", mode }, children: ["#!/bin/sh"] };
+    return hash(layout([file])).artifacts[0];
+  };
+  assert.notEqual(build("0644").hash, build("0755").hash);
+});
+
+test(".fileable-lock.json keys by artifact id, not outputPath, so sibling archives with the same relative path don't collide", () => {
+  const makeArchive = (name: string, text: string): Descriptor => ({
+    tag: "dir",
+    props: { name, as: "archive" },
+    children: [{ tag: "file", props: { name: "index.html" }, children: [text] }],
+  });
+  const site: Descriptor = { tag: "dir", props: { name: "site" }, children: [makeArchive("docs", "DOCS"), makeArchive("assets", "ASSETS")] };
+  const result = hash(layout([site]));
+  const docsIndex = result.artifacts.find((a) => a.outputPath === "index.html" && a.id.startsWith("site/docs.zip"))!;
+  const assetsIndex = result.artifacts.find((a) => a.outputPath === "index.html" && a.id.startsWith("site/assets.zip"))!;
+  assert.notEqual(docsIndex.id, assetsIndex.id);
+  assert.notEqual(docsIndex.hash, assetsIndex.hash);
+});

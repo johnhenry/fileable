@@ -10,24 +10,40 @@
  * -- see the useCollection design note in the PR description for why that's
  * folded into every artifact rather than tracked per-artifact.
  *
+ * Inclusion policy for what feeds a leaf digest (deliberately narrow, so
+ * hashes stay portable across machines/checkouts): content, `mode` (since
+ * Write only re-`chmod`s a file it actually rewrites -- a mode-only change
+ * has to invalidate the hash or it would silently never get applied), the
+ * resolved symlink target (hashing *where it points*, never following it),
+ * and the current build's `useCollection()` patterns. Deliberately excluded:
+ * timestamps, ownership, and any other host-specific metadata.
+ *
  * Archive roots (`as="archive"`) are a single atomic .zip file, so their own
- * hash is an aggregate of every descendant's hash -- otherwise a change deep
- * inside an archive wouldn't be visible at the root and Write would wrongly
- * skip regenerating the .zip.
+ * hash is an aggregate over every descendant. That aggregate is a canonical
+ * manifest -- each entry binds a descendant's *relative path* and *kind* to
+ * its leaf hash, sorted bytewise by path -- rather than a bag of sorted hash
+ * values. Binding path to hash matters: two files swapping content (a.txt
+ * and b.txt trade places) changes which path maps to which hash without
+ * changing the multiset of hash values, so sorting bare hashes alone would
+ * miss it.
  */
 import { createHash } from "node:crypto";
 import type { ArtifactNode, HashedArtifact, HashResult, LayoutResult } from "./types.js";
 
+export const HASH_ALGORITHM = "sha256";
+
 function sha256(input: string): string {
-  return `sha256:${createHash("sha256").update(input).digest("hex")}`;
+  return `${HASH_ALGORITHM}:${createHash(HASH_ALGORITHM).update(input).digest("hex")}`;
 }
 
-function collectDescendants(byId: Map<string, ArtifactNode>, id: string): string[] {
+function collectDescendants(byId: Map<string, ArtifactNode>, id: string): ArtifactNode[] {
   const node = byId.get(id);
   if (!node) return [];
-  const result: string[] = [];
+  const result: ArtifactNode[] = [];
   for (const childId of node.children) {
-    result.push(childId, ...collectDescendants(byId, childId));
+    const child = byId.get(childId);
+    if (child) result.push(child);
+    result.push(...collectDescendants(byId, childId));
   }
   return result;
 }
@@ -44,7 +60,8 @@ export function hash(layoutResult: LayoutResult, collectionPatterns: string[] = 
     for (const pattern of collectionPatterns) dependsOn.push(`${pattern} (collection)`);
     dependsOnById.set(artifact.id, dependsOn);
 
-    const digestInput = (artifact.content ?? "") + collectionSuffix + (artifact.symlinkTo ?? "");
+    const digestInput =
+      (artifact.content ?? "") + collectionSuffix + (artifact.symlinkTo ?? "") + ` mode:${artifact.mode ?? ""}`;
     leafHashes.set(artifact.id, sha256(digestInput));
   }
 
@@ -52,10 +69,16 @@ export function hash(layoutResult: LayoutResult, collectionPatterns: string[] = 
     const isArchiveRoot = artifact.target === "archive" && artifact.archivePath === artifact.outputPath;
     let artifactHash = leafHashes.get(artifact.id)!;
     if (isArchiveRoot) {
-      const descendantHashes = collectDescendants(layoutResult.byId, artifact.id)
-        .map((id) => leafHashes.get(id) ?? "")
+      // outputPath is already relative to this archive root (layout.ts resets
+      // basePath to "" at every new archive boundary), so it's directly usable
+      // as the canonical manifest path.
+      const manifest = collectDescendants(layoutResult.byId, artifact.id)
+        .map((descendant) => {
+          const kind = descendant.symlinkTo !== undefined ? "symlink" : descendant.kind;
+          return `${kind}\0${descendant.outputPath}\0${leafHashes.get(descendant.id) ?? ""}`;
+        })
         .sort();
-      artifactHash = sha256([artifactHash, ...descendantHashes].join("|"));
+      artifactHash = sha256([artifactHash, ...manifest].join("\n"));
     }
     return { ...artifact, hash: artifactHash, dependsOn: dependsOnById.get(artifact.id) ?? [] };
   });

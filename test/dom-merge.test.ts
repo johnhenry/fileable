@@ -17,3 +17,8 @@ test("full-document fragments are merged into one shared head/body", () => {
   assert.match(result, /<footer>F<\/footer>/);
   assert.equal(result.match(/<html>/g)?.length, 1);
 });
+
+test("a stray top-level sibling alongside a document shell (e.g. after a closed </html>) rides along with body", () => {
+  const result = mergeHtmlFragments(["<html><body>X</body></html><footer>stray</footer>"]);
+  assert.match(result, /<body>X<footer>stray<\/footer><\/body>/);
+});

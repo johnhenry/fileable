@@ -5,8 +5,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile, lstat } from "node:fs/promises
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { render } from "../src/render.js";
-import { useCollection } from "../src/api.js";
-import type { Descriptor, DescriptorChild, LinkRef } from "../src/types.js";
+import { link, useCollection } from "../src/api.js";
+import type { Descriptor, DescriptorChild } from "../src/types.js";
 
 /**
  * Adapts the PRD SS9 "Blog with Index" worked example. Two deliberate
@@ -36,10 +36,6 @@ function parseFrontmatter(path: string): Post {
     meta[key.trim()] = rest.join(":").trim();
   }
   return { title: meta.title, slug: meta.slug, date: meta.date, body: match[2].trim() };
-}
-
-function link(target: Descriptor | string): LinkRef {
-  return { __fileableRef: "link", target };
 }
 
 test("SS9 worked example: blog with index, latest symlink, and draft cleanup", async () => {

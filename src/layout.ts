@@ -66,7 +66,13 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
   function walk(node: Descriptor, ctx: WalkCtx, parentId: string | null, path: string): void {
     if (node.tag === "rm") {
       if (ctx.target === "loose") {
-        removals.push(posixPath.join(ctx.basePath, node.props.target as string));
+        // Joining a negated target ("!*.draft.html") directly with basePath
+        // would bury the leading "!" mid-string (e.g. "site/!*.draft.html"),
+        // so the negation marker is stripped, joined, then reattached.
+        const target = node.props.target as string;
+        const negated = target.startsWith("!");
+        const joined = posixPath.join(ctx.basePath, negated ? target.slice(1) : target);
+        removals.push(negated ? `!${joined}` : joined);
       }
       return;
     }
@@ -201,6 +207,12 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
     const artifact = byId.get(pending.artifactId)!;
     let targetOutputPath: string;
     let targetRealArtifactId: string | undefined;
+    // A string target is the literal symlink text (same semantics as `ln -s
+    // TARGET LINK` -- interpreted relative to the symlink's own directory),
+    // so it's never run through the root-relative-path computation below,
+    // unlike a Descriptor target's outputPath (which genuinely *is* rooted
+    // and needs converting to be relative to the symlink instead).
+    const targetIsLiteral = typeof pending.targetRef === "string";
     if (typeof pending.targetRef === "string") {
       targetOutputPath = pending.targetRef;
     } else {
@@ -226,7 +238,9 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
       // Real symlink is attempted first at Write time; __copyFromId is kept as
       // a fallback for the Windows EPERM case (SS5.3), where Write degrades to
       // a copy on the fly without needing Layout to know about it in advance.
-      artifact.symlinkTo = posixPath.relative(posixPath.dirname(artifact.outputPath), targetOutputPath);
+      artifact.symlinkTo = targetIsLiteral
+        ? targetOutputPath
+        : posixPath.relative(posixPath.dirname(artifact.outputPath), targetOutputPath);
     }
     (artifact as ArtifactNode & { __copyFromId?: string }).__copyFromId = targetRealArtifactId;
   }

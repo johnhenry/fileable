@@ -46,6 +46,33 @@ choice between a full/slim materialization of the same tree.
 - The `renderConsole` dry-run renderer (not part of the v2 design; may return
   as a dedicated preview mode if there's demand).
 
+### Fixed (found while closing test-coverage gaps, before first release)
+- `.fileable-lock.json` was keyed by `outputPath` alone, which collides
+  across sibling archives that happen to share a relative path (e.g. two
+  `as="archive"` dirs each containing their own `index.html`) -- now keyed
+  by the artifact's fully-qualified `id`.
+- An archive's aggregate hash sorted its descendants' bare hash *values*,
+  not hash bound to path -- two files swapping content across paths
+  produced the same aggregate hash. Fixed by hashing a canonical, path- and
+  kind-tagged manifest instead.
+- `mode` wasn't part of an artifact's hash at all, so a mode-only change
+  would never trigger a rewrite -- and separately, `fs.writeFile`'s own
+  `mode` option is a no-op on an existing file, so even a rewrite wouldn't
+  have actually re-`chmod`ed it. Both fixed: `mode` now participates in the
+  hash, and Write always applies `mode` via an explicit `chmod`.
+- `<rm target="!negated">` was broken for any `<rm>` not at the render
+  root: joining the target with its directory context buried the leading
+  `!` mid-string, and separately the negated branch always globbed the
+  entire `outDir` rather than scoping `**` to the `<rm>`'s own directory.
+- A `symlink` given as a literal string target was run through the same
+  root-relative-path conversion as a `Descriptor` target, double-relativizing
+  it (`ln`-style semantics require using the string as-is).
+- `link()` used inside a plain markup tag's attribute (e.g. `<a
+  href={link(...)}>`, the common case) was never substituted, because
+  Layout's substitution pass only tracked "current artifact" via an
+  identity map populated for `dir`/`file` nodes -- markup nodes fell through
+  to `undefined` and were silently skipped.
+
 ### Notes on two PRD ambiguities resolved during implementation
 See the pull request description for the full reasoning; in short:
 - `link()`/`symlink` targets are resolved via an opaque marker substituted

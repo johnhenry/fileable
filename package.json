@@ -37,6 +37,7 @@
     "build": "tsc -p tsconfig.json",
     "pretest": "npm run build",
     "test": "node --test scripts/run-tests.mjs",
+    "coverage": "node --test --experimental-test-coverage scripts/run-tests.mjs",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

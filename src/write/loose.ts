@@ -50,10 +50,15 @@ export async function writeLoose(
           "symlink requires elevated permissions or Developer Mode on Windows.";
         if (strict) throw new Error(message);
         warnings.push(message);
-        await writeFile(fullPath, file.content ?? "", { mode: file.mode ? parseInt(file.mode, 8) : undefined });
+        await writeFile(fullPath, file.content ?? "");
+        if (file.mode) await chmod(fullPath, parseInt(file.mode, 8));
       }
     } else {
-      await writeFile(fullPath, file.content ?? "", { mode: file.mode ? parseInt(file.mode, 8) : undefined });
+      // `writeFile`'s own `mode` option only takes effect when it *creates* the
+      // file -- on a rewrite of an existing file (e.g. only `mode` changed) it's
+      // silently ignored, so `mode` is always applied via an explicit chmod.
+      await writeFile(fullPath, file.content ?? "");
+      if (file.mode) await chmod(fullPath, parseInt(file.mode, 8));
     }
     written.push(file.outputPath);
   }
@@ -61,20 +66,39 @@ export async function writeLoose(
   return { written, warnings };
 }
 
+/**
+ * Splits a glob pattern into its fixed directory prefix and the remaining
+ * glob-bearing suffix, e.g. "site/posts/*.draft.html" -> { base:
+ * "site/posts", rest: "*.draft.html" }. Used so a negated `<rm>` scoped to
+ * a subdirectory only cleans *that* subdirectory instead of the whole
+ * outDir -- `**` alone has no notion of "relative to this rm's own context".
+ */
+function splitGlobBase(pattern: string): { base: string; rest: string } {
+  const specialIndex = pattern.search(/[*?{[]/);
+  if (specialIndex === -1) return { base: "", rest: pattern };
+  const slashIndex = pattern.lastIndexOf("/", specialIndex);
+  if (slashIndex === -1) return { base: "", rest: pattern };
+  return { base: pattern.slice(0, slashIndex), rest: pattern.slice(slashIndex + 1) };
+}
+
 export async function applyRemovals(removals: string[], outDir: string): Promise<string[]> {
   const removed: string[] = [];
   for (const pattern of removals) {
     const posixPattern = toPosixPattern(pattern);
     const negated = posixPattern.startsWith("!");
-    const matches = await glob(negated ? "**" : posixPattern, {
-      cwd: outDir,
-      ignore: negated ? [posixPattern.slice(1)] : undefined,
+    const raw = negated ? posixPattern.slice(1) : posixPattern;
+    const { base, rest } = splitGlobBase(raw);
+    const searchCwd = base ? join(outDir, base) : outDir;
+    const matches = await glob(negated ? "**" : rest || raw, {
+      cwd: searchCwd,
+      ignore: negated ? [rest || "**"] : undefined,
       nodir: true,
       absolute: false,
     });
     for (const match of matches) {
-      await rm(join(outDir, match), { force: true });
-      removed.push(match.replace(/\\/g, "/"));
+      const relative = (base ? `${base}/${match}` : match).replace(/\\/g, "/");
+      await rm(join(outDir, relative), { force: true });
+      removed.push(relative);
     }
   }
   return removed;

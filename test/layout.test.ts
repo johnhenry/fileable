@@ -8,6 +8,17 @@ function linkRef(target: Descriptor | string): LinkRef {
   return { __fileableRef: "link", target };
 }
 
+test("generic markup tags render boolean-true props as bare attributes and skip false/null/undefined ones", () => {
+  const input: Descriptor = {
+    tag: "input",
+    props: { type: "checkbox", disabled: true, checked: false, value: null, placeholder: undefined },
+    children: [],
+  };
+  const root: Descriptor = { tag: "file", props: { name: "page.html" }, children: [input] };
+  const result = layout([root]);
+  assert.equal(result.artifacts[0].content, '<input type="checkbox" disabled />');
+});
+
 test("nameless inlining: file nested in file becomes a content fragment, not a path", () => {
   const header: Descriptor = { tag: "file", props: {}, children: ["HEADER"] };
   const root: Descriptor = { tag: "file", props: { name: "post.html" }, children: [header, "BODY"] };
@@ -114,6 +125,40 @@ test("strict:true promotes a symlink degrade to a thrown error", () => {
     () => layout([{ tag: "dir", props: { name: "site", as: "archive" }, children: [target, link] }], { strict: true }),
     FileableError,
   );
+});
+
+test("symlink also accepts a plain string target (not just a Descriptor)", () => {
+  const link: Descriptor = { tag: "file", props: { name: "latest", symlink: "../elsewhere/hello.html" }, children: [] };
+  const result = layout([{ tag: "dir", props: { name: "site" }, children: [link] }]);
+  const linkArtifact = result.artifacts.find((a) => a.outputPath === "site/latest")!;
+  assert.equal(linkArtifact.symlinkTo, "../elsewhere/hello.html");
+});
+
+test("symlink targeting a descriptor absent from the tree throws", () => {
+  const orphan: Descriptor = { tag: "file", props: { name: "orphan.html" }, children: [] };
+  const link: Descriptor = { tag: "file", props: { name: "latest", symlink: orphan }, children: [] };
+  assert.throws(() => layout([{ tag: "dir", props: { name: "site" }, children: [link] }]), FileableError);
+});
+
+test("link() also accepts a plain string target (not just a Descriptor)", () => {
+  const index: Descriptor = { tag: "file", props: { name: "index.html" }, children: [linkRef("https://example.com/")] };
+  const result = layout([index]);
+  assert.equal(result.artifacts[0].content, "https://example.com/");
+});
+
+test("link() targeting a descriptor absent from the tree throws", () => {
+  const orphan: Descriptor = { tag: "file", props: { name: "orphan.html" }, children: [] };
+  const index: Descriptor = { tag: "file", props: { name: "index.html" }, children: [linkRef(orphan)] };
+  assert.throws(() => layout([index]), FileableError);
+});
+
+test("link() across different render targets (loose <-> archive) falls back to the target's bare outputPath", () => {
+  const archived: Descriptor = { tag: "file", props: { name: "archived.html" }, children: ["ARCHIVED"] };
+  const archiveDir: Descriptor = { tag: "dir", props: { name: "docs", as: "archive" }, children: [archived] };
+  const index: Descriptor = { tag: "file", props: { name: "index.html" }, children: [linkRef(archived)] };
+  const result = layout([{ tag: "dir", props: { name: "site" }, children: [archiveDir, index] }]);
+  const indexArtifact = result.artifacts.find((a) => a.outputPath === "site/index.html")!;
+  assert.equal(indexArtifact.content, "archived.html");
 });
 
 test("<dir>/<file> without a name at the top level throws", () => {

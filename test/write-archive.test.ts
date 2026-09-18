@@ -26,6 +26,47 @@ test("as=\"archive\" produces a .zip with the same tree inside it", async () => 
   }
 });
 
+test("sibling archives sharing a relative path (e.g. both have index.html) cache independently", async () => {
+  const outDir = await mkdtemp(join(tmpdir(), "fileable-archive-collision-"));
+  try {
+    const build = (docsText: string, assetsText: string): Descriptor => ({
+      tag: "dir",
+      props: { name: "site" },
+      children: [
+        {
+          tag: "dir",
+          props: { name: "docs", as: "archive" },
+          children: [{ tag: "file", props: { name: "index.html" }, children: [docsText] }],
+        },
+        {
+          tag: "dir",
+          props: { name: "assets", as: "archive" },
+          children: [{ tag: "file", props: { name: "index.html" }, children: [assetsText] }],
+        },
+      ],
+    });
+
+    await render(build("DOCS v1", "ASSETS v1"), { outDir });
+    const docsZip = unzipSync(new Uint8Array(await readFile(join(outDir, "site/docs.zip"))));
+    const assetsZip = unzipSync(new Uint8Array(await readFile(join(outDir, "site/assets.zip"))));
+    assert.equal(strFromU8(docsZip["index.html"]), "DOCS v1");
+    assert.equal(strFromU8(assetsZip["index.html"]), "ASSETS v1");
+
+    // Both unchanged -> both skipped (a lock-key collision would make one
+    // archive's presence in the lock file mask the other's).
+    const second = await render(build("DOCS v1", "ASSETS v1"), { outDir });
+    assert.ok(second.skipped.includes("site/docs.zip"));
+    assert.ok(second.skipped.includes("site/assets.zip"));
+
+    // Only "docs" changes -> only "docs.zip" should be rewritten.
+    const third = await render(build("DOCS v2", "ASSETS v1"), { outDir });
+    assert.ok(third.written.includes("site/docs.zip"));
+    assert.ok(third.skipped.includes("site/assets.zip"));
+  } finally {
+    await rm(outDir, { recursive: true, force: true });
+  }
+});
+
 test("an unchanged archive is skipped on rebuild; a changed one is rewritten", async () => {
   const outDir = await mkdtemp(join(tmpdir(), "fileable-archive-cache-"));
   try {
