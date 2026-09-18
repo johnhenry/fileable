@@ -1,0 +1,81 @@
+/**
+ * Adapts PRD SS9 ("Blog with Index"). Run with:
+ *   npm run build && node dist/examples/02-blog-with-index/template.js
+ *
+ * Two deliberate deviations from the PRD's literal text (both noted in the
+ * PR description):
+ *  - `symlink` targets the actual generated `<file>` descriptor for the
+ *    latest post, matching the documented `FileNode | string` type, rather
+ *    than a plain frontmatter data object.
+ *  - `<rm target>` is written relative to the current `dist/` context
+ *    (matching v1's CLEAR semantics), rather than repeating a leading
+ *    "dist/" while already inside `<dir name="dist">`.
+ */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { render, link, useCollection } from "fileable";
+import type { Descriptor } from "fileable";
+
+interface Post {
+  title: string;
+  slug: string;
+  date: string;
+  body: string;
+}
+
+function parseFrontmatter(path: string): Post {
+  const raw = readFileSync(path, "utf8");
+  const match = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(raw)!;
+  const meta: Record<string, string> = {};
+  for (const line of match[1].split("\n")) {
+    const [key, ...rest] = line.split(":");
+    meta[key.trim()] = rest.join(":").trim();
+  }
+  return { title: meta.title, slug: meta.slug, date: meta.date, body: match[2].trim() };
+}
+
+// Where the compiled template.js itself runs from (partials compile
+// alongside it, so they're resolved relative to this).
+const here = fileURLToPath(new URL(".", import.meta.url));
+
+// content/*.md are plain data, not TypeScript -- tsc doesn't copy them into
+// dist, so they're only ever found at their original source location.
+const contentDir = join(process.cwd(), "examples/02-blog-with-index/content");
+
+const posts = useCollection(join(contentDir, "posts/*.md"))
+  .map(parseFrontmatter)
+  .sort((a, b) => (a.date < b.date ? 1 : -1)); // newest first
+
+const postFiles: Descriptor[] = posts.map((post) => (
+  <file name={`${post.slug}.html`} doctype="html">
+    <file src="partials/header.js" />
+    <h1>{post.title}</h1>
+    {post.body}
+    <file src="partials/footer.js" />
+  </file>
+));
+
+const template = (
+  <dir name="dist">
+    <dir name="posts">{postFiles}</dir>
+
+    <file name="index.html" doctype="html">
+      <file src="partials/header.js" />
+      <ul>
+        {posts.map((post, i) => (
+          <li>
+            <a href={link(postFiles[i])}>{post.title}</a>
+          </li>
+        ))}
+      </ul>
+      <file src="partials/footer.js" />
+    </file>
+
+    <file name="latest" symlink={postFiles[0]} />
+
+    <rm target="*.draft.html" />
+  </dir>
+);
+
+await render(template, { outDir: here, cwd: here, cache: false });

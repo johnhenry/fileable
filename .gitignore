@@ -1,4 +1,6 @@
-dist/temp/
+dist/
+.fileable-lock.json
+test/tmp/
 
 # Created by https://www.gitignore.io/api/node
 # Edit at https://www.gitignore.io/?templates=node
