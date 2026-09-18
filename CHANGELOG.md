@@ -106,6 +106,14 @@ choice between a full/slim materialization of the same tree.
   timestamped line per `fileable build` run into `build-log.txt` instead
   of overwriting it each time; also takes an optional `--var message=...`.
 
+### Changed (naming, before first release)
+- `link()` renamed to `linkTo()` and `markdown()` renamed to
+  `markdownToHtml()` -- both names were ambiguous about what they actually
+  do (`link()` doesn't say to *what*; `markdown()` doesn't say *to what
+  format*). Neither had shipped yet, so this is a same-version rename, not
+  a deprecation -- every call site in the runtime, tests, examples, and
+  this README was updated together.
+
 ### Fixed (binary content, found by testing the README's own claims)
 - `src` (file reads and URL fetches) and `cmd` stdout forced UTF-8 decoding
   unconditionally, silently corrupting anything that wasn't valid UTF-8

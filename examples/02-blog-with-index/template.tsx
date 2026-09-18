@@ -3,7 +3,7 @@
  * the contentDir note below):
  *   npm run build && node dist/bin/fileable.js build dist/examples/02-blog-with-index/template.js
  *
- * Post bodies are markdown, rendered to HTML via the `markdown()` runtime
+ * Post bodies are markdown, rendered to HTML via the `markdownToHtml()` runtime
  * helper (a thin wrapper around `marked` -- convenience only, not a new
  * mechanism; you're equally free to call any other transform function
  * inline instead).
@@ -19,7 +19,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Dir, File, Rm, link, markdown, useCollection } from "fileable";
+import { Dir, File, Rm, linkTo, markdownToHtml, useCollection } from "fileable";
 import type { Descriptor } from "fileable";
 
 interface Post {
@@ -55,7 +55,7 @@ const postFiles: Descriptor[] = posts.map((post) => (
   <File name={`${post.slug}.html`} doctype="html">
     <File src="partials/header.js" />
     <h1>{post.title}</h1>
-    {markdown(post.body)}
+    {markdownToHtml(post.body)}
     <File src="partials/footer.js" />
   </File>
 ));
@@ -69,7 +69,7 @@ const template = (
       <ul>
         {posts.map((post, i) => (
           <li>
-            <a href={link(postFiles[i])}>{post.title}</a>
+            <a href={linkTo(postFiles[i])}>{post.title}</a>
           </li>
         ))}
       </ul>

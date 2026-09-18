@@ -133,7 +133,7 @@ whether `as="archive"` is set.
 
 ## Runtime API
 
-- `link(target, options?)` -- a reference to another `File` node, aware of
+- `linkTo(target, options?)` -- a reference to another `File` node, aware of
   where both ultimately land (an in-page anchor if inlined together, a
   relative path/URL otherwise).
 - `warn(message)` -- a non-fatal build warning (thrown errors are still
@@ -142,7 +142,7 @@ whether `as="archive"` is set.
 - `useCollection(pattern)` -- same as `glob()`, but registers a build
   dependency so incremental rebuilds invalidate correctly when a matched file
   changes.
-- `markdown(text)` -- renders markdown to an HTML string (a thin, synchronous
+- `markdownToHtml(text)` -- renders markdown to an HTML string (a thin, synchronous
   wrapper around `marked`). Convenience only, not a new mechanism -- content
   transformation is otherwise just calling any function you like inline,
   e.g. `{myOwnTransform(text)}`, with no fileable involvement at all.
@@ -209,12 +209,12 @@ in the linked directory) with the tree `fileable build` actually produced.
 
 ### Blog with an index (`examples/02-blog-with-index`)
 
-`link()` computing a correct relative path, `markdown()` rendering post
+`linkTo()` computing a correct relative path, `markdownToHtml()` rendering post
 bodies, and `symlink` pointing at the actual generated `<File>` for the
 latest post:
 
 ```tsx
-import { Dir, File, Rm, link, markdown, useCollection } from "fileable";
+import { Dir, File, Rm, linkTo, markdownToHtml, useCollection } from "fileable";
 
 const posts = useCollection("content/posts/*.md")
   .map(parseFrontmatter)
@@ -223,7 +223,7 @@ const posts = useCollection("content/posts/*.md")
 const postFiles = posts.map((post) => (
   <File name={`${post.slug}.html`} doctype="html">
     <h1>{post.title}</h1>
-    {markdown(post.body)}
+    {markdownToHtml(post.body)}
   </File>
 ));
 
@@ -233,7 +233,7 @@ const template = (
     <File name="index.html" doctype="html">
       <ul>
         {posts.map((post, i) => (
-          <li><a href={link(postFiles[i])}>{post.title}</a></li>
+          <li><a href={linkTo(postFiles[i])}>{post.title}</a></li>
         ))}
       </ul>
     </File>

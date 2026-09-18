@@ -63,7 +63,7 @@ test("two separate <file src> occurrences of the same code partial get independe
   assert.deepEqual(targetA.children, ["TARGET"]);
   assert.deepEqual(targetB.children, ["TARGET"]);
 
-  // Each clone's internal link() target must point at *that clone's own*
+  // Each clone's internal linkTo() target must point at *that clone's own*
   // nested target -- not the other clone's, and not the original.
   const linkRefA = childA.children[2] as unknown as { target: Descriptor };
   const linkRefB = childB.children[2] as unknown as { target: Descriptor };

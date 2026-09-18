@@ -32,7 +32,7 @@ function toChildArray(children: unknown): DescriptorChild[] {
 /**
  * Declared to return `Descriptor` for authoring ergonomics (so `<File>...`
  * expressions can flow into `Descriptor`-typed variables, arrays, and the
- * `link()`/`symlink` params without a cast) even though a function
+ * `linkTo()`/`symlink` params without a cast) even though a function
  * component may, at runtime, return something else (a fragment's array, a
  * string, etc.) -- callers passing a component's result onward should feed
  * it back through JSX/`build()` rather than relying on its own shape.

@@ -1,6 +1,7 @@
 /**
- * Runtime API (PRD SS6): link(), warn(), glob(), useCollection(). No
- * `<collection>` tag -- cross-file data access is plain JS values.
+ * Runtime API (PRD SS6, originally named link()): linkTo(), warn(), glob(),
+ * useCollection(). No `<collection>` tag -- cross-file data access is plain
+ * JS values.
  */
 import { globSync } from "glob";
 import { recordCollectionDependency, recordWarning } from "./context.js";
@@ -10,10 +11,12 @@ import type { Descriptor, LinkOptions } from "./types.js";
 /**
  * Returns a LinkRef marker, not a literal string -- Layout resolves it once
  * the path table is complete (see the design note in src/layout.ts). The
- * public signature still declares `string` to match PRD SS6.1 and because
- * the marker only ever flows into JSX prop/content positions.
+ * public signature still declares `string` to match PRD SS6.1 (which names
+ * this `link()`; renamed here to say what it actually computes -- a
+ * reference *to* another node) and because the marker only ever flows into
+ * JSX prop/content positions.
  */
-export function link(target: Descriptor | string, options?: LinkOptions): string {
+export function linkTo(target: Descriptor | string, options?: LinkOptions): string {
   return { __fileableRef: "link", target, options } as unknown as string;
 }
 

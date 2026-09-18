@@ -55,7 +55,7 @@ test("as=\"loose\" writes real paths; as=\"archive\" nests under a .zip", () => 
   assert.equal(archiveFile.archivePath, "out.zip");
 });
 
-test("link() to a target inlined in the same artifact emits an in-page anchor", () => {
+test("linkTo() to a target inlined in the same artifact emits an in-page anchor", () => {
   const target: Descriptor = { tag: "file", props: {}, children: ["TARGET"] };
   const root: Descriptor = {
     tag: "file",
@@ -69,7 +69,7 @@ test("link() to a target inlined in the same artifact emits an in-page anchor", 
   assert.equal(content.includes(`ref:#${anchorId}`), true);
 });
 
-test("link() to a target in a different artifact emits a relative path", () => {
+test("linkTo() to a target in a different artifact emits a relative path", () => {
   const other: Descriptor = { tag: "file", props: { name: "other.html" }, children: ["OTHER"] };
   const index: Descriptor = { tag: "file", props: { name: "index.html" }, children: ["link:", linkRef(other)] };
   const site: Descriptor = { tag: "dir", props: { name: "site" }, children: [other, index] };
@@ -78,7 +78,7 @@ test("link() to a target in a different artifact emits a relative path", () => {
   assert.equal(indexArtifact.content, "link:other.html");
 });
 
-test("link() used as an attribute value on a plain markup tag (e.g. <a href={link(...)}>) is substituted", () => {
+test("linkTo() used as an attribute value on a plain markup tag (e.g. <a href={linkTo(...)}>) is substituted", () => {
   const other: Descriptor = { tag: "file", props: { name: "other.html" }, children: ["OTHER"] };
   const anchor: Descriptor = { tag: "a", props: { href: linkRef(other) }, children: ["Other"] };
   const li: Descriptor = { tag: "li", props: {}, children: [anchor] };
@@ -89,7 +89,7 @@ test("link() used as an attribute value on a plain markup tag (e.g. <a href={lin
   assert.equal(indexArtifact.content, '<li><a href="other.html">Other</a></li>');
 });
 
-test("link() with format:\"markdown\" returns [text](path)", () => {
+test("linkTo() with format:\"markdown\" returns [text](path)", () => {
   const other: Descriptor = { tag: "file", props: { name: "other.md" }, children: ["OTHER"] };
   const ref: LinkRef = { __fileableRef: "link", target: other, options: { format: "markdown", text: "Other" } };
   const index: Descriptor = { tag: "file", props: { name: "index.md" }, children: [ref] };
@@ -140,19 +140,19 @@ test("symlink targeting a descriptor absent from the tree throws", () => {
   assert.throws(() => layout([{ tag: "dir", props: { name: "site" }, children: [link] }]), FileableError);
 });
 
-test("link() also accepts a plain string target (not just a Descriptor)", () => {
+test("linkTo() also accepts a plain string target (not just a Descriptor)", () => {
   const index: Descriptor = { tag: "file", props: { name: "index.html" }, children: [linkRef("https://example.com/")] };
   const result = layout([index]);
   assert.equal(result.artifacts[0].content, "https://example.com/");
 });
 
-test("link() targeting a descriptor absent from the tree throws", () => {
+test("linkTo() targeting a descriptor absent from the tree throws", () => {
   const orphan: Descriptor = { tag: "file", props: { name: "orphan.html" }, children: [] };
   const index: Descriptor = { tag: "file", props: { name: "index.html" }, children: [linkRef(orphan)] };
   assert.throws(() => layout([index]), FileableError);
 });
 
-test("link() across different render targets (loose <-> archive) falls back to the target's bare outputPath", () => {
+test("linkTo() across different render targets (loose <-> archive) falls back to the target's bare outputPath", () => {
   const archived: Descriptor = { tag: "file", props: { name: "archived.html" }, children: ["ARCHIVED"] };
   const archiveDir: Descriptor = { tag: "dir", props: { name: "docs", as: "archive" }, children: [archived] };
   const index: Descriptor = { tag: "file", props: { name: "index.html" }, children: [linkRef(archived)] };

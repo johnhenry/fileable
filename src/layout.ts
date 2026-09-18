@@ -265,7 +265,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
     } else {
       const info = identity.get(ref.target);
       if (!info) {
-        throw new FileableError("link() target is not a descriptor present in this tree", "link()");
+        throw new FileableError("linkTo() target is not a descriptor present in this tree", "linkTo()");
       }
       if (info.realArtifactId === currentArtifactId) {
         usedAnchors.add(ref.target);
@@ -288,7 +288,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
 
   // `identity` only has entries for `dir`/`file` nodes (Pass 1 only assigns
   // artifact/anchor identity to structural nodes). Generic markup nodes
-  // (e.g. the <a> that actually holds a link() result in its `href` prop)
+  // (e.g. the <a> that actually holds a linkTo() result in its `href` prop)
   // have no identity of their own -- they inherit whichever real artifact
   // their nearest dir/file ancestor resolved to, threaded down explicitly
   // here rather than looked up per-node.

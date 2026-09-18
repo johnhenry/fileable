@@ -209,7 +209,7 @@ test("render() writes a binary src (PNG) byte-exact, both loose and inside a zip
   });
 });
 
-test("the same src partial reused across two independent pages resolves each page's link()s independently", async () => {
+test("the same src partial reused across two independent pages resolves each page's linkTo()s independently", async () => {
   await withTempDir(async (outDir) => {
     const fixtures = join(process.cwd(), "test/fixtures");
     const pageA: Descriptor = { tag: "file", props: { name: "a.html", src: "self-linking-partial.js" }, children: [] };

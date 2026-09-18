@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile, lstat } from "node:fs/promises
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { render } from "../src/render.js";
-import { link, useCollection } from "../src/api.js";
+import { linkTo, useCollection } from "../src/api.js";
 import type { Descriptor, DescriptorChild } from "../src/types.js";
 
 /**
@@ -58,7 +58,7 @@ test("SS9 worked example: blog with index, latest symlink, and draft cleanup", a
 
     const indexChildren: DescriptorChild[] = ["<ul>"];
     posts.forEach((post, i) => {
-      indexChildren.push('<li><a href="', link(postFiles[i]), `">${post.title}</a></li>`);
+      indexChildren.push('<li><a href="', linkTo(postFiles[i]), `">${post.title}</a></li>`);
     });
     indexChildren.push("</ul>");
 

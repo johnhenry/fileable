@@ -51,7 +51,7 @@ export interface Descriptor {
   tag: Tag;
   props: Record<string, unknown>;
   children: DescriptorChild[];
-  /** Assigned by the Build stage; stable identity for link()/symlink target lookups. */
+  /** Assigned by the Build stage; stable identity for linkTo()/symlink target lookups. */
   __id?: string;
 }
 
@@ -81,10 +81,10 @@ export interface LinkOptions {
 }
 
 /**
- * link() cannot resolve its target synchronously (Layout, which owns the path
+ * linkTo() cannot resolve its target synchronously (Layout, which owns the path
  * table, runs after Build/Resolve). It returns this marker instead; Layout
  * substitutes every LinkRef with its final string once paths are known. The
- * public link() signature still declares `string` (matching the PRD) since the
+ * public linkTo() signature still declares `string` (matching the PRD) since the
  * marker only ever flows into JSX prop/content positions, never string methods.
  */
 export interface LinkRef {
@@ -113,7 +113,7 @@ export function isLinkRef(value: unknown): value is LinkRef {
  * `<file src="same/path.js">` occurrences would otherwise splice the exact
  * same object instance into two different places in the tree, violating
  * SS5.4 ("the same JSX element instance must not appear twice") silently
- * whenever that shared content contains a `link()`/nested `<file>` whose
+ * whenever that shared content contains a `linkTo()`/nested `<file>` whose
  * resolution depends on which artifact it ends up in.
  */
 export function cloneDescriptorTree<T>(root: T): T {

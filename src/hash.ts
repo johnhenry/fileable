@@ -2,9 +2,9 @@
  * Stage 4: Hash (PRD SS4.4).
  *
  * Each artifact's `content` string, by the time Layout hands it off, already
- * has every inlined fragment and every link()-resolved reference folded in
+ * has every inlined fragment and every linkTo()-resolved reference folded in
  * literally -- so hashing the content alone already invalidates a page when
- * a partial it inlines, or data a link() call depends on, changes. The only
+ * a partial it inlines, or data a linkTo() call depends on, changes. The only
  * dependency that ISN'T visible in the content string is `useCollection()`'s
  * source glob (registered at module-eval time, long before any of this runs)
  * -- see the useCollection design note in the PR description for why that's

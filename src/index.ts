@@ -1,6 +1,6 @@
 export { render } from "./render.js";
-export { link, warn, glob, useCollection } from "./api.js";
-export { markdown } from "./markdown.js";
+export { linkTo, warn, glob, useCollection } from "./api.js";
+export { markdownToHtml } from "./markdown.js";
 export { File, Dir, Rm } from "./components.js";
 
 // Individual stages are exported too so each can be tested independently,

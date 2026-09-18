@@ -15,6 +15,6 @@ import { marked } from "marked";
  * way `glob()`/`useCollection()` are; register extensions and call `marked`
  * directly if you need async rendering.
  */
-export function markdown(text: string): string {
+export function markdownToHtml(text: string): string {
   return marked.parse(text) as string;
 }

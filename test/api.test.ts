@@ -1,16 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { glob, link, useCollection, warn } from "../src/api.js";
+import { glob, linkTo, useCollection, warn } from "../src/api.js";
 import { drainBuildContext } from "../src/context.js";
 import { isLinkRef } from "../src/types.js";
 import type { Descriptor } from "../src/types.js";
 
 const fixtures = join(process.cwd(), "test/fixtures");
 
-test("link() returns a LinkRef marker, not a literal string, carrying its target and options", () => {
+test("linkTo() returns a LinkRef marker, not a literal string, carrying its target and options", () => {
   const target: Descriptor = { tag: "file", props: { name: "other.html" }, children: [] };
-  const ref = link(target, { format: "markdown", text: "Other" });
+  const ref = linkTo(target, { format: "markdown", text: "Other" });
   assert.ok(isLinkRef(ref));
   const marker = ref as unknown as { target: Descriptor; options?: { format?: string; text?: string } };
   assert.equal(marker.target, target);
