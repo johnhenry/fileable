@@ -22,6 +22,31 @@ test("imports a code src file's default export as inlined children", async () =>
   assert.deepEqual(child.children, ["partial content"]);
 });
 
+test("two separate <file src> occurrences of the same code partial get independent object graphs (SS5.4)", async () => {
+  // Node's import() cache returns the exact same module object every time --
+  // without cloning, both occurrences below would splice the identical
+  // descriptor instance into two different places in the tree.
+  const a: Descriptor = { tag: "file", props: { name: "a.html", src: "self-linking-partial.js" }, children: [] };
+  const b: Descriptor = { tag: "file", props: { name: "b.html", src: "self-linking-partial.js" }, children: [] };
+  const [resolvedA, resolvedB] = await resolve([a, b], { cwd: fixtures });
+  const childA = resolvedA.children[0] as Descriptor;
+  const childB = resolvedB.children[0] as Descriptor;
+  assert.notEqual(childA, childB);
+
+  const targetA = childA.children[0] as Descriptor;
+  const targetB = childB.children[0] as Descriptor;
+  assert.notEqual(targetA, targetB);
+  assert.deepEqual(targetA.children, ["TARGET"]);
+  assert.deepEqual(targetB.children, ["TARGET"]);
+
+  // Each clone's internal link() target must point at *that clone's own*
+  // nested target -- not the other clone's, and not the original.
+  const linkRefA = childA.children[2] as unknown as { target: Descriptor };
+  const linkRefB = childB.children[2] as unknown as { target: Descriptor };
+  assert.equal(linkRefA.target, targetA);
+  assert.equal(linkRefB.target, targetB);
+});
+
 test("awaits an already-in-flight src promise directly as content", async () => {
   const node: Descriptor = {
     tag: "file",

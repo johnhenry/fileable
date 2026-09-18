@@ -125,3 +125,19 @@ test("render() single concatenated file from a <dir> nested in a <file>", async 
     await assert.rejects(() => stat(join(outDir, "docs/a.html")));
   });
 });
+
+test("the same src partial reused across two independent pages resolves each page's link()s independently", async () => {
+  await withTempDir(async (outDir) => {
+    const fixtures = join(process.cwd(), "test/fixtures");
+    const pageA: Descriptor = { tag: "file", props: { name: "a.html", src: "self-linking-partial.js" }, children: [] };
+    const pageB: Descriptor = { tag: "file", props: { name: "b.html", src: "self-linking-partial.js" }, children: [] };
+    await render({ tag: "dir", props: { name: "site" }, children: [pageA, pageB] }, { outDir, cwd: fixtures, cache: false });
+
+    for (const file of ["a.html", "b.html"]) {
+      const content = await readFile(join(outDir, "site", file), "utf8");
+      const anchorId = /<span id="([^"]+)">/.exec(content)?.[1];
+      assert.ok(anchorId, `${file} should have an anchor span`);
+      assert.ok(content.includes(`ref:#${anchorId}`), `${file}'s link should point at its own anchor`);
+    }
+  });
+});

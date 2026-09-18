@@ -90,6 +90,55 @@ export function isLinkRef(value: unknown): value is LinkRef {
   );
 }
 
+/**
+ * Deep-clones a descriptor/LinkRef/array structure, preserving internal
+ * identity relationships (two references to the same original object
+ * within one call clone to the same new object) while producing an
+ * entirely fresh graph shared with nothing else. Opaque values (Promises,
+ * strings, plain data) pass through by reference untouched.
+ *
+ * Needed because `resolve.ts` imports a `src="partial.js"` module's default
+ * export via `import()`, which Node's module cache memoizes -- two separate
+ * `<file src="same/path.js">` occurrences would otherwise splice the exact
+ * same object instance into two different places in the tree, violating
+ * SS5.4 ("the same JSX element instance must not appear twice") silently
+ * whenever that shared content contains a `link()`/nested `<file>` whose
+ * resolution depends on which artifact it ends up in.
+ */
+export function cloneDescriptorTree<T>(root: T): T {
+  return cloneNode(root, new WeakMap<object, unknown>()) as T;
+}
+
+function cloneNode(value: unknown, memo: WeakMap<object, unknown>): unknown {
+  if (value === null || typeof value !== "object") return value;
+  const cached = memo.get(value);
+  if (cached !== undefined) return cached;
+
+  if (Array.isArray(value)) {
+    const cloned: unknown[] = [];
+    memo.set(value, cloned);
+    for (const item of value) cloned.push(cloneNode(item, memo));
+    return cloned;
+  }
+  if (isDescriptor(value)) {
+    const cloned: Descriptor = { tag: value.tag, props: {}, children: [] };
+    memo.set(value, cloned);
+    for (const [key, propValue] of Object.entries(value.props)) {
+      cloned.props[key] = cloneNode(propValue, memo);
+    }
+    cloned.children = value.children.map((child) => cloneNode(child, memo)) as DescriptorChild[];
+    // __id intentionally omitted -- the Build stage assigns a fresh one.
+    return cloned;
+  }
+  if (isLinkRef(value)) {
+    const cloned: LinkRef = { __fileableRef: "link", target: value.target, options: value.options };
+    memo.set(value, cloned);
+    cloned.target = cloneNode(value.target, memo) as Descriptor | string;
+    return cloned;
+  }
+  return value; // opaque (Promise, Date, custom object, ...) -- keep by reference
+}
+
 export interface RenderOptions {
   /** Base directory loose/archive artifacts are written into. Default: cwd. */
   outDir?: string;

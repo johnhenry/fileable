@@ -46,7 +46,22 @@ choice between a full/slim materialization of the same tree.
 - The `renderConsole` dry-run renderer (not part of the v2 design; may return
   as a dedicated preview mode if there's demand).
 
+### Added (examples)
+- `examples/03-docs-archive-and-single-page`: the same three `src` partials
+  feed both an `as="archive"` zip of individually-addressable pages and a
+  `join="dom-merge"` single page, demonstrating SS5.2 ("three
+  materializations of the same authored tree") concretely.
+
 ### Fixed (found while closing test-coverage gaps, before first release)
+- `src="partial.js"` reused across two separate `<file src>` occurrences
+  spliced the *same* object (Node's `import()` cache memoizes module
+  namespace objects) into two places in the tree, silently violating SS5.4
+  ("the same JSX element instance must not appear twice") whenever that
+  shared content contained a `link()`/nested `<file>`. Fixed with a
+  `cloneDescriptorTree()` deep-clone (preserving internal identity
+  relationships within each clone) before handing an imported module's
+  default export off to Build. Found while building the archive +
+  dom-merge example above, which reuses the same `src` in two places.
 - `.fileable-lock.json` was keyed by `outputPath` alone, which collides
   across sibling archives that happen to share a relative path (e.g. two
   `as="archive"` dirs each containing their own `index.html`) -- now keyed

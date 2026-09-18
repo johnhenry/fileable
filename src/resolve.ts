@@ -16,7 +16,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, extname, isAbsolute, resolve as resolvePath } from "node:path";
 import { pathToFileURL } from "node:url";
 import { glob } from "glob";
-import { isDescriptor, isLinkRef, FileableError } from "./types.js";
+import { cloneDescriptorTree, isDescriptor, isLinkRef, FileableError } from "./types.js";
 import type { Descriptor, DescriptorChild, RenderOptions } from "./types.js";
 import { execCommand } from "./exec.js";
 import { toPosixPattern } from "./glob-util.js";
@@ -53,7 +53,10 @@ async function loadSrc(
       );
     }
     const { build } = await import("./build.js");
-    return { children: build(mod.default) };
+    // Node's module cache returns the same `mod.default` object on every
+    // import of this path -- clone it so each `<file src>` occurrence gets
+    // its own independent subtree, not a shared instance (SS5.4).
+    return { children: build(cloneDescriptorTree(mod.default)) };
   }
   try {
     return { content: await readFile(absolute, "utf8") };

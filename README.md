@@ -40,8 +40,10 @@ const template = (
 await render(template, { outDir: "." });
 ```
 
-See [`examples/`](./examples) for a runnable hello-world and a blog-with-index
-example (adapted from the design PRD below).
+See [`examples/`](./examples) for a runnable hello-world, a blog-with-index
+example (adapted from the design PRD below), and a docs-archive-and-single-page
+example showing the same authored content rendered as both a `.zip` archive
+and one `join="dom-merge"` page.
 
 ## The three primitives
 
