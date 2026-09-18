@@ -106,6 +106,57 @@ choice between a full/slim materialization of the same tree.
   timestamped line per `fileable build` run into `build-log.txt` instead
   of overwriting it each time; also takes an optional `--var message=...`.
 
+### Added (completeness audit: duals and supplementary states)
+Prompted by an explicit "find missing duals/complementary/supplementary
+operations" pass. Real gaps found and closed:
+- `fileable clean [dir]` -- `build`'s missing dual. Removes exactly what a
+  previous build wrote, read from `.fileable-lock.json` itself (not a
+  guess at what "looks generated"), then removes the lock file too.
+- `--dry-run` on both `build` and `clean` -- the missing "plan" side of
+  this project's own "Docker idioms, not Docker syntax" framing (SS1.1),
+  which otherwise only had the `apply` side. Runs the full pipeline (through
+  Hash for `build`) and reports written/skipped/removed without touching
+  disk, including the lock file.
+- `onConflict="skip"` -- a genuinely missing state between `"replace"`
+  (clobber it) and `"error"` (fail the whole build): leave an existing
+  file completely untouched and keep going, for scaffolding that shouldn't
+  overwrite something a user may have already customized but also
+  shouldn't abort over that one file.
+- `onConflict="prepend"` -- `"append"`'s direct mirror (new content before
+  what's there, instead of after).
+
+Checked and deliberately **not** added (false-positive duals, or ruled out
+by the project's own non-goals):
+- A read-only counterpart to `cmd`'s arbitrary execution -- unnecessary;
+  templates are already plain JS/TS modules with full access to
+  `process.env` and anything else read-only, no fileable-specific
+  mechanism needed (consistent with "extension via plain JS, not new
+  mechanisms").
+- A reverse `markdownToHtml` (HTML -> markdown) -- fileable is a
+  generator, not a round-trip converter; there's no scenario where it
+  reads its own prior output back as an authoring format.
+- A CLI "status"/inspect command to read back a previous build's state --
+  `.fileable-lock.json` is already plain, human-readable JSON; a dedicated
+  command would mostly just reformat something already directly
+  inspectable, unlike `clean`, which does something genuinely tedious/
+  error-prone to do correctly by hand.
+- A fourth structural primitive (e.g. some "read" counterpart to
+  `File`/`Dir`/`Rm`'s create/create/delete) -- the PRD's three-primitive
+  closed set is a deliberate constraint, not an oversight; data access is
+  already meant to live in plain JS (`glob()`/`useCollection()`), not a
+  new tag.
+
+### Fixed (found during the same audit)
+- `<Dir as="archive">` nested inside an already-archived subtree, or
+  `<Dir as="loose">` nested inside one trying to escape back out, were
+  both silently ignored (fell through to "regular nested dir," still
+  inside the outer archive either way) instead of erroring. Neither
+  nested archives nor un-archiving mid-tree are supported, so both now
+  throw a clear `FileableError` instead of silently doing the wrong thing.
+  (First attempt at this fix only caught the *mismatched*-target case,
+  missing archive-in-archive with the *same* requested value -- caught by
+  actually running the test, not just reading the diff.)
+
 ### Changed (naming, before first release)
 - `link()` renamed to `linkTo()` and `markdown()` renamed to
   `markdownToHtml()` -- both names were ambiguous about what they actually

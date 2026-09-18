@@ -107,7 +107,7 @@ string matched somewhere inside the JSX runtime.
 | Component | Purpose |
 |---|---|
 | `Dir` | A directory. `name`, `from` (glob -> one child per match, keeping matched files' subdirectory structure relative to the glob's fixed prefix), `as="loose" \| "archive"`, `mode`. |
-| `File` | A file, or -- nested inside another `File` -- a content fragment to inline. `name`, `src`, `doctype`, `mode`, `symlink`, `cmd`, `join="concat" \| "dom-merge"`, `onConflict="replace" \| "append" \| "error"`. |
+| `File` | A file, or -- nested inside another `File` -- a content fragment to inline. `name`, `src`, `doctype`, `mode`, `symlink`, `cmd`, `join="concat" \| "dom-merge"`, `onConflict="replace" \| "append" \| "prepend" \| "skip" \| "error"`. |
 | `Rm` | A removal. `target` (glob, supports `!` negation). |
 
 Two artifacts resolving to the same output path (e.g. two `from` matches
@@ -115,10 +115,18 @@ that still land on the same relative path, or a plain authoring mistake)
 throw rather than silently colliding -- there's no "last write wins" for
 content produced *within* one build. `onConflict` (default `"replace"`,
 today's behavior) instead governs what happens when Write is about to
-touch a path that already has content from *outside* the build -- `"append"`
-adds to it, `"error"` refuses to touch it. Loose target only; an archive is
-always rebuilt as one atomic unit, so there's no per-entry "already exists"
-to ask.
+touch a path that already has content from *outside* the build:
+`"append"`/`"prepend"` add to it (before or after), `"skip"` leaves it
+completely untouched and keeps going (for scaffolding that shouldn't
+clobber something the user may have already customized, but also
+shouldn't fail the whole build over that one file), `"error"` refuses to
+touch it and fails the build. Loose target only; an archive is always
+rebuilt as one atomic unit, so there's no per-entry "already exists" to ask.
+
+`as="archive"` can't be requested again, or switched back to `as="loose"`,
+once already nested inside an archive -- both throw rather than silently
+doing nothing, since neither nested archives nor "escaping" an archive
+mid-tree are supported.
 
 Any other JSX tag (`<h1>`, `<ul>`, `<a>`, ...) is plain markup content, not a
 fileable primitive -- it's stringified into whichever `File` contains it.
@@ -151,23 +159,53 @@ whether `as="archive"` is set.
 
 ```
 fileable build <template> [options]
+fileable clean [dir] [options]
 
   -o, --out-dir <dir>     Directory artifacts are written into
                           (default: the template file's own directory)
   -c, --cwd <dir>         Base directory for resolving relative src/from paths
-                          (default: same as --out-dir)
+                          (build only; default: same as --out-dir)
       --var <key[:type]=value>
-                          Pass a value to a template function (repeatable)
+                          Pass a value to a template function (repeatable, build only)
       --allow-exec        Allow the `cmd` attribute to execute shell commands
       --strict            Promote symlink-fallback warnings to hard errors
       --no-cache          Force a full rebuild, ignoring .fileable-lock.json
       --lock-file <path>  Path to the incremental-build lock file
+      --dry-run           Report what would happen without touching disk
 ```
 
 `<template>` is any module whose default export is a fileable tree. Like
 `src="partials/x.jsx"` on `File`, it needs to already be compiled to plain
 JS (or loadable via a registered Node loader) -- there's no JSX/TS transform
 built in, so point the CLI at `.js`, not `.tsx`.
+
+### `clean` -- build's dual
+
+`fileable clean [dir]` removes exactly what a previous `fileable build`
+wrote, using `.fileable-lock.json`'s own record of that (not a guess at
+what "looks generated"), then removes the lock file itself:
+
+```sh
+fileable build template.js   # writes dist/index.html, dist/assets.zip, ...
+fileable clean .             # removes exactly those, plus .fileable-lock.json
+```
+
+`[dir]` (default `.`) must be the *same* directory `build`'s `--out-dir`
+was (or its default, the template's own directory) -- not a subfolder your
+tree's own `<Dir name="...">` happens to create inside it, since paths in
+the lock file are recorded relative to `[dir]` itself, not to that subfolder.
+
+### `--dry-run` -- preview without touching disk
+
+Works on both commands. Runs the same pipeline (through Hash for `build`,
+the same lock-file read for `clean`) and reports exactly what *would*
+happen -- written/skipped/removed -- without creating, modifying, or
+deleting anything, including the lock file itself:
+
+```sh
+fileable build template.js --dry-run
+fileable clean . --dry-run
+```
 
 ### Passing variables with `--var`
 

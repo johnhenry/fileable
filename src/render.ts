@@ -35,11 +35,12 @@ export async function render(tree: unknown, options: RenderOptions = {}): Promis
   const dirtyRootIds = new Set(archiveRoots.filter((root) => !isUnchanged(root, lock)).map((r) => r.id));
   const archiveSkipped = archiveRoots.filter((r) => !dirtyRootIds.has(r.id)).map((r) => r.outputPath);
 
-  const removed = await applyRemovals(hashed.removals, outDir);
-  const looseResult = await writeLoose(looseChanged, outDir, !!options.strict);
-  const archiveWritten = await writeArchives(hashed.artifacts, outDir, dirtyRootIds);
+  const dryRun = !!options.dryRun;
+  const removed = await applyRemovals(hashed.removals, outDir, dryRun);
+  const looseResult = await writeLoose(looseChanged, outDir, !!options.strict, dryRun);
+  const archiveWritten = await writeArchives(hashed.artifacts, outDir, dirtyRootIds, dryRun);
 
-  await writeLockFile(lockPath, hashed.artifacts);
+  if (!dryRun) await writeLockFile(lockPath, hashed.artifacts);
 
   const allWarnings = [...hashed.warnings, ...contextWarnings, ...looseResult.warnings];
   for (const message of allWarnings) {
@@ -48,7 +49,7 @@ export async function render(tree: unknown, options: RenderOptions = {}): Promis
 
   return {
     written: [...looseResult.written, ...archiveWritten],
-    skipped: [...looseSkipped, ...archiveSkipped],
+    skipped: [...looseSkipped, ...archiveSkipped, ...looseResult.skipped],
     removed,
     warnings: allWarnings,
   };

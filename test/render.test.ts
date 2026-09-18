@@ -29,6 +29,42 @@ test("render() writes loose files/dirs to outDir", async () => {
   });
 });
 
+test("dryRun reports what would be written/removed without touching disk or the lock file", async () => {
+  await withTempDir(async (outDir) => {
+    const stale: Descriptor = { tag: "file", props: { name: "stale.draft.html" }, children: ["stale"] };
+    await render({ tag: "dir", props: { name: "site" }, children: [stale] }, { outDir, cache: false });
+
+    const tree: Descriptor = {
+      tag: "dir",
+      props: { name: "site" },
+      children: [
+        { tag: "file", props: { name: "index.html" }, children: ["hello"] },
+        { tag: "rm", props: { target: "*.draft.html" }, children: [] },
+      ],
+    };
+    const result = await render(tree, { outDir, cache: false, dryRun: true });
+    assert.ok(result.written.includes("site/index.html"));
+    assert.ok(result.removed.includes("site/stale.draft.html"));
+
+    // Nothing was actually touched: the new file was never created, and the
+    // "removed" one is still sitting right where it was.
+    await assert.rejects(() => stat(join(outDir, "site/index.html")));
+    assert.equal(await readFile(join(outDir, "site/stale.draft.html"), "utf8"), "stale");
+  });
+});
+
+test("dryRun doesn't update .fileable-lock.json, so a real run afterward still sees everything as new", async () => {
+  await withTempDir(async (outDir) => {
+    const tree: Descriptor = { tag: "file", props: { name: "a.txt" }, children: ["content"] };
+    await render(tree, { outDir, dryRun: true });
+    await assert.rejects(() => stat(join(outDir, "a.txt")));
+    await assert.rejects(() => stat(join(outDir, ".fileable-lock.json")));
+
+    const result = await render(tree, { outDir });
+    assert.ok(result.written.includes("a.txt"));
+  });
+});
+
 test("render() skips unchanged artifacts on a second run via .fileable-lock.json", async () => {
   await withTempDir(async (outDir) => {
     const tree = (): Descriptor => ({ tag: "file", props: { name: "a.txt" }, children: ["same content"] });
@@ -183,6 +219,47 @@ test("onConflict defaults to \"replace\" (today's behavior, unconditional overwr
     const file: Descriptor = { tag: "file", props: { name: "existing.txt" }, children: ["new content"] };
     await render(file, { outDir, cache: false });
     assert.equal(await readFile(join(outDir, "existing.txt"), "utf8"), "new content");
+  });
+});
+
+test("onConflict=\"skip\" leaves an existing file completely untouched and continues the build", async () => {
+  await withTempDir(async (outDir) => {
+    await mkdir(outDir, { recursive: true });
+    await writeFile(join(outDir, "customized.txt"), "user's own content");
+    const skipped: Descriptor = { tag: "file", props: { name: "customized.txt", onConflict: "skip" }, children: ["template content"] };
+    const untouched: Descriptor = { tag: "file", props: { name: "other.txt" }, children: ["other"] };
+    const result = await render({ tag: "dir", props: { name: "." }, children: [skipped, untouched] }, { outDir, cache: false });
+    assert.equal(await readFile(join(outDir, "customized.txt"), "utf8"), "user's own content");
+    assert.equal(await readFile(join(outDir, "other.txt"), "utf8"), "other");
+    assert.ok(result.skipped.includes("customized.txt"));
+    assert.ok(result.written.includes("other.txt"));
+  });
+});
+
+test("onConflict=\"skip\" on a path that doesn't exist yet just writes normally", async () => {
+  await withTempDir(async (outDir) => {
+    const file: Descriptor = { tag: "file", props: { name: "new.txt", onConflict: "skip" }, children: ["first content"] };
+    const result = await render(file, { outDir, cache: false });
+    assert.equal(await readFile(join(outDir, "new.txt"), "utf8"), "first content");
+    assert.ok(result.written.includes("new.txt"));
+  });
+});
+
+test("onConflict=\"prepend\" (append's mirror) adds new content before what's already there", async () => {
+  await withTempDir(async (outDir) => {
+    await mkdir(outDir, { recursive: true });
+    await writeFile(join(outDir, "log.txt"), "line 2\n");
+    const file: Descriptor = { tag: "file", props: { name: "log.txt", onConflict: "prepend" }, children: ["line 1\n"] };
+    await render(file, { outDir, cache: false });
+    assert.equal(await readFile(join(outDir, "log.txt"), "utf8"), "line 1\nline 2\n");
+  });
+});
+
+test("onConflict=\"prepend\" on a path that doesn't exist yet just writes normally", async () => {
+  await withTempDir(async (outDir) => {
+    const file: Descriptor = { tag: "file", props: { name: "new.txt", onConflict: "prepend" }, children: ["only content"] };
+    await render(file, { outDir, cache: false });
+    assert.equal(await readFile(join(outDir, "new.txt"), "utf8"), "only content");
   });
 });
 

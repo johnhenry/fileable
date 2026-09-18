@@ -102,6 +102,20 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
       }
 
       const requestedAs = node.props.as as RenderTarget | undefined;
+      // Any explicit <Dir as> nested inside an archive used to be silently
+      // ignored: as="archive" again (starting a *second*, nested zip) fell
+      // through to "regular nested dir" (still just an entry in the outer
+      // zip, losing the "start a fresh zip" request), and as="loose"
+      // (escaping back out) stayed archived either way -- neither nested
+      // archives nor un-archiving mid-tree are supported, so both now fail
+      // loudly instead of doing the wrong thing quietly.
+      if (requestedAs !== undefined && ctx.target === "archive") {
+        throw new FileableError(
+          `<Dir as="${requestedAs}"> nested inside an archive can't change render target -- ` +
+            "nested archives and escaping back to loose from inside an archive aren't supported",
+          path,
+        );
+      }
       const nextChildCtx: WalkCtx = { ...ctx };
       let artifactId: string;
       if (requestedAs === "archive" && ctx.target !== "archive") {

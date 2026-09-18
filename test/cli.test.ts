@@ -112,6 +112,45 @@ test("--var on a plain-tree (non-function) template is ignored with a warning, n
   });
 });
 
+test("build --dry-run reports what would be written without touching disk", async () => {
+  await withTempDir(async (outDir) => {
+    const code = await main(["build", fixtureTemplate, "--out-dir", outDir, "--no-cache", "--dry-run"]);
+    assert.equal(code, 0);
+    await assert.rejects(() => readFile(join(outDir, "out/hello.txt"), "utf8"));
+    await assert.rejects(() => readFile(join(outDir, ".fileable-lock.json"), "utf8"));
+  });
+});
+
+test("clean with no lock file reports nothing to clean, returns 0", async () => {
+  await withTempDir(async (outDir) => {
+    const code = await main(["clean", outDir]);
+    assert.equal(code, 0);
+  });
+});
+
+test("clean removes exactly what a previous build wrote, plus the lock file", async () => {
+  await withTempDir(async (outDir) => {
+    await main(["build", fixtureTemplate, "--out-dir", outDir, "--no-cache"]);
+    await readFile(join(outDir, "out/hello.txt"), "utf8"); // sanity: it's really there
+
+    const code = await main(["clean", outDir]);
+    assert.equal(code, 0);
+    await assert.rejects(() => readFile(join(outDir, "out/hello.txt"), "utf8"));
+    await assert.rejects(() => readFile(join(outDir, ".fileable-lock.json"), "utf8"));
+  });
+});
+
+test("clean --dry-run reports removals without actually deleting anything", async () => {
+  await withTempDir(async (outDir) => {
+    await main(["build", fixtureTemplate, "--out-dir", outDir, "--no-cache"]);
+
+    const code = await main(["clean", outDir, "--dry-run"]);
+    assert.equal(code, 0);
+    assert.equal(await readFile(join(outDir, "out/hello.txt"), "utf8"), "Hello from CLI");
+    await readFile(join(outDir, ".fileable-lock.json"), "utf8"); // still there
+  });
+});
+
 test("the compiled bin/fileable.js is directly executable via node (shebang + real process)", async () => {
   await withTempDir(async (outDir) => {
     const cliPath = join(process.cwd(), "dist/bin/fileable.js");

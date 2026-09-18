@@ -32,12 +32,18 @@ export interface FileProps extends BaseProps {
    * content on disk from *outside* this build (not something the current
    * tree already accounted for -- an unchanged, cache-skipped file never
    * reaches this check at all). Default: "replace" (today's behavior,
-   * unconditional overwrite). "append" adds to existing content instead of
-   * replacing it. "error" refuses to touch it. Loose target only -- an
-   * archive is always rebuilt as one atomic unit, so there's no meaningful
-   * "does this individual entry already exist" to ask.
+   * unconditional overwrite).
+   *  - "append": adds new content after what's already there.
+   *  - "prepend": append's mirror -- new content goes before it instead.
+   *  - "skip": leaves the existing file completely untouched (not even
+   *    mode/chmod) and continues the rest of the build -- for scaffolding
+   *    that shouldn't clobber a file the user may have already customized,
+   *    but also shouldn't fail the whole build over that one file.
+   *  - "error": refuses to touch it and fails the build.
+   * Loose target only -- an archive is always rebuilt as one atomic unit,
+   * so there's no meaningful "does this individual entry already exist" to ask.
    */
-  onConflict?: "replace" | "append" | "error";
+  onConflict?: "replace" | "append" | "prepend" | "skip" | "error";
 }
 
 export interface RmProps extends BaseProps {
@@ -163,6 +169,14 @@ export interface RenderOptions {
   lockFile?: string;
   /** Set false to force a full rewrite, ignoring the lock file. Default: true. */
   cache?: boolean;
+  /**
+   * Run the full pipeline (through Hash) and report what *would* be
+   * written/skipped/removed, without touching disk at all -- not even the
+   * lock file. The Docker-idioms framing (SS1.1) this project uses
+   * elsewhere maps onto `plan` vs. `apply`; this is the `plan` side, which
+   * didn't otherwise exist. Default: false.
+   */
+  dryRun?: boolean;
 }
 
 /**

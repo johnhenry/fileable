@@ -55,6 +55,36 @@ test("as=\"loose\" writes real paths; as=\"archive\" nests under a .zip", () => 
   assert.equal(archiveFile.archivePath, "out.zip");
 });
 
+test("nested archives and un-archiving mid-tree throw instead of silently doing nothing", () => {
+  const inner = (): Descriptor => ({ tag: "file", props: { name: "x.txt" }, children: ["X"] });
+
+  // as="archive" nested inside an already-archived subtree.
+  assert.throws(
+    () =>
+      layout([
+        {
+          tag: "dir",
+          props: { name: "outer", as: "archive" },
+          children: [{ tag: "dir", props: { name: "inner", as: "archive" }, children: [inner()] }],
+        },
+      ]),
+    FileableError,
+  );
+
+  // as="loose" nested inside an archived subtree, trying to escape back out.
+  assert.throws(
+    () =>
+      layout([
+        {
+          tag: "dir",
+          props: { name: "outer", as: "archive" },
+          children: [{ tag: "dir", props: { name: "inner", as: "loose" }, children: [inner()] }],
+        },
+      ]),
+    FileableError,
+  );
+});
+
 test("linkTo() to a target inlined in the same artifact emits an in-page anchor", () => {
   const target: Descriptor = { tag: "file", props: {}, children: ["TARGET"] };
   const root: Descriptor = {
