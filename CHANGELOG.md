@@ -46,6 +46,18 @@ choice between a full/slim materialization of the same tree.
 - The `renderConsole` dry-run renderer (not part of the v2 design; may return
   as a dedicated preview mode if there's demand).
 
+### Added (post-review)
+- `markdown(text)` runtime helper -- a thin, synchronous wrapper around
+  `marked`. Convenience only; content transformation is otherwise just
+  calling any function you like inline (`{myTransform(text)}`), no fileable
+  involvement needed. `examples/02-blog-with-index` now renders post bodies
+  through it instead of dumping raw markdown text into the HTML output.
+- `File`/`Dir`/`Rm` exported as ordinary functions (`import { File, Dir, Rm }
+  from "fileable"`), equivalent to and interchangeable with the lowercase
+  `<file>`/`<dir>`/`<rm>` tags -- for authors who'd rather have an
+  importable symbol to jump to than a string matched inside the JSX
+  runtime. Also callable directly without JSX, e.g. `File({ name: "a.txt" })`.
+
 ### Added (examples)
 - `examples/03-docs-archive-and-single-page`: the same three `src` partials
   feed both an `as="archive"` zip of individually-addressable pages and a

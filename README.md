@@ -56,6 +56,14 @@ and one `join="dom-merge"` page.
 Any other JSX tag (`<h1>`, `<ul>`, `<a>`, ...) is plain markup content, not a
 fileable primitive -- it's stringified into whichever `<file>` contains it.
 
+If the lowercase tags feel too "magic" (matched as special strings inside
+the JSX runtime, with no symbol to jump to), `File`/`Dir`/`Rm` are also
+exported as ordinary functions -- `import { File, Dir, Rm } from "fileable"`
+and write `<File name="a.txt">...</File>` instead of `<file>`. Both
+spellings are fully interchangeable and produce the exact same tree; `File`
+etc. are also just callable directly without JSX at all, e.g.
+`File({ name: "a.txt" })`.
+
 A `<file>` or `<dir>` nested inside another `<file>` isn't a separate path --
 it's folded into the parent's content (nameless inlining). This single rule
 is what lets the same authored tree render as loose files, a zip archive, or
@@ -73,6 +81,10 @@ whether `as="archive"` is set.
 - `useCollection(pattern)` -- same as `glob()`, but registers a build
   dependency so incremental rebuilds invalidate correctly when a matched file
   changes.
+- `markdown(text)` -- renders markdown to an HTML string (a thin, synchronous
+  wrapper around `marked`). Convenience only, not a new mechanism -- content
+  transformation is otherwise just calling any function you like inline,
+  e.g. `{myOwnTransform(text)}`, with no fileable involvement at all.
 
 ## Security
 

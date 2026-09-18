@@ -1,5 +1,7 @@
 export { render } from "./render.js";
 export { link, warn, glob, useCollection } from "./api.js";
+export { markdown } from "./markdown.js";
+export { File, Dir, Rm } from "./components.js";
 
 // Individual stages are exported too so each can be tested independently,
 // per the PRD's SS4 framing of the pipeline as five separately-testable stages.

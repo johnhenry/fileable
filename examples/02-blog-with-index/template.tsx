@@ -2,6 +2,11 @@
  * Adapts PRD SS9 ("Blog with Index"). Run with:
  *   npm run build && node dist/examples/02-blog-with-index/template.js
  *
+ * Post bodies are markdown, rendered to HTML via the `markdown()` runtime
+ * helper (a thin wrapper around `marked` -- convenience only, not a new
+ * mechanism; you're equally free to call any other transform function
+ * inline instead).
+ *
  * Two deliberate deviations from the PRD's literal text (both noted in the
  * PR description):
  *  - `symlink` targets the actual generated `<file>` descriptor for the
@@ -14,7 +19,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { render, link, useCollection } from "fileable";
+import { render, link, markdown, useCollection } from "fileable";
 import type { Descriptor } from "fileable";
 
 interface Post {
@@ -51,7 +56,7 @@ const postFiles: Descriptor[] = posts.map((post) => (
   <file name={`${post.slug}.html`} doctype="html">
     <file src="partials/header.js" />
     <h1>{post.title}</h1>
-    {post.body}
+    {markdown(post.body)}
     <file src="partials/footer.js" />
   </file>
 ));

@@ -3,4 +3,10 @@ title: Second Post
 slug: second-post
 date: 2024-06-01
 ---
-Second post body.
+A short code sample:
+
+```js
+const x = 1;
+```
+
+That's it -- **markdown in, HTML out**.
