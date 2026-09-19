@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.0
+
+Adopted into the `@johnhenry/*` family: renamed from unscoped `fileable` to
+`@johnhenry/fileable`, version restarted at 0.0.0 (a new address and era,
+not a maturity signal -- see the README's provenance note). The v2 rewrite
+below was never released unscoped; the scope migration and the rewrite's
+first real release happen together. Default branch renamed `master` ->
+`main`. Every `import ... from "fileable"` (including the string `eject`
+itself generates in its output) now reads `"@johnhenry/fileable"`.
+
 ## 2.0.0
 
 Full rewrite per the v2 design PRD. Breaking in every respect -- there is no

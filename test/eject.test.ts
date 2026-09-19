@@ -26,7 +26,7 @@ test("reflect() inlines text and references binary content by default (infer)", 
     await writeFile(join(src, "img", "logo.png"), png);
 
     const source = await reflect(src);
-    assert.match(source, /import \{ Dir, File \} from "fileable";/);
+    assert.match(source, /import \{ Dir, File \} from "@johnhenry\/fileable";/);
     assert.match(source, /<Dir name="src">/);
     assert.match(source, /<File name="hello\.txt">\{`Hello, world!\n`\}<\/File>/);
     assert.match(source, /<Dir name="img">/);

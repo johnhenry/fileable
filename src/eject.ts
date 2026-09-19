@@ -218,7 +218,7 @@ function toRelativeSrc(fromDir: string, toPath: string): string {
 
 function printModule(root: Descriptor): string {
   const body = printNode(root, 1);
-  return `import { Dir, File } from "fileable";\n\nexport default (\n${body}\n);\n`;
+  return `import { Dir, File } from "@johnhenry/fileable";\n\nexport default (\n${body}\n);\n`;
 }
 
 function printNode(node: Descriptor, depth: number): string {

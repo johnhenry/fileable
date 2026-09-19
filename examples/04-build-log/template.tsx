@@ -11,7 +11,7 @@
  * Run it a few times (optionally with different --var message values) and
  * watch dist/build-log.txt grow one line per run instead of staying at one.
  */
-import { Dir, File } from "fileable";
+import { Dir, File } from "@johnhenry/fileable";
 
 interface Vars {
   message?: string;

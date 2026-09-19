@@ -18,6 +18,12 @@ Docker-flavored build discipline"**: a small, closed set of primitives
 and three interchangeable output shapes (a folder of loose files, a zip
 archive, or one concatenated file) from the same authored tree.
 
+> Previously published as `fileable` (2019-2022, last unscoped release
+> 0.0.24 -- the v1 iterator-protocol design, superseded above). The v2
+> rewrite was never released unscoped; adoption into `@johnhenry/fileable`
+> and the version restart to 0.0.0 happened together -- a new address and
+> era, not a maturity signal.
+
 ## Where this fits
 
 - **Scaffolding / project generators** (Plop/Hygen/Yeoman territory) --
@@ -56,14 +62,14 @@ is a fresh rewrite with no real-world users yet.
 ## Installation
 
 ```sh
-npm install fileable
+npm install @johnhenry/fileable
 ```
 
 ## Quick example
 
 ```tsx
-/** @jsxImportSource fileable */
-import { Dir, File } from "fileable";
+/** @jsxImportSource @johnhenry/fileable */
+import { Dir, File } from "@johnhenry/fileable";
 
 const template = (
   <Dir name="dist">
@@ -87,7 +93,7 @@ dist/
 
 `outDir`/`cwd` default to the template file's own directory. Prefer to drive
 it yourself instead of via the CLI? `render()` is a plain function --
-`import { render } from "fileable"; await render(template, { outDir: "." })`.
+`import { render } from "@johnhenry/fileable"; await render(template, { outDir: "." })`.
 
 See [`examples/`](./examples) for these runnable in full, plus the ones
 below. Every tree in this README reflects a real `fileable build` run
@@ -96,7 +102,7 @@ below. Every tree in this README reflects a real `fileable build` run
 ## The three primitives
 
 `Dir`/`File`/`Rm` are ordinary functions exported from `"fileable"` --
-`import { Dir, File, Rm } from "fileable"` and use them as JSX components
+`import { Dir, File, Rm } from "@johnhenry/fileable"` and use them as JSX components
 (`<File name="a.txt">...</File>`) or call them directly with no JSX at all
 (`File({ name: "a.txt" })`). The bare lowercase `<dir>`/`<file>`/`<rm>` tags
 are **reserved and throw** if written directly (a clear error pointing at
@@ -222,7 +228,7 @@ fileable eject dist --out dist.tsx     # writes it to a file instead
 
 ```
 $ fileable eject dist
-import { Dir, File } from "fileable";
+import { Dir, File } from "@johnhenry/fileable";
 
 export default (
   <Dir name="dist">
@@ -317,7 +323,7 @@ bodies, and `symlink` pointing at the actual generated `<File>` for the
 latest post:
 
 ```tsx
-import { Dir, File, Rm, linkTo, markdownToHtml, useCollection } from "fileable";
+import { Dir, File, Rm, linkTo, markdownToHtml, useCollection } from "@johnhenry/fileable";
 
 const posts = useCollection("content/posts/*.md")
   .map(parseFrontmatter)
@@ -364,7 +370,7 @@ pages and, via nameless inlining, a `join="dom-merge"` page that folds all
 three `<head>`s into one instead of duplicating `<html>`/`<head>` tags:
 
 ```tsx
-import { Dir, File } from "fileable";
+import { Dir, File } from "@johnhenry/fileable";
 
 const docs = [
   { slug: "getting-started", src: "docs-src/getting-started.js" },
@@ -398,7 +404,7 @@ dist/
 ### An append-only build log (`examples/04-build-log`)
 
 ```tsx
-import { Dir, File } from "fileable";
+import { Dir, File } from "@johnhenry/fileable";
 
 export default function template(vars: { message?: string } = {}) {
   const line = `[${new Date().toISOString()}] ${vars.message ?? "build ran"}\n`;
@@ -430,7 +436,7 @@ without that flag, encountering `cmd` throws immediately.
   the `fileable-iterator` protocol package are gone -- everything lives in
   this one package now.
 - The `react`/`react-dom` dependency is gone -- fileable ships its own JSX
-  runtime (`fileable/jsx-runtime`), selected via a `@jsxImportSource fileable`
+  runtime (`@johnhenry/fileable/jsx-runtime`), selected via a `@jsxImportSource @johnhenry/fileable`
   pragma or `compilerOptions.jsxImportSource`.
 - The `FILE`/`FOLDER`/`CLEAR` yieldable directives are replaced by the
   `File`/`Dir`/`Rm` JSX components (`import { File, Dir, Rm } from

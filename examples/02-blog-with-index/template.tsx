@@ -19,8 +19,8 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Dir, File, Rm, linkTo, markdownToHtml, useCollection } from "fileable";
-import type { Descriptor } from "fileable";
+import { Dir, File, Rm, linkTo, markdownToHtml, useCollection } from "@johnhenry/fileable";
+import type { Descriptor } from "@johnhenry/fileable";
 
 interface Post {
   title: string;

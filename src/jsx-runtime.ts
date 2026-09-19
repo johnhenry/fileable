@@ -1,6 +1,6 @@
 /**
  * Fileable's own JSX runtime (PRD SS7.2) -- selected via a per-file
- * `@jsxImportSource fileable` pragma or `compilerOptions.jsxImportSource`.
+ * `@jsxImportSource @johnhenry/fileable` pragma or `compilerOptions.jsxImportSource`.
  * No React/Solid/Astro runtime involved: structural tags become descriptor
  * nodes; everything else (plain markup tags, function components) is
  * evaluated immediately, mirroring the JSX call tree 1:1. Normalization
@@ -9,7 +9,7 @@
  *
  * `dir`/`file`/`rm` are reserved and NOT treated as structural when
  * written as bare lowercase tags -- authoring `<dir>`/`<file>`/`<rm>`
- * directly throws. `Dir`/`File`/`Rm`, imported from "fileable" (see
+ * directly throws. `Dir`/`File`/`Rm`, imported from "@johnhenry/fileable" (see
  * `components.ts`), are the only supported way to reach the three
  * primitives, so every template has an explicit, importable, "go to
  * definition"-able symbol for them rather than a bare string matched
@@ -49,7 +49,7 @@ export function jsx(
     const component = RESERVED_TAGS[type];
     throw new FileableError(
       `<${type}> is reserved and not a fileable primitive on its own -- ` +
-        `import { ${component} } from "fileable" and write <${component}> instead of the bare lowercase tag`,
+        `import { ${component} } from "@johnhenry/fileable" and write <${component}> instead of the bare lowercase tag`,
       `<${type}>`,
     );
   }
@@ -74,7 +74,7 @@ export namespace JSX {
   export interface IntrinsicElements {
     // `dir`/`file`/`rm` are deliberately NOT declared here (they fall
     // through to the index signature below, loosely typed) -- import
-    // Dir/File/Rm from "fileable" for both proper prop types and to
+    // Dir/File/Rm from "@johnhenry/fileable" for both proper prop types and to
     // actually reach the structural primitives; the bare tags throw
     // at runtime (see RESERVED_TAGS above).
     [elemName: string]: CommonProps;

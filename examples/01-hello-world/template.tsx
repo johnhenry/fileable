@@ -6,7 +6,7 @@
  * can be a function of the parsed --var values instead of a plain tree):
  *   node dist/bin/fileable.js build dist/examples/01-hello-world/template.js --var name=Ada
  */
-import { Dir, File } from "fileable";
+import { Dir, File } from "@johnhenry/fileable";
 
 interface Vars {
   name?: string;

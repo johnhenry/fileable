@@ -1,13 +1,18 @@
 {
-  "name": "fileable",
-  "version": "2.0.0",
+  "name": "@johnhenry/fileable",
+  "version": "0.0.0",
   "description": "Declaratively describe filesystem artifacts -- files, directories, and deletions -- using JSX as the composition language.",
   "type": "module",
   "repository": {
     "type": "git",
     "url": "https://github.com/johnhenry/fileable.git"
   },
+  "homepage": "https://opensource.johnhenry.me/fileable/",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "engines": {
     "node": ">=18.19"
   },

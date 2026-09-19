@@ -42,17 +42,17 @@ test("bare lowercase <dir>/<file>/<rm> are reserved and throw, pointing at the c
 
   assert.throws(() => <Dir_ name="site" />, (error: unknown) => {
     assert.ok(error instanceof FileableError);
-    assert.match(error.message, /import \{ Dir \} from "fileable"/);
+    assert.match(error.message, /import \{ Dir \} from "@johnhenry\/fileable"/);
     return true;
   });
   assert.throws(() => <File_ name="a.html" />, (error: unknown) => {
     assert.ok(error instanceof FileableError);
-    assert.match(error.message, /import \{ File \} from "fileable"/);
+    assert.match(error.message, /import \{ File \} from "@johnhenry\/fileable"/);
     return true;
   });
   assert.throws(() => <Rm_ target="*.draft.html" />, (error: unknown) => {
     assert.ok(error instanceof FileableError);
-    assert.match(error.message, /import \{ Rm \} from "fileable"/);
+    assert.match(error.message, /import \{ Rm \} from "@johnhenry\/fileable"/);
     return true;
   });
 });

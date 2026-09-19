@@ -9,7 +9,7 @@
  *
  * Run with: npm run build && node dist/bin/fileable.js build dist/examples/03-docs-archive-and-single-page/template.js
  */
-import { Dir, File } from "fileable";
+import { Dir, File } from "@johnhenry/fileable";
 
 const docs = [
   { slug: "getting-started", src: "docs-src/getting-started.js" },
