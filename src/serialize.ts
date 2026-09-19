@@ -1,0 +1,105 @@
+/**
+ * Turns a (post-substitution) descriptor subtree into a content string.
+ * Used by Layout to materialize every real `<file>` artifact's content, and
+ * recursively for every `<file>`/`<dir>` nested inside it (nameless inlining,
+ * PRD SS5.1) -- generic markup tags (<h1>, <ul>, <a>, ...) are stringified as
+ * HTML here too, since they're just content, not fileable primitives.
+ *
+ * By the time this runs, every LinkRef has already been substituted with its
+ * final string (Layout does that before calling this), so this module only
+ * needs to know which descriptors are anchor targets that actually need an
+ * injected `<span id="...">` marker.
+ */
+import { FileableError, isDescriptor } from "./types.js";
+import type { Descriptor, DescriptorChild } from "./types.js";
+import { mergeHtmlFragments } from "./dom-merge.js";
+
+const VOID_TAGS = new Set([
+  "area", "base", "br", "col", "embed", "hr", "img", "input",
+  "link", "meta", "param", "source", "track", "wbr",
+]);
+
+/**
+ * Validates `join` once, shared between layout.ts's top-level content
+ * assembly and this module's inline-composition path (both previously
+ * did the same `(props.join as ...) ?? "concat"` cast independently, with
+ * no validation either place) -- an unrecognized value now throws a clear
+ * error instead of silently behaving as `"concat"`, matching how the rest
+ * of this codebase (reserved tags, duplicate paths, missing `name`, `cmd`
+ * without `allowExec`) fails loudly rather than doing the wrong thing quietly.
+ */
+export function parseJoin(props: Record<string, unknown>, path: string): "concat" | "dom-merge" {
+  const value = props.join;
+  if (value === undefined) return "concat";
+  if (value === "concat" || value === "dom-merge") return value;
+  throw new FileableError(`invalid join="${String(value)}" -- expected "concat" or "dom-merge"`, path);
+}
+
+export interface SerializeCtx {
+  anchorIds: Map<Descriptor, string>;
+}
+
+function escapeAttr(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
+
+function serializeAttrs(props: Record<string, unknown>): string {
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(props)) {
+    if (value === undefined || value === null || value === false) continue;
+    if (value === true) {
+      parts.push(key);
+      continue;
+    }
+    parts.push(`${key}="${escapeAttr(String(value))}"`);
+  }
+  return parts.length ? ` ${parts.join(" ")}` : "";
+}
+
+function renderMarkupTag(node: Descriptor, ctx: SerializeCtx): string {
+  const inner = serializeChildren(node.children, "concat", ctx);
+  const attrs = serializeAttrs(node.props);
+  if (VOID_TAGS.has(node.tag as string)) {
+    return `<${String(node.tag)}${attrs} />`;
+  }
+  return `<${String(node.tag)}${attrs}>${inner}</${String(node.tag)}>`;
+}
+
+function serializeStructural(node: Descriptor, ctx: SerializeCtx): string {
+  const innerJoin = parseJoin(node.props, `<${String(node.tag)}${node.props.name ? `[${node.props.name}]` : ""}> (inlined)`);
+  const rawBase = (node.props as { __resolvedContent?: string | Buffer }).__resolvedContent;
+  // Inlining always produces a string (it's being spliced into a larger
+  // text document) -- a Buffer here means a binary src was nested inside
+  // another file's text content, which decodes lossily as a last resort
+  // rather than erroring. Binary content is only preserved byte-exact as a
+  // file's own top-level content (layout.ts), not when inlined into text.
+  const base = rawBase === undefined ? "" : typeof rawBase === "string" ? rawBase : rawBase.toString("utf8");
+  const inner = serializeChildren(node.children, innerJoin, ctx);
+  const combined = base + inner;
+  const anchorId = ctx.anchorIds.get(node);
+  return anchorId ? `<span id="${escapeAttr(anchorId)}"></span>${combined}` : combined;
+}
+
+function serializeChild(child: DescriptorChild, ctx: SerializeCtx): string {
+  if (child === null || child === undefined || typeof child === "boolean") return "";
+  if (typeof child === "string") return child;
+  if (typeof child === "number") return String(child);
+  if (Array.isArray(child)) return child.map((c) => serializeChild(c, ctx)).join("");
+  if (isDescriptor(child)) {
+    if (child.tag === "file" || child.tag === "dir") {
+      return serializeStructural(child, ctx);
+    }
+    return renderMarkupTag(child, ctx);
+  }
+  // A LinkRef reaching here means Layout's substitution pass missed it.
+  throw new Error(`Unresolved reference reached serialization: ${JSON.stringify(child)}`);
+}
+
+export function serializeChildren(
+  children: DescriptorChild[],
+  join: "concat" | "dom-merge",
+  ctx: SerializeCtx,
+): string {
+  const pieces = children.map((child) => serializeChild(child, ctx));
+  return join === "dom-merge" ? mergeHtmlFragments(pieces) : pieces.join("");
+}
