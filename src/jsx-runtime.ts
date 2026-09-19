@@ -16,7 +16,7 @@
  * somewhere inside this dispatch.
  */
 import type { Descriptor, DescriptorChild, Tag } from "./types.js";
-import { FRAGMENT, FileableError } from "./types.js";
+import { FILEABLE_DESCRIPTOR, FRAGMENT, FileableError } from "./types.js";
 
 export const Fragment = FRAGMENT;
 
@@ -58,6 +58,7 @@ export function jsx(
     tag: type,
     props: rest,
     children: toChildArray(children),
+    [FILEABLE_DESCRIPTOR]: true,
   };
   return descriptor;
 }

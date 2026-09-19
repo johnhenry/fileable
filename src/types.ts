@@ -5,6 +5,21 @@
 
 export const FRAGMENT: unique symbol = Symbol.for("fileable.fragment");
 
+/**
+ * Global-symbol-registry brand every descriptor created by this package's
+ * `Dir`/`File`/`Rm`/`jsx()` carries. Other packages (e.g. `servable`, which
+ * wants to recognize a fileable tree appearing as a raw JSX child, not just
+ * behind a `from=` prop) can check `FILEABLE_DESCRIPTOR in value` directly
+ * via `Symbol.for("fileable.descriptor")` -- no import of this package
+ * required, since `Symbol.for` resolves to the same symbol from any module
+ * that asks for the same string key. This matters for servable specifically
+ * because `@johnhenry/fileable` is an *optional* peer dependency there --
+ * shape-based duck typing (every Descriptor, from either package, has the
+ * identical `{tag,props,children}` shape) can't tell them apart at all once
+ * a fileable node might appear anywhere a servable node could.
+ */
+export const FILEABLE_DESCRIPTOR: unique symbol = Symbol.for("fileable.descriptor");
+
 export type StructuralTag = "dir" | "file" | "rm";
 
 export interface BaseProps {
@@ -59,6 +74,7 @@ export interface Descriptor {
   children: DescriptorChild[];
   /** Assigned by the Build stage; stable identity for linkTo()/symlink target lookups. */
   __id?: string;
+  readonly [FILEABLE_DESCRIPTOR]?: true;
 }
 
 export type DescriptorChild =

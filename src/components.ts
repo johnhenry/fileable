@@ -9,6 +9,7 @@
  * where that lowercase-tag rejection lives -- these three are the sanctioned
  * bypass, not a loophole.
  */
+import { FILEABLE_DESCRIPTOR } from "./types.js";
 import type { Descriptor, DescriptorChild, DirProps, FileProps, RmProps } from "./types.js";
 
 function toChildArray(children: unknown): DescriptorChild[] {
@@ -18,7 +19,7 @@ function toChildArray(children: unknown): DescriptorChild[] {
 
 function structural(tag: "dir" | "file" | "rm", props: Record<string, unknown>): Descriptor {
   const { children, ...rest } = props;
-  return { tag, props: rest, children: toChildArray(children) };
+  return { tag, props: rest, children: toChildArray(children), [FILEABLE_DESCRIPTOR]: true };
 }
 
 export function File(props: FileProps): Descriptor {
