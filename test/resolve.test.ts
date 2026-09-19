@@ -1,8 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolve } from "../src/resolve.js";
+import { drainBuildContext } from "../src/context.js";
 import { FileableError } from "../src/types.js";
 import type { Descriptor } from "../src/types.js";
 
@@ -102,6 +104,61 @@ test("<dir from> preserving structure means same-basename files in different sub
   assert.equal(byName.size, 2);
   assert.ok(byName.has("en/index.html"));
   assert.ok(byName.has("fr/index.html"));
+});
+
+test(
+  "<dir from> skips a symlink pointing at a directory instead of crashing with EISDIR, with a warning",
+  async () => {
+    // glob's `nodir: true` filters by each entry's own dirent type (an
+    // lstat), not its followed real type -- a symlink whose *target* is a
+    // directory survives that filter and comes back as a "file" match.
+    // Reading it later used to throw a raw EISDIR instead of being skipped.
+    const root = await mkdtemp(join(tmpdir(), "fileable-resolve-symlink-"));
+    try {
+      const src = join(root, "src");
+      await mkdir(src, { recursive: true });
+      await writeFile(join(src, "real.txt"), "real file\n");
+      await symlink(".", join(src, "loop"));
+
+      drainBuildContext();
+      const node: Descriptor = { tag: "dir", props: { name: "out", from: "src/**/*" }, children: [] };
+      const [resolved] = await resolve([node], { cwd: root });
+      const names = (resolved.children as Descriptor[]).map((c) => c.props.name).sort();
+      assert.deepEqual(names, ["loop/real.txt", "real.txt"]);
+
+      const { warnings } = drainBuildContext();
+      assert.ok(warnings.some((w) => w.includes("loop") && w.includes("symlink to a directory")));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test("<dir from> preserves subdirectory structure (no basename collision) even when the pattern is absolute", async () => {
+  // Resolving the pattern's own base against `baseDir` up front (rather than
+  // string-prefix-matching an absolute base against a path-relative-to-
+  // baseDir) is what makes this work -- the mismatched representations used
+  // to silently fail the prefix check and collapse every match to a bare
+  // basename, so two same-named files in different subdirs collided.
+  const root = await mkdtemp(join(tmpdir(), "fileable-resolve-absolute-glob-"));
+  try {
+    const a = join(root, "src", "a");
+    const b = join(root, "src", "b");
+    await mkdir(a, { recursive: true });
+    await mkdir(b, { recursive: true });
+    await writeFile(join(a, "same.txt"), "A");
+    await writeFile(join(b, "same.txt"), "B");
+
+    const pattern = join(root, "src", "**", "*").split("\\").join("/");
+    const node: Descriptor = { tag: "dir", props: { name: "out", from: pattern }, children: [] };
+    const [resolved] = await resolve([node], { cwd: root });
+    const byName = new Map((resolved.children as Descriptor[]).map((c) => [c.props.name, c]));
+    assert.equal(byName.size, 2);
+    assert.ok(byName.has("a/same.txt"));
+    assert.ok(byName.has("b/same.txt"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("<dir from> matching a code file imports its default export, same as a direct src", async () => {

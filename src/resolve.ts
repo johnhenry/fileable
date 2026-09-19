@@ -12,14 +12,15 @@
  * Errors (thrown synchronously or via a rejected promise) are wrapped with
  * the offending node's tree path before propagating (PRD SS6.2).
  */
-import { readFile } from "node:fs/promises";
-import { basename, extname, isAbsolute, relative as relativePath, resolve as resolvePath } from "node:path";
+import { readFile, stat } from "node:fs/promises";
+import { extname, isAbsolute, relative as relativePath, resolve as resolvePath } from "node:path";
 import { pathToFileURL } from "node:url";
 import { glob } from "glob";
 import { cloneDescriptorTree, isDescriptor, isLinkRef, isThenable, FileableError } from "./types.js";
 import type { Descriptor, DescriptorChild, RenderOptions } from "./types.js";
 import { bufferToContent, combineContent } from "./content-util.js";
 import { execCommand } from "./exec.js";
+import { recordWarning } from "./context.js";
 import { splitGlobBase, toPosixPattern } from "./glob-util.js";
 
 const CODE_EXTENSIONS = new Set([".jsx", ".tsx", ".js", ".mjs", ".ts"]);
@@ -82,11 +83,43 @@ async function resolveFromGlob(
       throw new FileableError("`from` promise rejected", path, cause);
     }
   }
+  let matches: string[];
   try {
-    return await glob(toPosixPattern(pattern), { cwd: baseDir, absolute: true, nodir: true });
+    // `nodir: true` filters by each entry's own dirent type (an `lstat`,
+    // not a followed `stat`) -- a symlink whose *target* is a directory
+    // isn't itself a directory dirent, so it survives the filter and comes
+    // back as a "file" match. Reading it later then fails with EISDIR
+    // (confirmed by actually matching one: `<dir from>` over a tree
+    // containing a symlinked subdirectory threw "illegal operation on a
+    // directory" instead of silently doing the right thing). glob's own
+    // `follow` option (default false) is what keeps `**` from recursing
+    // into a symlinked directory in the first place -- and, incidentally,
+    // is why this can't loop forever on a symlink cycle either -- so the
+    // remaining gap is purely this one dirent-vs-real-type mismatch for a
+    // symlink glob matches *directly*, not a general symlink-safety gap.
+    const rawMatches = await glob(toPosixPattern(pattern), { cwd: baseDir, absolute: true, nodir: true });
+    matches = [];
+    for (const match of rawMatches) {
+      let isDirectory: boolean;
+      try {
+        isDirectory = (await stat(match)).isDirectory();
+      } catch (cause) {
+        // Broken symlink, or a real race (deleted between glob and stat) --
+        // either way, there's nothing to read; skip it rather than fail
+        // the whole build over one dangling match.
+        recordWarning(`\`from\` match "${match}" couldn't be stat'd, skipping: ${(cause as Error).message}`);
+        continue;
+      }
+      if (isDirectory) {
+        recordWarning(`\`from\` match "${match}" is a symlink to a directory, skipping (from only matches files)`);
+        continue;
+      }
+      matches.push(match);
+    }
   } catch (cause) {
     throw new FileableError(`\`from\` glob expansion failed for "${pattern}"`, path, cause);
   }
+  return matches;
 }
 
 export async function resolve(
@@ -100,18 +133,23 @@ export async function resolve(
       const fromValue = node.props.from as string | Promise<string[]> | string[];
       const matches = await resolveFromGlob(fromValue, baseDir, path);
       // A pattern's fixed prefix (e.g. "assets" in "assets/**/*") is stripped
-      // from each match's path-relative-to-baseDir, so nested matches keep
-      // their subdirectory structure ("img/logo.png") instead of flattening
-      // to a bare basename -- which, beyond losing structure, could silently
-      // collide (two different "index.html"s in different source dirs
-      // landing on the exact same output path with no warning).
+      // from each match's path-relative-to-that-prefix, so nested matches
+      // keep their subdirectory structure ("img/logo.png") instead of
+      // flattening to a bare basename -- which, beyond losing structure,
+      // could silently collide (two different "index.html"s in different
+      // source dirs landing on the exact same output path with no warning).
+      // The prefix is resolved to an absolute path up front (rather than
+      // string-prefix-matching it against a path-relative-to-baseDir) so
+      // this is correct whether the original pattern was relative or
+      // already absolute -- mixing an absolute patternBase against a
+      // relative match silently collapsed every match to a bare basename
+      // (confirmed by actually matching two same-named files in different
+      // subdirs through an absolute `from` pattern -- they landed on the
+      // same output path instead of being kept apart).
       const patternBase = typeof fromValue === "string" ? splitGlobBase(toPosixPattern(fromValue)).base : "";
+      const absoluteBase = patternBase ? resolvePath(baseDir, patternBase) : baseDir;
       const synthesized: Descriptor[] = matches.map((match) => {
-        const relativeToBaseDir = toPosixPattern(relativePath(baseDir, match));
-        const name =
-          patternBase && relativeToBaseDir.startsWith(`${patternBase}/`)
-            ? relativeToBaseDir.slice(patternBase.length + 1)
-            : basename(match);
+        const name = toPosixPattern(relativePath(absoluteBase, match));
         return {
           tag: "file",
           props: { name, src: match },

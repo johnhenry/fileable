@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- **`<Dir from="glob">` crashed with a raw `EISDIR` instead of skipping a
+  symlink that points at a directory.** `glob`'s `nodir: true` filters by
+  each match's own dirent type (an `lstat`), not its followed real type --
+  a symlink whose *target* is a directory survives that filter and comes
+  back looking like a file match, and reading it later threw. Found by
+  actually matching one (a real symlink cycle in a temp directory,
+  `ln -s . loop`) through `resolve()`. Now each match is `stat`-checked
+  (following the link) after globbing; a match that resolves to a
+  directory, or can't be `stat`-checked at all (a broken symlink), is
+  skipped with a `warn()` instead of failing the build. This is also what
+  keeps a symlink cycle like `loop -> .` from being read as content --
+  `glob`'s own `follow: false` default already stops `**` from recursing
+  more than one level into a symlinked directory, so the only remaining
+  gap was this one dirent-vs-real-type mismatch for a symlink a glob
+  matches *directly*.
+- **`<Dir from>`'s subdirectory-preserving naming silently collapsed to a
+  bare basename whenever the glob pattern itself was absolute**, which
+  could then produce a false "duplicate output path" error for two
+  same-named files in different subdirectories (confirmed by reproducing
+  it). The prefix-stripping check compared an absolute pattern-base against
+  a match path made relative to `cwd` -- two representations that never
+  actually shared a prefix. Fixed by resolving the pattern's own base to an
+  absolute path up front and computing each match relative to *that*
+  (the same fix already applied to the equivalent logic in the sibling
+  `servable` package).
+
 ## 0.0.0
 
 Adopted into the `@johnhenry/*` family: renamed from unscoped `fileable` to
