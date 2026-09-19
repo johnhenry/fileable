@@ -1,6 +1,6 @@
 {
   "name": "@johnhenry/fileable",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Declaratively describe filesystem artifacts -- files, directories, and deletions -- using JSX as the composition language.",
   "type": "module",
   "repository": {

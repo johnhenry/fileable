@@ -1,6 +1,17 @@
 # Changelog
 
-## Unreleased
+## 0.0.1
+
+### Added
+- **`FILEABLE_DESCRIPTOR`**: a `Symbol.for("fileable.descriptor")`
+  global-registry brand every `Dir`/`File`/`Rm`/JSX-produced descriptor now
+  carries. Lets a consumer package (`servable`) recognize a fileable
+  descriptor appearing as a raw JSX child, not just behind a `from=` prop,
+  without shape-based duck typing -- every `Descriptor`, from any package
+  built the same way, has the identical `{tag,props,children}` shape, so a
+  structural check alone can't tell them apart once a fileable node might
+  appear anywhere a servable node could. A global-symbol-registry key means
+  a consumer needs no import of this package at all to check for it.
 
 ### Fixed
 - **`<Dir from="glob">` crashed with a raw `EISDIR` instead of skipping a
