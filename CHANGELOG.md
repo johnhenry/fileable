@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **`Descriptor.tag`'s type widened from `StructuralTag | typeof FRAGMENT |
+  string` to `StructuralTag | symbol | string`.** Enables literal
+  `<Dir>`/`<File>` JSX to be nested directly inside a consumer package's
+  own JSX (e.g. `@johnhenry/servable`'s `<Router>`/`<Group>`) in the same
+  file, under that package's `@jsxImportSource` pragma. Both runtimes'
+  `jsx()` already called function-typed tags directly, so this always
+  worked at runtime; only the type-checker rejected it, since fileable's
+  own Fragment marker is a different `Symbol.for(...)` key than any
+  consumer's. See `servable`'s README "Mounting without `from=`" for the
+  full writeup.
+
 ## 0.0.1
 
 ### Added

@@ -65,8 +65,19 @@ export interface RmProps extends BaseProps {
   target: string;
 }
 
-/** Any tag that isn't one of the three structural primitives is plain markup. */
-export type Tag = StructuralTag | typeof FRAGMENT | string;
+/**
+ * Any tag that isn't one of the three structural primitives is plain
+ * markup. Widened to the general `symbol` type (not the exact `typeof
+ * FRAGMENT`) so a sibling package's own JSX runtime -- which necessarily
+ * has its own, differently-keyed Fragment symbol -- can still type-check
+ * fileable's `Descriptor` as a valid JSX element when fileable components
+ * (`<Dir>`/`<File>`) are nested directly inside that package's own JSX
+ * (e.g. `@johnhenry/servable`'s `<Router>`/`<Group>`). See servable's
+ * README "Mounting without from=" section for the runtime story -- this
+ * type change only removes a false type error, both runtimes already
+ * called function-typed tags directly.
+ */
+export type Tag = StructuralTag | symbol | string;
 
 export interface Descriptor {
   tag: Tag;
