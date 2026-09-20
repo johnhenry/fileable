@@ -5,7 +5,10 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/johnhenry/fileable.git"
+    "url": "git+https://github.com/johnhenry/fileable.git"
+  },
+  "bugs": {
+    "url": "https://github.com/johnhenry/fileable/issues"
   },
   "homepage": "https://opensource.johnhenry.me/fileable/",
   "license": "MIT",
@@ -14,7 +17,7 @@
     "provenance": true
   },
   "engines": {
-    "node": ">=18.19"
+    "node": ">=26.0.0"
   },
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",

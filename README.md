@@ -1,5 +1,7 @@
 # fileable
 
+[![npm version](https://badge.fury.io/js/%40johnhenry%2Ffileable.svg)](https://www.npmjs.com/package/@johnhenry/fileable)
+
 Declaratively describe filesystem artifacts -- files, directories, and
 deletions -- using JSX as the composition language.
 
