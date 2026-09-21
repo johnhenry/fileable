@@ -1,6 +1,10 @@
 # fileable
 
-[![npm version](https://badge.fury.io/js/%40johnhenry%2Ffileable.svg)](https://www.npmjs.com/package/@johnhenry/fileable)
+[![npm version](https://img.shields.io/npm/v/%40johnhenry%2Ffileable.svg)](https://www.npmjs.com/package/@johnhenry/fileable)
+[![CI](https://github.com/johnhenry/fileable/actions/workflows/ci.yml/badge.svg)](https://github.com/johnhenry/fileable/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/%40johnhenry%2Ffileable.svg)](LICENSE)
+
+Full documentation: [opensource.johnhenry.me/fileable](https://opensource.johnhenry.me/fileable/)
 
 Declaratively describe filesystem artifacts -- files, directories, and
 deletions -- using JSX as the composition language.
@@ -26,6 +30,21 @@ tree.
 > rewrite was never released unscoped; adoption into `@johnhenry/fileable`
 > and the version restart to 0.0.0 happened together -- a new address and
 > era, not a maturity signal.
+
+## Contents
+
+- [Where this fits](#where-this-fits)
+- [Installation](#installation)
+- [Quick example](#quick-example)
+- [The three primitives](#the-three-primitives)
+- [Adding a new tag](#adding-a-new-tag)
+- [Runtime API](#runtime-api)
+- [CLI](#cli)
+- [Examples](#examples)
+- [Security](#security)
+- [Migrating from v1](#migrating-from-v1)
+- [Design background](#design-background)
+- [License](#license)
 
 ## Where this fits
 
