@@ -7,13 +7,16 @@
  * (flattening fragments/arrays, dropping nullish children, assigning
  * stable ids) happens in the Build stage (`build.ts`), not here.
  *
- * `dir`/`file`/`rm` are reserved and NOT treated as structural when
- * written as bare lowercase tags -- authoring `<dir>`/`<file>`/`<rm>`
- * directly throws. `Dir`/`File`/`Rm`, imported from "@johnhenry/fileable" (see
- * `components.ts`), are the only supported way to reach the three
- * primitives, so every template has an explicit, importable, "go to
- * definition"-able symbol for them rather than a bare string matched
- * somewhere inside this dispatch.
+ * `dir`/`file`/`rm`/`ipfs`/`markdownhtml` are reserved and NOT treated as
+ * structural when written as bare lowercase tags -- authoring `<dir>`/
+ * `<file>`/`<rm>`/`<ipfs>`/`<markdownhtml>` directly throws. `Dir`/`File`/
+ * `Rm`/`IPFS`/`MarkdownHTML`, imported from "@johnhenry/fileable" (see
+ * `components.ts`), are the only supported way to reach the primitives, so
+ * every template has an explicit, importable, "go to definition"-able
+ * symbol for them rather than a bare string matched somewhere inside this
+ * dispatch. (`ipfs`/`markdownhtml` are the EXAMPLE primitives -- see their
+ * own doc comments in types.ts -- reserved the exact same way as the three
+ * real ones.)
  */
 import type { Descriptor, DescriptorChild, Tag } from "./types.js";
 import { FILEABLE_DESCRIPTOR, FRAGMENT, FileableError } from "./types.js";
@@ -22,7 +25,13 @@ export const Fragment = FRAGMENT;
 
 type ComponentFn = (props: Record<string, unknown>) => unknown;
 
-const RESERVED_TAGS: Record<string, string> = { dir: "Dir", file: "File", rm: "Rm" };
+const RESERVED_TAGS: Record<string, string> = {
+  dir: "Dir",
+  file: "File",
+  rm: "Rm",
+  ipfs: "IPFS",
+  markdownhtml: "MarkdownHTML",
+};
 
 function toChildArray(children: unknown): DescriptorChild[] {
   if (children === undefined) return [];

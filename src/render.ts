@@ -9,7 +9,8 @@ import { layout } from "./layout.js";
 import { hash } from "./hash.js";
 import { readLockFile, writeLockFile, isUnchanged } from "./lock.js";
 import { applyRemovals, pathExists, writeLoose } from "./write/loose.js";
-import { writeArchives } from "./write/archive.js";
+import { writeZips } from "./write/zip.js";
+import { writeWbn } from "./write/wbn.js";
 import { drainBuildContext } from "./context.js";
 import { cloneDescriptorTree } from "./types.js";
 import type { RenderOptions, WriteSummary } from "./types.js";
@@ -49,34 +50,37 @@ export async function render(tree: unknown, options: RenderOptions = {}): Promis
     }
   }
 
-  const archiveRoots = hashed.artifacts.filter((a) => a.target === "archive" && a.archivePath === a.outputPath);
-  const dirtyRootIds = new Set(archiveRoots.filter((root) => !isUnchanged(root, lock)).map((r) => r.id));
-  const archiveSkipped: string[] = [];
-  for (const root of archiveRoots) {
+  const containerRoots = hashed.artifacts.filter(
+    (a) => (a.target === "zip" || a.target === "wbn") && a.containerPath === a.outputPath,
+  );
+  const dirtyRootIds = new Set(containerRoots.filter((root) => !isUnchanged(root, lock)).map((r) => r.id));
+  const containerSkipped: string[] = [];
+  for (const root of containerRoots) {
     if (dirtyRootIds.has(root.id)) continue;
     if (await pathExists(join(outDir, root.outputPath))) {
-      archiveSkipped.push(root.outputPath);
+      containerSkipped.push(root.outputPath);
     } else {
       dirtyRootIds.add(root.id);
     }
   }
 
   const dryRun = !!options.dryRun;
-  const removed = await applyRemovals(hashed.removals, outDir, dryRun);
+  const removeResult = await applyRemovals(hashed.removals, outDir, dryRun);
   const looseResult = await writeLoose(looseChanged, outDir, !!options.strict, dryRun);
-  const archiveWritten = await writeArchives(hashed.artifacts, outDir, dirtyRootIds, dryRun);
+  const zipWritten = await writeZips(hashed.artifacts, outDir, dirtyRootIds, dryRun);
+  const wbnWritten = await writeWbn(hashed.artifacts, outDir, dirtyRootIds, dryRun);
 
   if (!dryRun) await writeLockFile(lockPath, hashed.artifacts);
 
-  const allWarnings = [...hashed.warnings, ...contextWarnings, ...looseResult.warnings];
+  const allWarnings = [...hashed.warnings, ...contextWarnings, ...removeResult.warnings, ...looseResult.warnings];
   for (const message of allWarnings) {
     console.warn(`fileable: warning: ${message}`);
   }
 
   return {
-    written: [...looseResult.written, ...archiveWritten],
-    skipped: [...looseSkipped, ...archiveSkipped, ...looseResult.skipped],
-    removed,
+    written: [...looseResult.written, ...zipWritten, ...wbnWritten],
+    skipped: [...looseSkipped, ...containerSkipped, ...looseResult.skipped],
+    removed: removeResult.removed,
     warnings: allWarnings,
   };
 }

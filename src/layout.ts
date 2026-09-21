@@ -20,6 +20,7 @@ import type {
   LayoutResult,
   LinkOptions,
   LinkRef,
+  RemovalSpec,
   RenderOptions,
   RenderTarget,
 } from "./types.js";
@@ -34,10 +35,12 @@ interface IdentityInfo {
 interface WalkCtx {
   basePath: string;
   target: RenderTarget;
-  archivePath?: string;
+  containerPath?: string;
   insideFile: boolean;
   nearestDoctype?: string;
 }
+
+const CONTAINER_EXTENSIONS: Record<"zip" | "wbn", string> = { zip: "zip", wbn: "wbn" };
 
 interface PendingSymlink {
   artifactId: string;
@@ -49,7 +52,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
   const artifacts: ArtifactNode[] = [];
   const byId = new Map<string, ArtifactNode>();
   const identity = new Map<Descriptor, IdentityInfo>();
-  const removals: string[] = [];
+  const removals: RemovalSpec[] = [];
   const warnings: string[] = [];
   const pendingSymlinks: PendingSymlink[] = [];
   const usedAnchors = new Set<Descriptor>();
@@ -73,13 +76,27 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
   function walk(node: Descriptor, ctx: WalkCtx, parentId: string | null, path: string): void {
     if (node.tag === "rm") {
       if (ctx.target === "loose") {
+        const kind = (node.props.kind as string | undefined) ?? "file";
+        if (kind !== "file" && kind !== "dir" && kind !== "any") {
+          throw new FileableError(`invalid kind="${kind}" -- expected "file", "dir", or "any"`, path);
+        }
+        const onMissing = (node.props.onMissing as string | undefined) ?? "ignore";
+        if (onMissing !== "ignore" && onMissing !== "warn" && onMissing !== "error") {
+          throw new FileableError(`invalid onMissing="${onMissing}" -- expected "ignore", "warn", or "error"`, path);
+        }
         // Joining a negated target ("!*.draft.html") directly with basePath
         // would bury the leading "!" mid-string (e.g. "site/!*.draft.html"),
         // so the negation marker is stripped, joined, then reattached.
         const target = node.props.target as string;
         const negated = target.startsWith("!");
         const joined = posixPath.join(ctx.basePath, negated ? target.slice(1) : target);
-        removals.push(negated ? `!${joined}` : joined);
+        removals.push({
+          pattern: negated ? `!${joined}` : joined,
+          kind,
+          emptyOnly: !!node.props.emptyOnly,
+          onMissing,
+          deletable: node.props.deletable as RemovalSpec["deletable"],
+        });
       }
       return;
     }
@@ -101,40 +118,42 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
         return;
       }
 
-      const requestedAs = node.props.as as RenderTarget | undefined;
-      if (requestedAs !== undefined && requestedAs !== "loose" && requestedAs !== "archive") {
+      const requestedEncode = node.props.encode as RenderTarget | undefined;
+      if (requestedEncode !== undefined && requestedEncode !== "loose" && requestedEncode !== "zip" && requestedEncode !== "wbn") {
         throw new FileableError(
-          `invalid as="${String(requestedAs)}" -- expected "loose" or "archive"`,
+          `invalid encode="${String(requestedEncode)}" -- expected "loose", "zip", or "wbn"`,
           path,
         );
       }
-      // Any explicit <Dir as> nested inside an archive used to be silently
-      // ignored: as="archive" again (starting a *second*, nested zip) fell
-      // through to "regular nested dir" (still just an entry in the outer
-      // zip, losing the "start a fresh zip" request), and as="loose"
-      // (escaping back out) stayed archived either way -- neither nested
-      // archives nor un-archiving mid-tree are supported, so both now fail
-      // loudly instead of doing the wrong thing quietly.
-      if (requestedAs !== undefined && ctx.target === "archive") {
+      // Any explicit <Dir encode> nested inside a container (zip/wbn) used
+      // to be silently ignored for "zip": encode="zip" again (starting a
+      // *second*, nested zip) fell through to "regular nested dir" (still
+      // just an entry in the outer zip, losing the "start a fresh zip"
+      // request), and encode="loose" (escaping back out) stayed archived
+      // either way -- neither nested containers, switching container
+      // formats mid-tree, nor escaping back to loose from inside one are
+      // supported, so all of these fail loudly instead of doing the wrong
+      // thing quietly.
+      if (requestedEncode !== undefined && ctx.target !== "loose") {
         throw new FileableError(
-          `<Dir as="${requestedAs}"> nested inside an archive can't change render target -- ` +
-            "nested archives and escaping back to loose from inside an archive aren't supported",
+          `<Dir encode="${requestedEncode}"> nested inside a "${ctx.target}" container can't change render target -- ` +
+            "nested containers, switching container formats, and escaping back to loose mid-tree aren't supported",
           path,
         );
       }
       const nextChildCtx: WalkCtx = { ...ctx };
       let artifactId: string;
-      if (requestedAs === "archive" && ctx.target !== "archive") {
-        const zipPath = posixPath.join(ctx.basePath, `${name}.zip`);
-        artifactId = zipPath;
+      if (requestedEncode === "zip" || requestedEncode === "wbn") {
+        const containerPath = posixPath.join(ctx.basePath, `${name}.${CONTAINER_EXTENSIONS[requestedEncode]}`);
+        artifactId = containerPath;
         addArtifact(
           {
             id: artifactId,
             kind: "dir",
             descriptor: node,
-            outputPath: zipPath,
-            target: "archive",
-            archivePath: zipPath,
+            outputPath: containerPath,
+            target: requestedEncode,
+            containerPath,
             mode: node.props.mode as string | undefined,
             children: [],
           },
@@ -142,11 +161,11 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
           path,
         );
         nextChildCtx.basePath = "";
-        nextChildCtx.target = "archive";
-        nextChildCtx.archivePath = zipPath;
+        nextChildCtx.target = requestedEncode;
+        nextChildCtx.containerPath = containerPath;
       } else {
         const outputPath = posixPath.join(ctx.basePath, name!);
-        artifactId = ctx.target === "archive" ? `${ctx.archivePath}::${outputPath}` : outputPath;
+        artifactId = ctx.target !== "loose" ? `${ctx.containerPath}::${outputPath}` : outputPath;
         addArtifact(
           {
             id: artifactId,
@@ -154,7 +173,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
             descriptor: node,
             outputPath,
             target: ctx.target,
-            archivePath: ctx.archivePath,
+            containerPath: ctx.containerPath,
             mode: node.props.mode as string | undefined,
             children: [],
           },
@@ -185,7 +204,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
         throw new FileableError("<file> requires a `name` attribute", path);
       }
       const outputPath = posixPath.join(ctx.basePath, name);
-      const artifactId = ctx.target === "archive" ? `${ctx.archivePath}::${outputPath}` : outputPath;
+      const artifactId = ctx.target !== "loose" ? `${ctx.containerPath}::${outputPath}` : outputPath;
       addArtifact(
         {
           id: artifactId,
@@ -193,7 +212,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
           descriptor: node,
           outputPath,
           target: ctx.target,
-          archivePath: ctx.archivePath,
+          containerPath: ctx.containerPath,
           mode: node.props.mode as string | undefined,
           children: [],
         },
@@ -267,15 +286,16 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
       warnings.push(message);
     } else if (!targetIsLiteral && targetArtifact && targetArtifact.target !== "loose") {
       // The symlink itself is loose (a real `fs.symlink` will be attempted),
-      // but the target lives inside an archive -- there's no real filesystem
-      // path a symlink could point at; `targetOutputPath` above is only
-      // meaningful relative to the archive's own internal root, not the real
-      // filesystem. Silently emitting a symlink to that non-path would
-      // "succeed" while pointing at nothing (confirmed by actually building
-      // this case: the resulting symlink target didn't exist anywhere).
+      // but the target lives inside a container (zip/wbn) -- there's
+      // no real filesystem path a symlink could point at; `targetOutputPath`
+      // above is only meaningful relative to the container's own internal
+      // root, not the real filesystem. Silently emitting a symlink to that
+      // non-path would "succeed" while pointing at nothing (confirmed by
+      // actually building this case: the resulting symlink target didn't
+      // exist anywhere).
       throw new FileableError(
-        `symlink target "${targetOutputPath}" lives inside an archive (${targetArtifact.archivePath}) -- ` +
-          "a real symlink needs a real filesystem path; content inside a .zip has no addressable path outside it",
+        `symlink target "${targetOutputPath}" lives inside a "${targetArtifact.target}" container (${targetArtifact.containerPath}) -- ` +
+          "a real symlink needs a real filesystem path; content inside a container has no addressable path outside it",
         pending.path,
       );
     } else {

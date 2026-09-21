@@ -12,15 +12,25 @@
  *    inlines, binary references. Free, since the binary-safety work
  *    already built the detector.
  *  - "inline" / "ref": force one for every file. Forcing "inline" on
- *    binary content throws -- there's no safe way to put raw bytes into
- *    source text.
+ *    binary content throws, UNLESS `binaryMode: "base64"` is also set (see
+ *    below) -- there's no safe way to put raw bytes directly into source
+ *    text, but base64-encoding them is exactly what that option is for.
  *  - "ask": defer to `onAsk` (SDK) or an interactive CLI prompt
  *    (bin/fileable.ts), for authors who'd rather decide per file than
- *    trust a heuristic. Binary content is never asked about -- "ref" is
- *    its only valid answer, so there's nothing to decide.
+ *    trust a heuristic. Binary content is never asked about -- its answer
+ *    is already fully determined by `binaryMode` (see below), so there's
+ *    nothing to decide.
  * `content` overrides (glob -> mode) are checked first, before the global
  * `contentMode`, for exceptions to the default without switching modes
  * globally.
+ *
+ * A SECOND, independent decision, only for binary content that would
+ * otherwise need "ref": `binaryMode` ("ref", default, or "base64"). "ref"
+ * is today's original behavior (a `src="..."` pointing back at the real
+ * file). "base64" instead generates `base64="..."` (see `FileProps.base64`)
+ * -- a fully self-contained round trip with no dependency on the original
+ * file's continued existence at that path, at the cost of a much larger
+ * generated source file for anything but small assets.
  *
  * Referenced files are **not** copied by default (`copyAssets: false`) --
  * `src` points at the real file in its original location, computed
@@ -43,6 +53,10 @@ import { Dir, File } from "./components.js";
 import { isUtf8Text } from "./content-util.js";
 import { isDescriptor, FileableError } from "./types.js";
 import type { Descriptor } from "./types.js";
+
+export type BinaryMode = "ref" | "base64";
+
+export const BINARY_MODES: ReadonlySet<string> = new Set(["ref", "base64"]);
 
 export type ContentMode = "infer" | "inline" | "ref" | "ask";
 
@@ -85,6 +99,19 @@ export interface EjectOptions {
   outFile?: string;
   /** Copy referenced files into an `assets/` dir next to `outFile` instead of pointing at their original location. Default: false. */
   copyAssets?: boolean;
+  /**
+   * How binary content is represented when it would otherwise need
+   * `ref` (either because `contentMode`/an override resolved to "ref" for
+   * it under "infer"/"ask", or "inline" was forced on it explicitly).
+   * Default "ref" (today's behavior, unchanged): generate `src="..."`
+   * pointing back at the original file. "base64": generate
+   * `base64="..."` instead -- a self-contained round trip
+   * (`fileable build` on the ejected output reproduces the exact same
+   * bytes) with no dependency on the original file's continued existence
+   * at that path, at the cost of a much larger generated source file for
+   * anything but small assets.
+   */
+  binaryMode?: BinaryMode;
 }
 
 function validateOptions(options: EjectOptions): void {
@@ -101,6 +128,12 @@ function validateOptions(options: EjectOptions): void {
         override.pattern,
       );
     }
+  }
+  if (options.binaryMode !== undefined && !BINARY_MODES.has(options.binaryMode)) {
+    throw new FileableError(
+      `invalid binaryMode "${options.binaryMode}" -- expected "ref" or "base64"`,
+      "<eject options>",
+    );
   }
 }
 
@@ -172,8 +205,17 @@ async function describeFile(
 
   if (mode === "inline") {
     if (!info.isText) {
+      // Only reachable when binaryMode: "base64" is set (see resolveMode,
+      // which routes binary content to "ref" unconditionally otherwise) --
+      // an explicit contentMode: "inline" override on a binary file WITHOUT
+      // binaryMode: "base64" still throws below; forcing "inline" without
+      // opting into base64 has no other safe interpretation.
+      if (options.binaryMode === "base64") {
+        return File({ name, base64: buffer.toString("base64") });
+      }
       throw new FileableError(
-        `cannot inline binary content as source text: ${relPath} -- use contentMode "ref" (or a content override) instead`,
+        `cannot inline binary content as source text: ${relPath} -- use contentMode "ref" (or a content override), ` +
+          `or set { binaryMode: "base64" } to inline it as base64 instead`,
         relPath,
       );
     }
@@ -198,9 +240,11 @@ async function resolveMode(info: EjectFileInfo, options: EjectOptions): Promise<
   }
   const mode = options.contentMode ?? "infer";
   if (mode === "inline" || mode === "ref") return mode;
-  // "infer" or "ask": binary content has exactly one valid answer, so
-  // there's nothing to infer or ask about -- it's always "ref".
-  if (!info.isText) return "ref";
+  // "infer" or "ask": binary content normally has exactly one valid
+  // answer -- "ref" -- so there's nothing to infer or ask about. With
+  // binaryMode: "base64" set, it routes to "inline" instead, where
+  // describeFile() encodes it as base64 rather than throwing.
+  if (!info.isText) return options.binaryMode === "base64" ? "inline" : "ref";
   if (mode === "infer") return "inline";
   if (!options.onAsk) {
     throw new FileableError(
@@ -243,7 +287,7 @@ function printNode(node: Descriptor, depth: number): string {
 function printAttrs(props: Record<string, unknown>): string {
   const parts: string[] = [];
   for (const [key, value] of Object.entries(props)) {
-    if (typeof value !== "string") continue; // name/src/symlink/mode are the only string props reflect() ever sets
+    if (typeof value !== "string") continue; // name/src/base64/symlink/mode are the only string props reflect() ever sets
     parts.push(` ${printAttr(key, value)}`);
   }
   return parts.join("");

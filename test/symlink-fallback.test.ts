@@ -37,7 +37,7 @@ test("archive target always degrades symlinks to a copy, with a warning", async 
   try {
     const target: Descriptor = { tag: "file", props: { name: "hello.html" }, children: ["HELLO"] };
     const link: Descriptor = { tag: "file", props: { name: "latest", symlink: target }, children: [] };
-    const site: Descriptor = { tag: "dir", props: { name: "site", as: "archive" }, children: [target, link] };
+    const site: Descriptor = { tag: "dir", props: { name: "site", encode: "zip" }, children: [target, link] };
     const result = await render(site, { outDir, cache: false });
     assert.ok(result.warnings.some((w) => w.includes("materialized as a copy")));
   } finally {
@@ -50,7 +50,7 @@ test("strict:true turns an archive symlink degrade into a thrown error", async (
   try {
     const target: Descriptor = { tag: "file", props: { name: "hello.html" }, children: ["HELLO"] };
     const link: Descriptor = { tag: "file", props: { name: "latest", symlink: target }, children: [] };
-    const site: Descriptor = { tag: "dir", props: { name: "site", as: "archive" }, children: [target, link] };
+    const site: Descriptor = { tag: "dir", props: { name: "site", encode: "zip" }, children: [target, link] };
     await assert.rejects(() => render(site, { outDir, cache: false, strict: true }));
   } finally {
     await rm(outDir, { recursive: true, force: true });

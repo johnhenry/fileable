@@ -16,6 +16,33 @@
  * stop forcing a lossy decode at the two read points (resolve.ts, exec.ts).
  */
 
+import { FileableError } from "./types.js";
+
+/**
+ * Decode `<File base64>` content strictly -- Node's `Buffer.from(str,
+ * "base64")` is lenient by design (silently drops invalid characters
+ * instead of throwing), which would let a typo'd base64 string produce
+ * wrong-but-not-obviously-wrong content instead of a clear error, breaking
+ * this project's established fail-loudly convention for every other
+ * malformed/ambiguous input (invalid `onConflict`/`as`/`join`, a reserved
+ * tag, ...). Whitespace/newlines are stripped first -- a common, expected
+ * shape when a base64 blob is copy-pasted with line wrapping -- then what
+ * remains must be validated strictly.
+ *
+ * @param value The raw `base64` prop value.
+ * @param path For the thrown error's location, matching every other
+ *   `FileableError` call site's convention.
+ * @returns The decoded raw bytes.
+ */
+export function decodeBase64Strict(value: string, path: string): Buffer {
+  const cleaned = value.replace(/\s+/g, "");
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(cleaned) || cleaned.length % 4 !== 0) {
+    const preview = value.length > 40 ? `${value.slice(0, 40)}...` : value;
+    throw new FileableError(`invalid base64 content: "${preview}"`, path);
+  }
+  return Buffer.from(cleaned, "base64");
+}
+
 export function isUtf8Text(buffer: Buffer): boolean {
   const asText = buffer.toString("utf8");
   return Buffer.from(asText, "utf8").equals(buffer);

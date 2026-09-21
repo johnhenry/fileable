@@ -3,6 +3,195 @@
 ## Unreleased
 
 ### Added
+- **EXAMPLE: `src="env://VAR_NAME"` and `<MarkdownHTML>`, two more answers
+  to "how easy is it to add a new tag" alongside `ipfs://`/`<IPFS>`.**
+  `env://VAR_NAME` is the smallest possible new `src` scheme -- no network,
+  no filesystem, just `process.env[varName]`, throwing (not silently
+  resolving to empty content) when unset, matching every other `src`
+  branch. `<MarkdownHTML name="..." src="...">` is a genuinely new tag
+  (its own `RESERVED_TAGS` entry, its own required-`src` validation,
+  normalizes to `"file"` the same way `<IPFS>` does) built entirely from
+  *existing* pieces: it calls `loadSrc()` itself -- so `src` can be a local
+  path, `https://`, `ipfs://`, `env://`, anything the other branches
+  already support -- then pipes the result through the pre-existing
+  `markdownToHtml()` runtime helper (`markdown.ts`), wiring "load a file,
+  then run a transform on it" up as a real primitive instead of something
+  called manually. Named `MarkdownHTML`, not `Markdown` -- the tag name
+  says what it *produces* (renamed mid-implementation once this ambiguity
+  was pointed out, before it shipped anywhere). Binary content or a
+  code-module `src` throws a clear error rather than feeding garbage into
+  `marked`. Verified for real: `test/markdown-tag.test.ts` exercises all
+  three `src` schemes through the actual tag (not just `loadSrc()` in
+  isolation), including a full `render()` round-trip writing real
+  converted HTML to disk. See README's "Adding a new tag" section.
+- **`kind`/`emptyOnly`/`onMissing`/`deletable` on `Rm`.** Closes two real
+  gaps: `target` matched files only (`nodir: true`, hardcoded, no way to
+  target a directory at all) and stayed completely silent when it matched
+  nothing -- both inconsistent with this codebase's own fail-loudly
+  convention (`onConflict`/`encode`/`decode` all validate; `Rm` didn't).
+  `kind="file" | "dir" | "any"` (default `"file"`, unchanged) lets a target
+  match directories, removed recursively unless `emptyOnly` restricts it to
+  a real `fs.rmdir()`-style "only if empty" removal (fails loudly with
+  `ENOTEMPTY` otherwise, a safety-first default rather than a blanket
+  `rm -rf`). `onMissing="ignore" | "warn" | "error"` (default `"ignore"`,
+  unchanged) fires when a target ends up removing nothing at all --
+  including when every raw match was filtered out by `kind`/`emptyOnly`/
+  `deletable`, not only when the glob matched literally zero paths.
+  `deletable: (file, context) => boolean | Promise<boolean>` is the
+  general escape hatch for any removal criterion the other three don't
+  cover (age, size, content, external state, ...), instead of this project
+  growing a dedicated attribute per possible criterion -- runs after
+  `kind`/`emptyOnly` already excluded non-qualifying matches, with the
+  final say over what's actually removed; throwing aborts the build, same
+  as any other async prop failure (PRD SS6.2). `file` is `null` when a
+  match no longer exists by the time it's processed (almost always: an
+  earlier match in the same `<Rm>` removed a parent directory this path
+  was inside) -- `deletable` still runs rather than being skipped, so
+  custom logic decides for itself whether that's fine or worth failing
+  over. Verified deterministically, not left to chance: `test/rm.test.ts`
+  triggers the real "parent removed before child is reached" race on
+  purpose (confirmed via a real `glob("**")` run that a directory always
+  sorts before its own children) rather than hoping to catch it.
+  **Two real implementation bugs caught by actual failing tests while
+  building this, not just reasoned about**: (1) `fs.rm(path, {recursive:
+  false})` was assumed to behave like "remove only if empty" for
+  `emptyOnly` -- it doesn't, it refuses *any* directory outright with
+  `EISDIR` regardless of emptiness, confirmed directly; fixed by using the
+  real API for that (`fs.rmdir()`) instead. (2) A `kind: "dir" | "any"`
+  target expanding to `"**"` (like the pre-existing negated-target case
+  always has) can match `"."` -- the search root itself -- newly dangerous
+  now that a directory match can mean a *recursive* delete, where before
+  `nodir: true` made it structurally impossible; `"."` is now explicitly,
+  unconditionally excluded from every removal, not subject to `kind`/
+  `emptyOnly`/`deletable` at all. Also: directory-vs-file classification
+  now uses `lstat` rather than `stat` throughout (a symlink pointing at a
+  directory is not itself a directory), the same reasoning `<Dir from>`'s
+  own glob matching already established for exactly this distinction.
+- **EXAMPLE: `ipfs://<cid>/<path>` support, two ways -- a new URI scheme on
+  the existing `<File src>`, and a genuinely new `<IPFS>` primitive.**
+  Built to answer "how easy is it to add a new tag", with two real,
+  differently-sized answers living side by side rather than one abstract
+  claim. `<File src="ipfs://...">` is the smaller one: one more branch in
+  `resolve.ts`'s `loadSrc()`, reusing the exact binary-safe content handling
+  every other branch (`https://`, local file, code-module import) already
+  has. `<IPFS name="..." src="...">` is the genuinely new tag: its own
+  `IPFSProps`/`StructuralTag` entry, its own `structural()` factory in
+  `components.ts`, its own `RESERVED_TAGS` entry (the bare lowercase
+  `<ipfs>` throws, same as `<dir>`/`<file>`/`<rm>`), and its own required-
+  `src` validation in `resolve.ts` -- which then relabels the resolved
+  node's own `tag` from `"ipfs"` to `"file"`, the same normalize-into-an-
+  existing-tag trick `from="glob"` and `<Dir src decode>` already use, so
+  `layout.ts`/`hash.ts`/every writer needs zero awareness `"ipfs"` exists.
+  Both share one real fetch implementation (`fetchIpfs()`); a new
+  `ipfsGateway` `render()`/`resolve()` option (default
+  `"https://ipfs.io/ipfs/"`) says which gateway `ipfs://` resolves against.
+  A real bug was caught and fixed while building this, not just reasoned
+  about: the first `<IPFS>` implementation left `src` on the node after
+  relabeling it to `"file"`, so the generic file-`src` handler immediately
+  below fetched (and double-combined) the exact same content a second time
+  -- caught by an actual failing test (`"<h1>...</h1><h1>...</h1>"`), fixed
+  by deleting `props.src` once its own IPFS-specific fetch has consumed it.
+  **Also a real, verified finding, not an assumption**: every major public
+  IPFS gateway (ipfs.io, dweb.link, w3s.link, nftstorage.link) currently
+  rejects a direct server-side fetch with `429`, migrating to browser-only
+  service-worker access -- confirmed by actually trying each one, not
+  read about. `examples/05-ipfs-src/run.mjs` therefore points
+  `ipfsGateway` at a real local HTTP server (same technique
+  `test/ipfs.test.ts` uses) rather than a public gateway, and says so.
+  See README's new "Adding a new tag" section for the full walkthrough.
+- **`src` + `decode="zip" | "wbn"` on `Dir`: the inverse of `encode` -- decodes
+  an existing archive back into editable `<File>` children.** Closes a real
+  gap: `encode="zip"`/`encode="wbn"` only ever went tree -> archive, with no way
+  back into fileable's own pipeline short of shelling out to `unzip` or
+  packfile's CLI. Decoded entries are genuinely editable, not a fixed
+  passthrough -- each becomes an ordinary `<File>` child (prepended before
+  this `<Dir>`'s own explicit children, same rule `from="glob"` already
+  follows), and an explicit child sharing a decoded entry's `name` wins
+  outright instead of colliding -- the one deliberate exception to this
+  codebase's usual "two artifacts on the same path throw" rule, since
+  overriding a handful of files from an otherwise-unpacked archive (the
+  same relationship Docker's `FROM` + `COPY` layering has) is the actual
+  point of this feature. `decode="zip"` uses `fflate`'s `unzipSync`
+  (already a dependency, skips directory entries -- paths ending in `/`);
+  `decode="wbn"` gunzips then parses via `wbn.Bundle`, using the same
+  internal `ARCHIVE_BASE_URL` `encode="wbn"`'s writer uses (now factored into
+  a small shared `src/wbn-constants.ts`, used by both sides) so the two are
+  true inverses of each other, not just format-compatible. `src`/`decode`
+  must be used together (either alone throws), and an unrecognized
+  `decode` value throws too, matching `encode`/`onConflict`/`contentMode`'s
+  own fail-loudly convention. Verified against real interop, not just internal
+  round-tripping: `test/dir-decode.test.ts` decodes archives built directly
+  via `fflate`/`wbn` (not produced by this package at all), round-trips a
+  real fileable-produced `.zip`/`.wbn` byte-exact (including binary
+  content), and exercises the override/add-new-file/directory-entry-
+  skipping/validation-error paths end to end through the real `render()`
+  pipeline, not just `resolve()` in isolation.
+- **`encode="wbn"` on `Dir`: a third container render target, alongside
+  `"loose"`/`"zip"`, that materializes a subtree as one `.wbn` file --
+  gzip(`application/webbundle`), the format Chrome's Isolated Web Apps are
+  built on -- directly readable by `@johnhenry/packfile`'s own
+  `fromArchive()`/`createRouter()`/`createWebBundleRouter()` (that package's
+  own archive format IS this format).** Implemented via a real, direct
+  dependency on `wbn` (the real, Google-maintained package `@johnhenry/
+  packfile` itself is built on) -- **not** a dependency on
+  `@johnhenry/packfile`. That package isn't published to npm, so depending
+  on it directly would mean `npm install @johnhenry/fileable` doesn't
+  resolve outside a matching monorepo checkout; `wbn` is a real, published
+  package, and producing the exact same byte format only ever needed the
+  same underlying library, not the intermediate one. (This package briefly
+  did depend on `@johnhenry/packfile` via `file:../packfile` during
+  development -- removed once the format itself moved onto `wbn` directly on
+  both sides, making the dependency redundant rather than load-bearing.)
+  New writer: `src/write/wbn.ts`, parallel to `src/write/zip.ts` (renamed
+  from `src/write/archive.ts` -- see naming note below; same
+  root/dirty-tracking/skip-on-unchanged logic, generalized: `hash.ts`'s
+  `isArchiveRoot` became `isContainerRoot`, and `ArtifactNode.archivePath`
+  was renamed to `containerPath` since "which atomic container do I belong
+  to" is the same question for a `.zip` root or a `.wbn` root). New
+  `src/mime.ts`: a small extension -> Content-Type table (`wbn`'s
+  `BundleBuilder.addExchange()` requires one for any non-empty exchange
+  body), deliberately the same table and the same `Object.hasOwn()`
+  prototype-pollution-safe lookup as `@johnhenry/packfile`'s own
+  `lib/mime.mjs`. Nesting `encode="zip"`/`encode="wbn"`/`encode="loose"` inside each
+  other (switching container formats mid-tree, or escaping a container back
+  to loose) already threw before this change for zip/loose; that guard is
+  now generic and covers all three. One real format difference from
+  `encode="zip"`: a Web Bundle has no directory-entry concept at all
+  (`wbn.BundleBuilder` has no such exchange kind), so an empty `<Dir>`
+  inside a `"wbn"` root contributes no entry and isn't recoverable on
+  unpack; documented in README rather than worked around, since it's
+  inherent to the target format, not a bug.
+  **Naming, two renames**: the container values `"archive"`/`"packfile"`
+  were renamed to `"zip"`/`"wbn"` -- named after the actual wire format in
+  each case, rather than a generic container word (`"archive"` -- which
+  archive format?) or a specific ecosystem package name (`"packfile"` named
+  this package's own sibling, not the format itself). Then, once `decode`
+  was added as `encode`'s real inverse (see above), the prop itself was
+  renamed from `as` to `encode` to read as that pair -- `encode` writes a
+  tree to an archive, `decode` reads one back, rather than one of the two
+  directions being named generically (`as`) and the other specifically
+  (`decode`). `src/write/archive.ts` renamed to `src/write/zip.ts`
+  (`writeArchives()` -> `writeZips()`) to match. All three old names
+  (`as`, `"archive"`, `"packfile"`) are gone outright, not kept as
+  deprecated aliases -- pre-1.0, no external consumers yet to preserve
+  compatibility for.
+- **`base64` prop on `File`, and a matching `binaryMode` option on `eject`.**
+  `<File base64="...">` decodes and combines base64-encoded content the same
+  way `src`/`cmd` already do (binary-safe, via the existing UTF-8 round-trip
+  text/binary detection), combining first in the established order (`base64`
+  -> `src` -> `cmd` -> children). Malformed base64 throws (`FileableError`),
+  same fail-loudly convention as invalid `onConflict`/`encode`/`join`/
+  `contentMode`. On the `eject` side, `binaryMode: "ref" | "base64"` (default
+  `"ref"`, unchanged behavior) is a second, independent axis from
+  `contentMode`: `contentMode` decides whether a file's content is inlined
+  or referenced at all; `binaryMode` decides how *binary* content inlines
+  once `contentMode` says it should -- `"ref"` still throws (no safe way to
+  put raw bytes in source text), `"base64"` inlines it as `<File base64>`
+  instead. Lets `eject --content-mode inline --binary-mode base64` produce
+  one fully self-contained source file, with no `src="..."` pointing back at
+  the original files, that still round-trips byte-exact through `build()`.
+  CLI: `--binary-mode <ref|base64>`. See README's "The three primitives" and
+  "`eject`" sections.
 - **`Descriptor.tag`'s type widened from `StructuralTag | typeof FRAGMENT |
   string` to `StructuralTag | symbol | string`.** Enables literal
   `<Dir>`/`<File>` JSX to be nested directly inside a consumer package's

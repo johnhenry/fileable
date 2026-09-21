@@ -32,8 +32,8 @@ import { createInterface } from "node:readline/promises";
 import { pathToFileURL } from "node:url";
 import { render } from "../src/render.js";
 import { readLockFile } from "../src/lock.js";
-import { CONTENT_MODES, reflect } from "../src/eject.js";
-import type { ContentMode, ContentOverride, EjectFileInfo } from "../src/eject.js";
+import { BINARY_MODES, CONTENT_MODES, reflect } from "../src/eject.js";
+import type { BinaryMode, ContentMode, ContentOverride, EjectFileInfo } from "../src/eject.js";
 import type { RenderOptions } from "../src/types.js";
 import { parseVarFlag } from "./vars.js";
 
@@ -89,6 +89,13 @@ Options:
       --content <glob>=<inline|ref>
                           eject only: force a mode for files matching glob,
                           overriding --content-mode (repeatable)
+      --binary-mode <ref|base64>
+                          eject only: how binary content that would
+                          otherwise need "ref" is represented. Default:
+                          ref (src="..." pointing back at the real file).
+                          base64: inline it as base64="..." instead --
+                          self-contained, no dependency on the original
+                          file's continued existence at that path.
       --copy-assets       eject only: copy referenced files into an
                           assets/ dir next to --out instead of pointing at
                           their original location
@@ -111,6 +118,7 @@ interface ParsedArgs {
   out?: string;
   contentMode?: ContentMode;
   content: ContentOverride[];
+  binaryMode?: BinaryMode;
   copyAssets: boolean;
 }
 
@@ -180,6 +188,14 @@ function parseArgs(argv: string[]): ParsedArgs {
           throw new Error(`invalid --content "${raw}" -- expected <glob>=inline|ref`);
         }
         args.content.push({ pattern: raw.slice(0, eqIndex), mode });
+        break;
+      }
+      case "--binary-mode": {
+        const value = argv[++i];
+        if (!BINARY_MODES.has(value)) {
+          throw new Error(`invalid --binary-mode "${value}" -- expected ref|base64`);
+        }
+        args.binaryMode = value as BinaryMode;
         break;
       }
       case "--copy-assets":
@@ -270,11 +286,11 @@ async function runClean(args: ParsedArgs): Promise<number> {
     return 0;
   }
 
-  // Lock keys are artifact ids, not always real filesystem paths: an
-  // archive-internal entry's id is "<archivePath>::<outputPath>" (SS8) --
-  // only the archive's own .zip (no "::") is a real path to remove; deleting
-  // that removes everything inside it. Loose artifacts' ids already *are*
-  // their real relative path.
+  // Lock keys are artifact ids, not always real filesystem paths: a
+  // container-internal entry's id is "<containerPath>::<outputPath>" (SS8) --
+  // only the container's own .zip/.wbn (no "::") is a real path to remove;
+  // deleting that removes everything inside it. Loose artifacts' ids already
+  // *are* their real relative path.
   const realPaths = Object.keys(lock.artifacts).filter((id) => !id.includes("::"));
 
   for (const relative of realPaths) {
@@ -319,6 +335,7 @@ async function runEject(args: ParsedArgs): Promise<number> {
     source = await reflect(rootPath, {
       contentMode: args.contentMode,
       content: args.content,
+      binaryMode: args.binaryMode,
       copyAssets: args.copyAssets,
       outFile,
       onAsk: args.contentMode === "ask" ? askAboutFile : undefined,

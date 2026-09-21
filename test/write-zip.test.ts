@@ -7,14 +7,14 @@ import { strFromU8, unzipSync } from "fflate";
 import { render } from "../src/render.js";
 import type { Descriptor } from "../src/types.js";
 
-test("as=\"archive\" produces a .zip with the same tree inside it", async () => {
+test("encode=\"zip\" produces a .zip with the same tree inside it", async () => {
   const outDir = await mkdtemp(join(tmpdir(), "fileable-archive-"));
   try {
     const a: Descriptor = { tag: "file", props: { name: "a.txt" }, children: ["A"] };
     const sub: Descriptor = { tag: "dir", props: { name: "sub" }, children: [
       { tag: "file", props: { name: "b.txt" }, children: ["B"] },
     ] };
-    const docs: Descriptor = { tag: "dir", props: { name: "docs", as: "archive" }, children: [a, sub] };
+    const docs: Descriptor = { tag: "dir", props: { name: "docs", encode: "zip" }, children: [a, sub] };
     await render(docs, { outDir, cache: false });
 
     const zipBuffer = await readFile(join(outDir, "docs.zip"));
@@ -35,12 +35,12 @@ test("sibling archives sharing a relative path (e.g. both have index.html) cache
       children: [
         {
           tag: "dir",
-          props: { name: "docs", as: "archive" },
+          props: { name: "docs", encode: "zip" },
           children: [{ tag: "file", props: { name: "index.html" }, children: [docsText] }],
         },
         {
           tag: "dir",
-          props: { name: "assets", as: "archive" },
+          props: { name: "assets", encode: "zip" },
           children: [{ tag: "file", props: { name: "index.html" }, children: [assetsText] }],
         },
       ],
@@ -72,7 +72,7 @@ test("an unchanged archive is skipped on rebuild; a changed one is rewritten", a
   try {
     const build = (text: string): Descriptor => ({
       tag: "dir",
-      props: { name: "docs", as: "archive" },
+      props: { name: "docs", encode: "zip" },
       children: [{ tag: "file", props: { name: "a.txt" }, children: [text] }],
     });
     const first = await render(build("v1"), { outDir });
@@ -91,7 +91,7 @@ test("an archive whose hash is unchanged but whose .zip was deleted by hand gets
   try {
     const build = (): Descriptor => ({
       tag: "dir",
-      props: { name: "docs", as: "archive" },
+      props: { name: "docs", encode: "zip" },
       children: [{ tag: "file", props: { name: "a.txt" }, children: ["v1"] }],
     });
     const first = await render(build(), { outDir });

@@ -19,9 +19,10 @@ const missingRmTarget = <Rm />;
 // A valid <Rm> for contrast (would itself fail if the type were wrong).
 const validRm = <Rm target="*.draft.html" />;
 
-// `as` only accepts "loose" | "archive".
+// `encode` only accepts "loose" | "zip" | "wbn" -- "archive" was retired
+// along with the old "as" name this prop used to have.
 // @ts-expect-error
-const badAs = <Dir name="out" as="zip" />;
+const badEncode = <Dir name="out" encode="archive" />;
 
 // `join` only accepts "concat" | "dom-merge".
 // @ts-expect-error
@@ -37,6 +38,6 @@ const badSymlink = <File name="latest" symlink={{ notADescriptor: true }} />;
 
 void missingRmTarget;
 void validRm;
-void badAs;
+void badEncode;
 void badJoin;
 void badSymlink;

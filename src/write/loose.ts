@@ -1,17 +1,17 @@
 /**
- * Loose writer (PRD SS5.2 `as="loose"`): real directories/files on disk.
+ * Loose writer (PRD SS5.2 `encode="loose"`): real directories/files on disk.
  * Handles the Windows symlink-permission fallback (SS5.3) at the point of
  * actually attempting `fs.symlink` -- Layout only knows the *format*-based
  * degrade (archive/inline can't hold a real symlink); this OS-level failure
  * can only be discovered here.
  */
-import { access, appendFile, chmod, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { access, appendFile, chmod, lstat, mkdir, readFile, readdir, rm, rmdir, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { glob } from "glob";
 import { combineContent } from "../content-util.js";
 import { splitGlobBase, toPosixPattern } from "../glob-util.js";
 import { FileableError } from "../types.js";
-import type { HashedArtifact } from "../types.js";
+import type { DeletableFileInfo, HashedArtifact, RemovalSpec } from "../types.js";
 
 export interface LooseWriteResult {
   written: string[];
@@ -180,25 +180,121 @@ export async function writeLoose(
   return { written, skipped, warnings };
 }
 
-export async function applyRemovals(removals: string[], outDir: string, dryRun = false): Promise<string[]> {
+export interface RemovalResult {
+  removed: string[];
+  warnings: string[];
+}
+
+export async function applyRemovals(removals: RemovalSpec[], outDir: string, dryRun = false): Promise<RemovalResult> {
   const removed: string[] = [];
-  for (const pattern of removals) {
-    const posixPattern = toPosixPattern(pattern);
+  const warnings: string[] = [];
+
+  for (const spec of removals) {
+    const posixPattern = toPosixPattern(spec.pattern);
     const negated = posixPattern.startsWith("!");
     const raw = negated ? posixPattern.slice(1) : posixPattern;
     const { base, rest } = splitGlobBase(raw);
     const searchCwd = base ? join(outDir, base) : outDir;
+    // nodir stays hardcoded true for kind: "file" (today's only behavior,
+    // unchanged); "dir"/"any" need glob to actually return directory
+    // matches, filtered precisely by stat() below (glob's own `nodir`
+    // only ever means "exclude directories", never "directories only").
     const matches = await glob(negated ? "**" : rest || raw, {
       cwd: searchCwd,
       ignore: negated ? [rest || "**"] : undefined,
-      nodir: true,
+      nodir: spec.kind === "file",
       absolute: false,
     });
+
+    let removedForThisTarget = 0;
+
     for (const match of matches) {
+      // A `kind: "dir" | "any"` pattern that (like the negated case always
+      // has) expands to "**" can match "." -- the search root itself, real
+      // and confirmed by actually running glob("**") over a real directory,
+      // not assumed. Harmless before this feature existed (glob's own
+      // `nodir: true` was hardcoded, and a directory -- "." included --
+      // could never match), but `kind: "dir"`'s recursive removal makes
+      // this a real "delete everything this <Rm> was scoped under" footgun
+      // now. Never a legitimate removal target -- skipped unconditionally,
+      // not subject to kind/emptyOnly/deletable at all.
+      if (match === "." || match === "") continue;
       const relative = (base ? `${base}/${match}` : match).replace(/\\/g, "/");
-      if (!dryRun) await rm(join(outDir, relative), { force: true });
+      const fullPath = join(outDir, relative);
+
+      // lstat, not stat -- same reason resolve.ts's own <Dir from> glob
+      // matching uses the dirent's own (unfollowed) type rather than a
+      // followed one (see resolve.ts's `resolveFromGlob` comment): a
+      // symlink *pointing at* a directory shouldn't be classified as one
+      // itself, or kind/emptyOnly would be deciding based on what the
+      // symlink resolves to rather than the matched path itself. Stat'd
+      // regardless of dryRun -- kind/emptyOnly/deletable all need real
+      // file info to decide anything, even just to *report* what would
+      // happen. `null` (not thrown) on failure: the target existed a
+      // moment ago when glob() found it, but is already gone by the time
+      // we get here -- almost always because an earlier match in this same
+      // <Rm> removed a parent directory this path was inside, not an error
+      // condition worth stopping the whole build over.
+      let stats: Awaited<ReturnType<typeof lstat>> | null;
+      try {
+        stats = await lstat(fullPath);
+      } catch {
+        stats = null;
+      }
+
+      if (stats !== null) {
+        if (spec.kind === "dir" && !stats.isDirectory()) continue;
+        if (stats.isDirectory() && spec.emptyOnly) {
+          const entries = await readdir(fullPath);
+          if (entries.length > 0) continue; // not empty -- doesn't qualify, silently excluded like any other non-match
+        }
+      }
+
+      if (spec.deletable) {
+        const fileInfo: DeletableFileInfo | null =
+          stats === null
+            ? null
+            : { size: stats.size, isDirectory: stats.isDirectory(), isFile: stats.isFile(), mtime: stats.mtime };
+        let ok: boolean;
+        try {
+          ok = await spec.deletable(fileInfo, { path: relative, pattern: spec.pattern });
+        } catch (cause) {
+          throw new FileableError(`deletable() threw for "${relative}"`, relative, cause);
+        }
+        if (!ok) continue;
+      }
+
+      if (stats === null) continue; // nothing to actually remove, whatever deletable said
+
+      if (!dryRun) {
+        if (stats.isDirectory() && spec.emptyOnly) {
+          // `fs.rm(path, {recursive: false})` refuses ANY directory
+          // outright (EISDIR), empty or not -- confirmed directly, not
+          // assumed; it is not an "only if empty" mode. `fs.rmdir()` is
+          // the real one: succeeds on an empty directory, throws
+          // `ENOTEMPTY` on a non-empty one -- the hard backstop if the
+          // `readdir()` emptiness check above raced with something else
+          // writing into the directory in between.
+          await rmdir(fullPath);
+        } else {
+          // A directory match without emptyOnly is a real, deliberate
+          // recursive delete; a file (or a symlink, which `isDirectory()`
+          // -- lstat-based -- correctly reports false for) never needs it.
+          await rm(fullPath, { recursive: stats.isDirectory(), force: true });
+        }
+      }
       removed.push(relative);
+      removedForThisTarget++;
+    }
+
+    if (removedForThisTarget === 0 && spec.onMissing !== "ignore") {
+      const message = `<Rm target="${spec.pattern}"> matched nothing to remove`;
+      if (spec.onMissing === "error") {
+        throw new FileableError(message, spec.pattern);
+      }
+      warnings.push(message);
     }
   }
-  return removed;
+
+  return { removed, warnings };
 }

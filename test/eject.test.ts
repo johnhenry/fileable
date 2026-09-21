@@ -91,6 +91,69 @@ test('contentMode "inline" forced on binary content throws', async () => {
   });
 });
 
+test('contentMode "inline" forced on binary content with binaryMode: "base64" succeeds instead of throwing', async () => {
+  await withTempDir(async (root) => {
+    const src = join(root, "src");
+    await mkdir(src, { recursive: true });
+    const png = await readFile(pngPath);
+    await writeFile(join(src, "logo.png"), png);
+
+    const source = await reflect(src, { contentMode: "inline", binaryMode: "base64" });
+    assert.match(source, /<File name="logo\.png" base64="[A-Za-z0-9+/=]+" \/>/);
+    assert.doesNotMatch(source, /src=/);
+  });
+});
+
+test('binaryMode: "base64" alone (default contentMode "infer") also inlines binary as base64 instead of "ref"', async () => {
+  await withTempDir(async (root) => {
+    const src = join(root, "src");
+    await mkdir(src, { recursive: true });
+    await writeFile(join(src, "hello.txt"), "hi"); // text still inlines as text, unaffected
+    const png = await readFile(pngPath);
+    await writeFile(join(src, "logo.png"), png);
+
+    const source = await reflect(src, { binaryMode: "base64" });
+    assert.match(source, /<File name="hello\.txt">\{`hi`\}<\/File>/);
+    assert.match(source, /<File name="logo\.png" base64="[A-Za-z0-9+/=]+" \/>/);
+  });
+});
+
+test('binaryMode: "base64" ejection round-trips byte-exact through a real build()', async () => {
+  await withTempDir(async (root) => {
+    const src = join(root, "src");
+    await mkdir(src, { recursive: true });
+    const png = await readFile(pngPath);
+    await writeFile(join(src, "logo.png"), png);
+
+    const source = await reflect(src, { binaryMode: "base64" });
+    const match = source.match(/base64="([A-Za-z0-9+/=]+)"/);
+    assert.ok(match, "generated source should contain a base64 attribute");
+
+    const { build } = await import("../src/build.js");
+    const { resolve } = await import("../src/resolve.js");
+    const { layout } = await import("../src/layout.js");
+    const { File } = await import("../src/components.js");
+    const rebuilt = build(File({ name: "logo.png", base64: match![1] }));
+    const resolved = await resolve(rebuilt, {});
+    const laidOut = layout(resolved, {});
+    assert.equal(laidOut.artifacts.length, 1);
+    const content = laidOut.artifacts[0].content;
+    assert.ok(Buffer.isBuffer(content));
+    assert.ok((content as Buffer).equals(png));
+  });
+});
+
+test("an invalid binaryMode throws before touching disk", async () => {
+  await withTempDir(async (root) => {
+    const src = join(root, "src");
+    await mkdir(src, { recursive: true });
+    await writeFile(join(src, "hello.txt"), "hi");
+
+    // @ts-expect-error -- deliberately invalid, proving the runtime check catches it
+    await assert.rejects(() => reflect(src, { binaryMode: "bogus" }), FileableError);
+  });
+});
+
 test('contentMode "ref" forces every file to be referenced, even text', async () => {
   await withTempDir(async (root) => {
     const src = join(root, "src");

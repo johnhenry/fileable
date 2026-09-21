@@ -38,7 +38,7 @@ test("useCollection dependency patterns are folded into every artifact's hash", 
 test("an archive root's hash changes when any descendant's content changes", () => {
   const build = (text: string) => {
     const file: Descriptor = { tag: "file", props: { name: "x.txt" }, children: [text] };
-    const dir: Descriptor = { tag: "dir", props: { name: "out", as: "archive" }, children: [file] };
+    const dir: Descriptor = { tag: "dir", props: { name: "out", encode: "zip" }, children: [file] };
     return hash(layout([dir])).artifacts.find((a) => a.kind === "dir")!;
   };
   assert.notEqual(build("v1").hash, build("v2").hash);
@@ -48,7 +48,7 @@ test("an archive root's hash detects two files swapping content (path must bind 
   const build = (aContent: string, bContent: string) => {
     const a: Descriptor = { tag: "file", props: { name: "a.txt" }, children: [aContent] };
     const b: Descriptor = { tag: "file", props: { name: "b.txt" }, children: [bContent] };
-    const dir: Descriptor = { tag: "dir", props: { name: "out", as: "archive" }, children: [a, b] };
+    const dir: Descriptor = { tag: "dir", props: { name: "out", encode: "zip" }, children: [a, b] };
     return hash(layout([dir])).artifacts.find((x) => x.kind === "dir")!;
   };
   // Same multiset of file contents ("X", "Y"), swapped across paths.
@@ -68,7 +68,7 @@ test("changing a file's mode invalidates its hash (Write only re-chmods a file i
 test(".fileable-lock.json keys by artifact id, not outputPath, so sibling archives with the same relative path don't collide", () => {
   const makeArchive = (name: string, text: string): Descriptor => ({
     tag: "dir",
-    props: { name, as: "archive" },
+    props: { name, encode: "zip" },
     children: [{ tag: "file", props: { name: "index.html" }, children: [text] }],
   });
   const site: Descriptor = { tag: "dir", props: { name: "site" }, children: [makeArchive("docs", "DOCS"), makeArchive("assets", "ASSETS")] };

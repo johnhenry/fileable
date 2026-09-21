@@ -38,59 +38,91 @@ test("nameless inlining: dir nested in file flattens every descendant file into 
   assert.equal(result.artifacts[0].content, "AB");
 });
 
-test("as=\"loose\" writes real paths; as=\"archive\" nests under a .zip", () => {
+test("encode=\"loose\" writes real paths; encode=\"zip\" nests under a .zip", () => {
   const inner = (): Descriptor => ({ tag: "file", props: { name: "x.txt" }, children: ["X"] });
 
-  const loose = layout([{ tag: "dir", props: { name: "out", as: "loose" }, children: [inner()] }]);
+  const loose = layout([{ tag: "dir", props: { name: "out", encode: "loose" }, children: [inner()] }]);
   const looseFile = loose.artifacts.find((a) => a.kind === "file")!;
   assert.equal(looseFile.outputPath, "out/x.txt");
   assert.equal(looseFile.target, "loose");
 
-  const archive = layout([{ tag: "dir", props: { name: "out", as: "archive" }, children: [inner()] }]);
+  const archive = layout([{ tag: "dir", props: { name: "out", encode: "zip" }, children: [inner()] }]);
   const archiveRoot = archive.artifacts.find((a) => a.kind === "dir")!;
-  assert.equal(archiveRoot.archivePath, "out.zip");
+  assert.equal(archiveRoot.containerPath, "out.zip");
   const archiveFile = archive.artifacts.find((a) => a.kind === "file")!;
   assert.equal(archiveFile.outputPath, "x.txt");
-  assert.equal(archiveFile.target, "archive");
-  assert.equal(archiveFile.archivePath, "out.zip");
+  assert.equal(archiveFile.target, "zip");
+  assert.equal(archiveFile.containerPath, "out.zip");
+});
+
+test("encode=\"wbn\" nests under a .wbn, with no directory entries", () => {
+  const inner = (): Descriptor => ({ tag: "file", props: { name: "x.txt" }, children: ["X"] });
+
+  const packfile = layout([
+    { tag: "dir", props: { name: "out", encode: "wbn" }, children: [{ tag: "dir", props: { name: "sub" }, children: [inner()] }] },
+  ]);
+  const packfileRoot = packfile.artifacts.find((a) => a.kind === "dir" && a.outputPath === "out.wbn")!;
+  assert.equal(packfileRoot.containerPath, "out.wbn");
+  assert.equal(packfileRoot.target, "wbn");
+  const nestedDir = packfile.artifacts.find((a) => a.kind === "dir" && a.outputPath === "sub")!;
+  assert.equal(nestedDir.target, "wbn");
+  assert.equal(nestedDir.containerPath, "out.wbn");
+  const packfileFile = packfile.artifacts.find((a) => a.kind === "file")!;
+  assert.equal(packfileFile.outputPath, "sub/x.txt");
+  assert.equal(packfileFile.target, "wbn");
+  assert.equal(packfileFile.containerPath, "out.wbn");
 });
 
 test("nested archives and un-archiving mid-tree throw instead of silently doing nothing", () => {
   const inner = (): Descriptor => ({ tag: "file", props: { name: "x.txt" }, children: ["X"] });
 
-  // as="archive" nested inside an already-archived subtree.
+  // encode="zip" nested inside an already-archived subtree.
   assert.throws(
     () =>
       layout([
         {
           tag: "dir",
-          props: { name: "outer", as: "archive" },
-          children: [{ tag: "dir", props: { name: "inner", as: "archive" }, children: [inner()] }],
+          props: { name: "outer", encode: "zip" },
+          children: [{ tag: "dir", props: { name: "inner", encode: "zip" }, children: [inner()] }],
         },
       ]),
     FileableError,
   );
 
-  // as="loose" nested inside an archived subtree, trying to escape back out.
+  // encode="loose" nested inside an archived subtree, trying to escape back out.
   assert.throws(
     () =>
       layout([
         {
           tag: "dir",
-          props: { name: "outer", as: "archive" },
-          children: [{ tag: "dir", props: { name: "inner", as: "loose" }, children: [inner()] }],
+          props: { name: "outer", encode: "zip" },
+          children: [{ tag: "dir", props: { name: "inner", encode: "loose" }, children: [inner()] }],
+        },
+      ]),
+    FileableError,
+  );
+
+  // encode="wbn" nested inside an archived subtree -- switching container
+  // formats mid-tree isn't supported either.
+  assert.throws(
+    () =>
+      layout([
+        {
+          tag: "dir",
+          props: { name: "outer", encode: "zip" },
+          children: [{ tag: "dir", props: { name: "inner", encode: "wbn" }, children: [inner()] }],
         },
       ]),
     FileableError,
   );
 });
 
-test("an invalid as= value throws instead of silently behaving like the default", () => {
+test("an invalid encode= value throws instead of silently behaving like the default", () => {
   assert.throws(
-    () => layout([{ tag: "dir", props: { name: "out", as: "zip" }, children: [] }]),
+    () => layout([{ tag: "dir", props: { name: "out", encode: "tar" }, children: [] }]),
     (error: unknown) => {
       assert.ok(error instanceof FileableError);
-      assert.match(error.message, /invalid as="zip"/);
+      assert.match(error.message, /invalid encode="tar"/);
       return true;
     },
   );
@@ -175,7 +207,7 @@ test("symlink on a loose target resolves a relative path", () => {
 test("symlink on an archive target degrades to a copy with a warning", () => {
   const target: Descriptor = { tag: "file", props: { name: "hello.html" }, children: ["HELLO"] };
   const link: Descriptor = { tag: "file", props: { name: "latest", symlink: target }, children: [] };
-  const result = layout([{ tag: "dir", props: { name: "site", as: "archive" }, children: [target, link] }]);
+  const result = layout([{ tag: "dir", props: { name: "site", encode: "zip" }, children: [target, link] }]);
   const linkArtifact = result.artifacts.find((a) => a.outputPath === "latest")!;
   assert.equal(linkArtifact.symlinkDegraded, true);
   assert.equal(linkArtifact.content, "HELLO");
@@ -187,14 +219,14 @@ test("strict:true promotes a symlink degrade to a thrown error", () => {
   const target: Descriptor = { tag: "file", props: { name: "hello.html" }, children: ["HELLO"] };
   const link: Descriptor = { tag: "file", props: { name: "latest", symlink: target }, children: [] };
   assert.throws(
-    () => layout([{ tag: "dir", props: { name: "site", as: "archive" }, children: [target, link] }], { strict: true }),
+    () => layout([{ tag: "dir", props: { name: "site", encode: "zip" }, children: [target, link] }], { strict: true }),
     FileableError,
   );
 });
 
 test("a loose symlink targeting a descriptor that lives inside an archive throws instead of pointing at nothing", () => {
   const archived: Descriptor = { tag: "file", props: { name: "inside.txt" }, children: ["hi"] };
-  const archive: Descriptor = { tag: "dir", props: { name: "bundle", as: "archive" }, children: [archived] };
+  const archive: Descriptor = { tag: "dir", props: { name: "bundle", encode: "zip" }, children: [archived] };
   const link: Descriptor = { tag: "file", props: { name: "latest", symlink: archived }, children: [] };
   assert.throws(
     () => layout([{ tag: "dir", props: { name: "site" }, children: [archive, link] }]),
@@ -229,7 +261,7 @@ test("linkTo() targeting a descriptor absent from the tree throws", () => {
 
 test("linkTo() across different render targets (loose <-> archive) falls back to the target's bare outputPath", () => {
   const archived: Descriptor = { tag: "file", props: { name: "archived.html" }, children: ["ARCHIVED"] };
-  const archiveDir: Descriptor = { tag: "dir", props: { name: "docs", as: "archive" }, children: [archived] };
+  const archiveDir: Descriptor = { tag: "dir", props: { name: "docs", encode: "zip" }, children: [archived] };
   const index: Descriptor = { tag: "file", props: { name: "index.html" }, children: [linkRef(archived)] };
   const result = layout([{ tag: "dir", props: { name: "site" }, children: [archiveDir, index] }]);
   const indexArtifact = result.artifacts.find((a) => a.outputPath === "site/index.html")!;

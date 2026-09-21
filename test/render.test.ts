@@ -29,6 +29,16 @@ test("render() writes loose files/dirs to outDir", async () => {
   });
 });
 
+test("render() writes <File base64> content byte-exact, no on-disk src file involved at all", async () => {
+  await withTempDir(async (outDir) => {
+    const original = await readFile(join(process.cwd(), "test/fixtures/logo.png"));
+    const tree: Descriptor = { tag: "file", props: { name: "logo.png", base64: original.toString("base64") }, children: [] };
+    await render(tree, { outDir, cache: false });
+    const written = await readFile(join(outDir, "logo.png"));
+    assert.ok(written.equals(original));
+  });
+});
+
 test("dryRun reports what would be written/removed without touching disk or the lock file", async () => {
   await withTempDir(async (outDir) => {
     const stale: Descriptor = { tag: "file", props: { name: "stale.draft.html" }, children: ["stale"] };
@@ -406,7 +416,7 @@ test("render() writes a binary src (PNG) byte-exact, both loose and inside a zip
     const tree: Descriptor = {
       tag: "dir",
       props: { name: "out" },
-      children: [looseFile, { tag: "dir", props: { name: "bundle", as: "archive" }, children: [archivedFile] }],
+      children: [looseFile, { tag: "dir", props: { name: "bundle", encode: "zip" }, children: [archivedFile] }],
     };
     await render(tree, { outDir, cwd: fixtures, cache: false });
 

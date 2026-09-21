@@ -20,8 +20,8 @@ export async function readLockFile(path: string): Promise<LockFileShape | undefi
 export async function writeLockFile(path: string, artifacts: HashedArtifact[]): Promise<void> {
   const lock: LockFileShape = { version: 1, algorithm: HASH_ALGORITHM, artifacts: {} };
   for (const artifact of artifacts) {
-    // Keyed by id (loose: bare outputPath; archive-nested: "<archivePath>::<outputPath>"),
-    // not outputPath alone -- two sibling archives can each have their own "index.html".
+    // Keyed by id (loose: bare outputPath; container-nested: "<containerPath>::<outputPath>"),
+    // not outputPath alone -- two sibling containers can each have their own "index.html".
     lock.artifacts[artifact.id] = { hash: artifact.hash, dependsOn: artifact.dependsOn };
   }
   await writeFile(path, JSON.stringify(lock, null, 2));

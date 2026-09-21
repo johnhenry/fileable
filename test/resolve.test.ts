@@ -39,6 +39,46 @@ test("cmd with binary stdout is preserved byte-exact, not UTF-8-decoded", async 
   assert.ok((content as Buffer).equals(original));
 });
 
+test("base64 content decodes into __resolvedContent as a byte-exact Buffer", async () => {
+  const original = await readFile(join(fixtures, "logo.png"));
+  const node: Descriptor = { tag: "file", props: { name: "out.png", base64: original.toString("base64") }, children: [] };
+  const [resolved] = await resolve([node], { cwd: fixtures });
+  const content = (resolved.props as { __resolvedContent?: string | Buffer }).__resolvedContent;
+  assert.ok(Buffer.isBuffer(content));
+  assert.ok((content as Buffer).equals(original));
+});
+
+test("base64 content that round-trips as UTF-8 text stays a string, matching src/cmd's own text/binary handling", async () => {
+  const node: Descriptor = { tag: "file", props: { name: "out.txt", base64: Buffer.from("hello base64", "utf8").toString("base64") }, children: [] };
+  const [resolved] = await resolve([node], { cwd: fixtures });
+  const content = (resolved.props as { __resolvedContent?: string | Buffer }).__resolvedContent;
+  assert.equal(content, "hello base64");
+});
+
+test("base64 combines with src -- base64 first, then src, matching FileProps.base64's documented order", async () => {
+  const node: Descriptor = {
+    tag: "file",
+    props: { name: "out.txt", base64: Buffer.from("A", "utf8").toString("base64"), src: "hello.txt" },
+    children: [],
+  };
+  const [resolved] = await resolve([node], { cwd: fixtures });
+  const content = (resolved.props as { __resolvedContent?: string }).__resolvedContent;
+  assert.equal(content, "AHello from a file\n");
+});
+
+test("invalid base64 content throws a clear FileableError instead of silently decoding wrong bytes", async () => {
+  const node: Descriptor = { tag: "file", props: { name: "out.txt", base64: "not-valid-base64!!!" }, children: [] };
+  await assert.rejects(() => resolve([node], { cwd: fixtures }), FileableError);
+});
+
+test("whitespace/newlines in base64 content are stripped before decoding (common when copy-pasting a wrapped blob)", async () => {
+  const original = Buffer.from("wrapped content", "utf8");
+  const wrapped = original.toString("base64").replace(/(.{4})/g, "$1\n");
+  const node: Descriptor = { tag: "file", props: { name: "out.txt", base64: wrapped }, children: [] };
+  const [resolved] = await resolve([node], { cwd: fixtures });
+  assert.equal((resolved.props as { __resolvedContent?: string }).__resolvedContent, "wrapped content");
+});
+
 test("imports a code src file's default export as inlined children", async () => {
   const node: Descriptor = { tag: "file", props: { name: "out.html", src: "partial.js" }, children: [] };
   const [resolved] = await resolve([node], { cwd: fixtures });
@@ -229,6 +269,27 @@ test("src pointing at a URL that 404s throws a FileableError", async () => {
   } finally {
     await new Promise((resolvePromise) => server.close(resolvePromise));
   }
+});
+
+test('src="env://VAR_NAME" (EXAMPLE) reads a real environment variable', async () => {
+  process.env.FILEABLE_TEST_VAR = "hello from the environment";
+  try {
+    const node: Descriptor = { tag: "file", props: { name: "out.txt", src: "env://FILEABLE_TEST_VAR" }, children: [] };
+    const [resolved] = await resolve([node], { cwd: fixtures });
+    assert.equal((resolved.props as { __resolvedContent?: string }).__resolvedContent, "hello from the environment");
+  } finally {
+    delete process.env.FILEABLE_TEST_VAR;
+  }
+});
+
+test('src="env://VAR_NAME" (EXAMPLE) throws a clear FileableError when the variable is unset', async () => {
+  delete process.env.FILEABLE_TEST_VAR_DEFINITELY_UNSET;
+  const node: Descriptor = {
+    tag: "file",
+    props: { name: "out.txt", src: "env://FILEABLE_TEST_VAR_DEFINITELY_UNSET" },
+    children: [],
+  };
+  await assert.rejects(() => resolve([node], { cwd: fixtures }), FileableError);
 });
 
 test("cmd throws without allowExec", async () => {

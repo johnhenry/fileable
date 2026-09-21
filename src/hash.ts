@@ -18,14 +18,18 @@
  * and the current build's `useCollection()` patterns. Deliberately excluded:
  * timestamps, ownership, and any other host-specific metadata.
  *
- * Archive roots (`as="archive"`) are a single atomic .zip file, so their own
- * hash is an aggregate over every descendant. That aggregate is a canonical
- * manifest -- each entry binds a descendant's *relative path* and *kind* to
- * its leaf hash, sorted bytewise by path -- rather than a bag of sorted hash
- * values. Binding path to hash matters: two files swapping content (a.txt
- * and b.txt trade places) changes which path maps to which hash without
- * changing the multiset of hash values, so sorting bare hashes alone would
- * miss it.
+ * Container roots (`encode="zip"` or `encode="wbn"`) are a single atomic file, so
+ * their own hash is an aggregate over every descendant. That aggregate is a
+ * canonical manifest -- each entry binds a descendant's *relative path* and
+ * *kind* to its leaf hash, sorted bytewise by path -- rather than a bag of
+ * sorted hash values. Binding path to hash matters: two files swapping
+ * content (a.txt and b.txt trade places) changes which path maps to which
+ * hash without changing the multiset of hash values, so sorting bare
+ * hashes alone would miss it. This is fileable's own incremental-build
+ * cache key, entirely independent of whatever (if anything) a container's
+ * own format represents internally -- a Web Bundle exchange (`encode="wbn"`,
+ * see write/wbn.ts) has no hash field of its own at all, only
+ * status/headers/body.
  */
 import { createHash } from "node:crypto";
 import type { ArtifactNode, HashedArtifact, HashResult, LayoutResult } from "./types.js";
@@ -81,12 +85,13 @@ export function hash(layoutResult: LayoutResult, collectionPatterns: string[] = 
   }
 
   const artifacts: HashedArtifact[] = layoutResult.artifacts.map((artifact) => {
-    const isArchiveRoot = artifact.target === "archive" && artifact.archivePath === artifact.outputPath;
+    const isContainerRoot =
+      (artifact.target === "zip" || artifact.target === "wbn") && artifact.containerPath === artifact.outputPath;
     let artifactHash = leafHashes.get(artifact.id)!;
-    if (isArchiveRoot) {
-      // outputPath is already relative to this archive root (layout.ts resets
-      // basePath to "" at every new archive boundary), so it's directly usable
-      // as the canonical manifest path.
+    if (isContainerRoot) {
+      // outputPath is already relative to this container root (layout.ts
+      // resets basePath to "" at every new container boundary), so it's
+      // directly usable as the canonical manifest path.
       const manifest = collectDescendants(layoutResult.byId, artifact.id)
         .map((descendant) => {
           const kind = descendant.symlinkTo !== undefined ? "symlink" : descendant.kind;
