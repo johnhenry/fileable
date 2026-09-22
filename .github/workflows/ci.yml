@@ -7,18 +7,10 @@ on:
 
 jobs:
   test:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        # engines.node >=26.0.0 -- test the floor version directly rather
-        # than a matrix of now-unsupported older majors.
-        node-version: [26]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-      - run: npm ci
-      - run: npm test
+    # Pilot: johnhenry/workflows@main during verification; pin to @v1 once
+    # this run is confirmed green (ecosystem-cohesion-plan.md section 2a).
+    uses: johnhenry/workflows/.github/workflows/ci.yml@main
+    with:
+      node-versions: '["26"]'
+      os: '["ubuntu-latest", "windows-latest"]'
+      gate-commands: npm test
