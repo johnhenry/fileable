@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.0.2 (2026-09-22)
 
 ### Added
 - **EXAMPLE: `src="env://VAR_NAME"` and `<MarkdownHTML>`, two more answers
