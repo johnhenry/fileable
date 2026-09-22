@@ -3,6 +3,18 @@ name: Publish to npm
 on:
   release:
     types: [published]
+  push:
+    # Redundant with the release trigger above -- observed once, real and
+    # reproducible: creating a release very soon after a push/merge to the
+    # same commit can cause GitHub to silently drop the `release` event for
+    # a job whose body is `uses: <external-repo>/...@v1` (confirmed by
+    # re-testing the exact same release, well after any recent push, which
+    # fired correctly). `gh release create` also creates the underlying git
+    # tag, so this tag-push trigger gives the workflow a second, independent
+    # chance to fire. Safe to double-fire: the publish step's idempotent
+    # `npm view` guard makes a second run a clean no-op.
+    tags:
+      - "v*"
   workflow_dispatch: {}
 
 jobs:
