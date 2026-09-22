@@ -41,9 +41,10 @@ tree.
 - [Runtime API](#runtime-api)
 - [CLI](#cli)
 - [Examples](#examples)
-- [Security](#security)
+- [Security model](#security-model)
 - [Migrating from v1](#migrating-from-v1)
 - [Design background](#design-background)
+- [Family](#family)
 - [License](#license)
 
 ## Where this fits
@@ -565,7 +566,9 @@ function) is ignored with a warning, not an error.
 
 ## Examples
 
-Three more from [`examples/`](./examples), each trimmed to its
+Three more from [`examples/`](./examples) (see
+[`examples/README.md`](./examples/README.md) for the full index of all
+five, including `01-hello-world` and `05-ipfs-src`), each trimmed to its
 illustrative core (full source, including partials and content files, is
 in the linked directory) with the tree `fileable build` actually produced.
 
@@ -685,11 +688,43 @@ Run twice (`fileable build template.js`, then again with
 [2026-09-18T10:59:03.903Z] second run
 ```
 
-## Security
+## Security model
 
-The `cmd` attribute shells out and uses its stdout as file content. It's
-disabled unless `render(tree, { allowExec: true })` is set explicitly --
-without that flag, encountering `cmd` throws immediately.
+The one real trust boundary in this package is the `cmd` attribute, which
+shells out and uses its stdout as file content -- everything else (`src`,
+`base64`, children) only ever reads bytes, never executes anything.
+
+**What fileable guarantees:**
+
+- **`cmd` never runs unless explicitly opted in.** `render(tree, { allowExec:
+  true })` (or the CLI's `--allow-exec`) must be set; without it, encountering
+  a `cmd` prop throws immediately rather than silently skipping or no-op'ing
+  the node. There is no per-template or per-node override that re-enables it
+  once the render call has `allowExec` unset.
+- **Malformed input fails loudly, not silently.** An unrecognized `encode`,
+  `join`, `onConflict`, or `decode` value throws rather than falling back to
+  a default; malformed `base64` throws rather than writing corrupted bytes.
+  This isn't a security boundary by itself, but it means a typo'd option
+  never silently degrades into unintended behavior (e.g. accidentally
+  clobbering existing output because `onConflict` fell back to `"replace"`).
+
+**What is still yours:**
+
+- **Once `allowExec: true` is set, the command runs with your process's own
+  permissions, unsandboxed.** fileable does not restrict the command's
+  filesystem/network access, working directory, or environment -- it is
+  exactly as trusted as running the command yourself. Only enable it for
+  templates you trust, the same discipline as any other `eval`-adjacent
+  feature.
+- **`<Dir src decode="zip"|"wbn">` reads an archive you supply.** fileable
+  decodes it and synthesizes `<File>` children from its entries, but it does
+  not vet the archive's *provenance* -- an archive from an untrusted source
+  is untrusted input, the same as any other file your template points `src`
+  at.
+- **fileable does not sandbox its own output.** It writes exactly what the
+  tree describes; validating that a generated site/bundle is safe to serve
+  (CSP, sanitizing user-authored content embedded in a template, ...) is the
+  caller's responsibility, same as any static-site generator.
 
 ## Migrating from v1
 
@@ -711,6 +746,38 @@ composition rules, caching, and security model) is tracked in the project
 history; the source layout under [`src/`](./src) mirrors its stages directly
 (`build.ts` -> `resolve.ts` -> `layout.ts` -> `hash.ts` ->
 `write/{loose,archive,packfile}.ts`).
+
+## Family
+
+fileable is the first package in the `fileable -> servable -> hostable`
+lineage -- it isn't just a standalone filesystem compiler, it's the designed
+producer of static content two sibling packages mount directly, and it
+shares its archive format with a third.
+
+- **[`@johnhenry/servable`](https://github.com/johnhenry/servable)** --
+  servable can *mount* a fileable tree as static routes (`Group
+  from={fileableTree}`, or a raw `<Dir>`/`<File>` nested directly inside
+  `<Router>`/`<Group>` JSX) -- a real, one-directional dependency: servable
+  depends on fileable as an **optional peer dependency**, lazily imported
+  only when a mount actually duck-types as a fileable tree, so routing-only
+  consumers of servable never pay for it. See servable's README, "Mounting a
+  fileable tree", for the full naming/`index.html`/symlink-to-`Redirect`
+  mapping rules, and `examples/07-mount-fileable` in the servable repo for a
+  real, running mount.
+- **[`@johnhenry/packfile`](https://github.com/johnhenry/packfile)** --
+  `<Dir encode="wbn">` renders a subtree to a `gzip(application/webbundle)`
+  archive via the same `wbn` package packfile itself depends on directly --
+  a real dependency on `wbn`, **not** on `@johnhenry/packfile` (fileable
+  produces byte-for-byte the same archive format without needing packfile as
+  an intermediate, and packfile isn't even published to npm as a runtime
+  dependency of this package). The resulting `.wbn` file is directly
+  readable by packfile's own `fromArchive()`/`createRouter()` with no
+  unpacking to disk needed.
+
+`@johnhenry/hostable` (the third package in the lineage) never depends on
+fileable directly -- it mounts fileable content transitively, through
+servable's own mount support (see hostable's README, "Literal cross-package
+JSX").
 
 ## License
 
