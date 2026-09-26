@@ -1,6 +1,6 @@
 {
   "name": "@johnhenry/fileable",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Declaratively describe filesystem artifacts -- files, directories, and deletions -- using JSX as the composition language.",
   "type": "module",
   "repository": {
@@ -33,6 +33,10 @@
     "./jsx-dev-runtime": {
       "types": "./dist/src/jsx-dev-runtime.d.ts",
       "default": "./dist/src/jsx-dev-runtime.js"
+    },
+    "./browser": {
+      "types": "./dist/src/browser/index.d.ts",
+      "default": "./dist/src/browser/index.js"
     }
   },
   "bin": {

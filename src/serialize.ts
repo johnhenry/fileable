@@ -67,13 +67,19 @@ function renderMarkupTag(node: Descriptor, ctx: SerializeCtx): string {
 
 function serializeStructural(node: Descriptor, ctx: SerializeCtx): string {
   const innerJoin = parseJoin(node.props, `<${String(node.tag)}${node.props.name ? `[${node.props.name}]` : ""}> (inlined)`);
-  const rawBase = (node.props as { __resolvedContent?: string | Buffer }).__resolvedContent;
+  const rawBase = (node.props as { __resolvedContent?: string | Buffer | Uint8Array }).__resolvedContent;
   // Inlining always produces a string (it's being spliced into a larger
-  // text document) -- a Buffer here means a binary src was nested inside
-  // another file's text content, which decodes lossily as a last resort
-  // rather than erroring. Binary content is only preserved byte-exact as a
-  // file's own top-level content (layout.ts), not when inlined into text.
-  const base = rawBase === undefined ? "" : typeof rawBase === "string" ? rawBase : rawBase.toString("utf8");
+  // text document) -- a Buffer/Uint8Array here means a binary src was
+  // nested inside another file's text content, which decodes lossily as a
+  // last resort rather than erroring. Binary content is only preserved
+  // byte-exact as a file's own top-level content (layout.ts), not when
+  // inlined into text. `TextDecoder` rather than `Buffer#toString("utf8")`
+  // -- it decodes any `ArrayBufferView` (a Node `Buffer` included, since
+  // it's a `Uint8Array` subclass) byte-identically, so this works whether
+  // the bytes came from the Node write path or the browser-safe pipeline
+  // (src/browser/, issue #6), which has no `Buffer` global to call
+  // `.toString()` on.
+  const base = rawBase === undefined ? "" : typeof rawBase === "string" ? rawBase : new TextDecoder().decode(rawBase);
   const inner = serializeChildren(node.children, innerJoin, ctx);
   const combined = base + inner;
   const anchorId = ctx.anchorIds.get(node);

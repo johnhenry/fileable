@@ -60,12 +60,17 @@ export function bufferToContent(buffer: Buffer): string | Buffer {
  * byte-level `Buffer.concat` when either side is binary.
  */
 export function combineContent(
-  a: string | Buffer | undefined,
-  b: string | Buffer,
+  a: string | Buffer | Uint8Array | undefined,
+  b: string | Buffer | Uint8Array,
 ): string | Buffer {
-  if (a === undefined) return b;
+  if (a === undefined && typeof b === "string") return b;
+  if (a === undefined) return Buffer.isBuffer(b) ? b : Buffer.from(b);
   if (typeof a === "string" && typeof b === "string") return a + b;
   const bufA = typeof a === "string" ? Buffer.from(a, "utf8") : a;
   const bufB = typeof b === "string" ? Buffer.from(b, "utf8") : b;
+  // `Buffer.concat` accepts any `Uint8Array`, not just a real `Buffer`
+  // (write/loose.ts's `onConflict="prepend"` path feeds it the widened
+  // `HashedArtifact.content` type, issue #6) -- it always returns a real
+  // `Buffer` either way, so this stays exactly as byte-exact as before.
   return Buffer.concat([bufA, bufB]);
 }
