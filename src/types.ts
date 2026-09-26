@@ -395,8 +395,16 @@ export interface ArtifactNode {
    * is the same question regardless of which format answers it.
    */
   containerPath?: string;
-  /** A `Buffer` for binary content (see content-util.ts); plain text stays a `string`. */
-  content?: string | Buffer;
+  /**
+   * A `Buffer` for binary content (see content-util.ts); plain text stays a
+   * `string`. Also accepts a plain `Uint8Array` -- the Node write path
+   * (write/loose.ts, write/zip.ts, write/wbn.ts) only ever produces a real
+   * `Buffer` here, but the browser-safe pipeline (src/browser/, issue #6)
+   * has no `Buffer` global to work with (it's Node-only, no browser
+   * equivalent), so its content is always a plain `Uint8Array` -- and
+   * `Buffer` already *is* a `Uint8Array`, so this is a pure widening.
+   */
+  content?: string | Buffer | Uint8Array;
   mode?: string;
   /** Resolved relative target for a real symlink (loose target only). */
   symlinkTo?: string;

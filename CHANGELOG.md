@@ -1,5 +1,92 @@
 # Changelog
 
+## 0.0.3 (2026-09-26)
+
+### Added
+- **`@johnhenry/fileable/browser`, a browser-safe entry point covering
+  Build -> Resolve -> Layout -> Hash (closes #6).** The Node entry point's
+  `layout.ts` imported `node:path/posix` and `hash.ts` imported
+  `node:crypto` -- both actually *invoked* unconditionally on every render,
+  not just reachable in some branch -- so a bundler targeting the browser
+  (Vite, esbuild `platform: "browser"`) either hard-failed to resolve them
+  or silently replaced them with empty modules, turning
+  `posixPath.join(...)`/`createHash(...)` into runtime crashes even for a
+  tree with no `src=`/`cmd` at all. Reproduced for real against the
+  pre-fix build: `esbuild --platform=browser` on a scratch app importing
+  `build`/`layout`/`hash` from the main entry point fails with `Could not
+  resolve "node:path/posix"` / `"node:crypto"` (among others, since the
+  main entry's `index.ts` eagerly imports the whole pipeline, `render.ts`
+  and `eject.ts` included).
+  - `src/posix-path.ts`: a small, dependency-free reimplementation of the
+    exact `node:path/posix` subset `layout.ts` uses (`join`/`dirname`/
+    `relative`) -- pure string manipulation, no `node:path` import.
+    `layout.ts` now imports this instead, for *both* entry points (one
+    implementation, not a fork) -- verified against real `node:path/posix`
+    output across a wide range of inputs (test/posix-path.test.ts).
+  - `src/browser/hash.ts`: the same Stage 4 algorithm as `hash.ts`, using
+    `crypto.subtle.digest("SHA-256", ...)` (Web Crypto, standards-track,
+    global in browsers and Node >=19) instead of `node:crypto`'s
+    `createHash`. Verified byte-identical to `node:crypto`'s digests for
+    the same input -- both the raw primitive and the full artifact-hash
+    pipeline on an identical tree (test/hash-web.test.ts) -- so a
+    `.fileable-lock.json` the Node pipeline wrote stays a valid cache key
+    from the browser side too.
+  - `src/browser/resolve.ts` + `src/browser/content-util.ts`: the subset of
+    Stage 2 (Resolve) that has a real browser equivalent -- `base64`,
+    already-in-flight `Promise<string>` `src`, `https://`/`ipfs://` `src`
+    (via `fetch`), `<MarkdownHTML>` -- rebuilt on `Uint8Array`/
+    `TextEncoder`/`TextDecoder`/`atob` instead of Node's `Buffer` (no
+    browser equivalent). A local filesystem `src=` path, a compiled-module
+    `src=` import, `<Dir from="glob">`, `<Dir src decode>`, `cmd`, and
+    `env://` all throw a clear `FileableError` pointing back at the Node
+    entry point instead of silently no-op'ing -- none of those have a real
+    browser equivalent (no `fs`/`child_process`/`process.env`).
+  - `src/browser/index.ts` exports `plan(tree, options, previousLock?)`:
+    runs Build/Resolve/Layout/Hash for real and returns every artifact's
+    hash plus a `"new" | "changed" | "cached"` status against
+    `previousLock` (a `LockFileShape`, round-trippable via the also-exported
+    `toLockFileShape()`) -- without writing anything, not even a lock file
+    (there's no filesystem to write one to). Also re-exports `File`/`Dir`/
+    `Rm` (`../components.ts`, itself already `node:*`-import-free) so real
+    JSX authored against the existing `@johnhenry/fileable/jsx-runtime`
+    subpath can be built and previewed using only browser-safe subpaths,
+    with zero dependency on the Node-only main entry point.
+  - Verified for real, not just by code inspection: packed the built
+    package (`npm pack`), installed it into a scratch app, bundled a real
+    JSX tree (`<Dir>`/`<File>` from the new `./browser` subpath) with both
+    `esbuild --platform=browser` (which hard-fails on any unresolvable
+    `node:*` import, unlike Vite's silent-empty-module fallback) and
+    `vite build`, confirmed zero `node:*` specifiers in either bundled
+    output, then actually executed both bundles in a simulated browser
+    window (jsdom, with `fetch`/`crypto.subtle` attached from Node's own
+    spec-compliant Web API implementations, since jsdom doesn't implement
+    either) -- the tree built, planned, and hashed correctly, and a second
+    `plan()` call against the first's own output correctly reported every
+    artifact as `"cached"`.
+  - Also fixed two latent `Buffer`-global dependencies in the *shared*
+    `layout.ts`/`serialize.ts` code (reused by both entry points) that
+    would otherwise silently corrupt/crash on the rare "binary `src`
+    content with additional inline JSX children" path when fed
+    browser-sourced `Uint8Array` content: `layout.ts`'s binary-content
+    combine step now does a manual `Uint8Array` concat instead of
+    `Buffer.concat`/`Buffer.from` (`fs.writeFile`/`fflate` both already
+    accept a plain `Uint8Array`, so this changes nothing for the existing
+    Node write path), and `serialize.ts`'s binary-to-text decode now uses
+    `TextDecoder` instead of `Buffer#toString("utf8")` (identical output
+    for a real `Buffer`, since `TextDecoder` accepts any `ArrayBufferView`).
+    `ArtifactNode.content`'s type is widened from `string | Buffer` to
+    `string | Buffer | Uint8Array` to match (`Buffer` already *is* a
+    `Uint8Array`, so this is a pure widening, not a breaking change).
+  - Not supported here, and out of scope for this issue: `linkTo()`/
+    `warn()`/`glob()`/`useCollection()` (`../api.ts`) aren't re-exported
+    from `./browser` -- `glob()`/`useCollection()` need the real `glob` npm
+    package (itself `node:fs`-backed), and splitting `api.ts`'s four
+    exports across two entry points wasn't worth the complexity for what
+    this issue asked for (a dry-run preview of Build/Resolve/Layout/Hash).
+    Stage 5 (Write) itself is, and remains, entirely out of scope for a
+    browser environment (see AGENTS.md's Non-goals) -- `plan()` stops
+    right before it, by design.
+
 ## 0.0.2 (2026-09-22)
 
 ### Added

@@ -11,7 +11,7 @@
  *  3. Serialize every real artifact's content (base `src`/`cmd` content plus
  *     its inlined children, per its `join` attribute).
  */
-import posixPath from "node:path/posix";
+import * as posixPath from "./posix-path.js";
 import { isDescriptor, isLinkRef, FileableError } from "./types.js";
 import type {
   ArtifactNode,
@@ -394,19 +394,31 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
     if (artifact.symlinkTo !== undefined) continue;
     const node = artifact.descriptor;
     const join = parseJoin(node.props, artifact.outputPath);
-    const base = (node.props as { __resolvedContent?: string | Buffer }).__resolvedContent;
+    const base = (node.props as { __resolvedContent?: string | Buffer | Uint8Array }).__resolvedContent;
     const inner = serializeChildren(node.children, join, { anchorIds });
     if (base === undefined) {
       artifact.content = inner;
     } else if (typeof base === "string") {
       artifact.content = base + inner;
-    } else {
+    } else if (inner === "") {
       // Binary base content (a Buffer, from a binary src/cmd -- SS2.2) with
-      // no markup children stays byte-exact; splicing JSX markup into it
-      // (unusual -- text content doesn't compose with raw binary bytes
-      // meaningfully) falls back to a plain byte concat rather than
-      // erroring, since it's what was literally authored.
-      artifact.content = inner === "" ? base : Buffer.concat([base, Buffer.from(inner, "utf8")]);
+      // no markup children stays byte-exact.
+      artifact.content = base;
+    } else {
+      // Splicing JSX markup into binary base content (unusual -- text
+      // content doesn't compose with raw binary bytes meaningfully) falls
+      // back to a plain byte concat rather than erroring, since it's what
+      // was literally authored. A manual Uint8Array concat instead of
+      // `Buffer.concat`/`Buffer.from` -- `Buffer` is a Node global with no
+      // browser equivalent (issue #6); `base` is already raw bytes (a Node
+      // Buffer *is* a Uint8Array) either way, so this changes nothing for
+      // the existing Node write path (`fs.writeFile`/`fflate` both already
+      // accept a plain Uint8Array, per write/zip.ts's own comment).
+      const innerBytes = new TextEncoder().encode(inner);
+      const combined = new Uint8Array(base.length + innerBytes.length);
+      combined.set(base, 0);
+      combined.set(innerBytes, base.length);
+      artifact.content = combined;
     }
   }
   for (const artifact of artifacts) {

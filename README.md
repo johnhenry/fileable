@@ -41,6 +41,7 @@ tree.
 - [Runtime API](#runtime-api)
 - [CLI](#cli)
 - [Examples](#examples)
+- [Browser usage](#browser-usage)
 - [Security model](#security-model)
 - [Migrating from v1](#migrating-from-v1)
 - [Design background](#design-background)
@@ -687,6 +688,58 @@ Run twice (`fileable build template.js`, then again with
 [2026-09-18T10:59:03.835Z] build ran
 [2026-09-18T10:59:03.903Z] second run
 ```
+
+## Browser usage
+
+`@johnhenry/fileable/browser` covers Build -> Resolve -> Layout -> Hash --
+the four stages before Write -- in a bundle-safe way for the browser (Vite,
+esbuild `platform: "browser"`, etc.), for previews, scaffolding UIs, and
+tests that need to know what a tree *would* produce without ever touching
+disk:
+
+```jsx
+/** @jsxImportSource @johnhenry/fileable */
+import { Dir, File, plan, toLockFileShape } from "@johnhenry/fileable/browser";
+
+const tree = (
+  <Dir name="site">
+    <File name="index.html"><h1>Hello</h1></File>
+  </Dir>
+);
+
+const result = await plan(tree);
+// result.artifacts: every resolved artifact, each with its outputPath,
+// hash, and a "new" | "changed" | "cached" status (against an optional
+// previousLock third argument -- a LockFileShape, round-trippable via
+// toLockFileShape(result.artifacts) -- since there's no filesystem to read
+// a .fileable-lock.json from in a browser).
+```
+
+The main `@johnhenry/fileable` entry point can't be bundled for the browser
+at all -- `resolve.ts` (`node:fs`/`node:zlib`/`node:url`), `layout.ts`
+(`node:path/posix`), and `hash.ts` (`node:crypto`) are all real, statically
+resolved Node imports (issue #6). `./browser` uses its own browser-safe
+`resolve()`/`hash()` (Web Crypto instead of `node:crypto`, verified
+byte-identical) and a shared, dependency-free POSIX path reimplementation
+`layout.ts` now uses for both entry points.
+
+**What `./browser` does NOT support** -- anything that genuinely needs real
+filesystem/process access, with no browser equivalent, throws a clear
+`FileableError` pointing back at the Node entry point instead of silently
+no-op'ing:
+
+- A local filesystem `src=` path or a compiled-module `src=` import (no
+  `fs`). `https://`/`ipfs://` `src` (via `fetch`), an already-resolved
+  `Promise<string>` `src`, and `base64` all still work.
+- `<Dir from="glob">` and `<Dir src decode="zip"|"wbn">` (no `fs`/`glob`).
+- `cmd` (no `child_process`).
+- `src="env://VAR_NAME"` (no `process.env`).
+- `linkTo()`/`warn()`/`glob()`/`useCollection()` (`../api.ts`) aren't
+  re-exported from `./browser` at all -- `glob()`/`useCollection()` need
+  the real `glob` npm package, itself `node:fs`-backed.
+- Stage 5 (Write) itself -- `plan()` stops right before it, by design (see
+  [Non-goals](#design-background); this package renders a tree once, to
+  disk or an archive, it does not become a runtime UI library).
 
 ## Security model
 

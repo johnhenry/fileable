@@ -49,7 +49,7 @@ function sha256(input: string): string {
  * would hash an already-corrupted lossy representation instead of the
  * actual bytes being written).
  */
-function sha256WithContent(content: string | Buffer | undefined, suffix: string): string {
+function sha256WithContent(content: string | Buffer | Uint8Array | undefined, suffix: string): string {
   const digest = createHash(HASH_ALGORITHM);
   if (content !== undefined) digest.update(content);
   digest.update(suffix);
