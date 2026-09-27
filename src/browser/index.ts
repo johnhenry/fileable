@@ -31,12 +31,28 @@
  * `src=` imports, `<Dir from="glob">`, `<Dir src decode>`, `cmd`, and
  * `env://` -- all of which need real Node/OS access with no browser
  * equivalent, and throw a clear `FileableError` pointing back at the Node
- * entry point rather than silently no-op'ing. `linkTo()`/`warn()`/`glob()`/
- * `useCollection()` (../api.ts) also aren't re-exported here: `glob()`/
- * `useCollection()` themselves need the real `glob` npm package (itself
- * `node:fs`-backed), and splitting api.ts's four exports across two entry
- * points was judged not worth the complexity for what this issue asked
- * for -- a dry-run preview of Build/Resolve/Layout/Hash.
+ * entry point rather than silently no-op'ing.
+ *
+ * `glob()`/`useCollection()` (../api.ts) are also NOT re-exported here --
+ * both genuinely need the real `glob` npm package (itself `node:fs`-backed,
+ * no browser equivalent) and would throw immediately if called from a
+ * browser anyway. `linkTo()`/`warn()` (../api.ts) and `markdownToHtml()`
+ * (../markdown.ts), by contrast, don't touch `glob`/`node:fs`/anything
+ * else Node-only at all -- they were only unreachable from this entry
+ * point because `api.ts` used to import `glob` at module load time
+ * (issue #8), which drags `glob` -> `node:events` into a bundle the moment
+ * anything from `api.ts` is imported, regardless of which export is
+ * actually used. `api.ts` now loads `glob` lazily (inside `glob()`/
+ * `useCollection()` themselves, via a runtime `process.getBuiltinModule`
+ * lookup a bundler's static resolver can't see -- see api.ts's own doc
+ * comment), so `linkTo`/`warn` are safe to import from `api.ts` even in a
+ * browser bundle; `drainBuildContext()` (../context.ts) never had a
+ * Node-only import problem at all, just the same "only reachable by file
+ * path, not from `./browser`" gap. All four are re-exported below.
+ * Verified for real: bundling a scratch entry that imports exactly these
+ * four (plus `plan`) from `@johnhenry/fileable/browser` with both
+ * `esbuild --platform=browser --bundle` and `vite build` against the
+ * packed package produces zero `node:*` specifiers in the output.
  */
 import { build } from "../build.js";
 import { layout } from "../layout.js";
@@ -49,6 +65,9 @@ export { build } from "../build.js";
 export { layout } from "../layout.js";
 export { resolve } from "./resolve.js";
 export { hash, HASH_ALGORITHM } from "./hash.js";
+export { linkTo, warn } from "../api.js";
+export { markdownToHtml } from "../markdown.js";
+export { drainBuildContext } from "../context.js";
 // `File`/`Dir`/`Rm` (../components.ts) only ever build a plain descriptor
 // object from `FILEABLE_DESCRIPTOR`/types.ts -- zero `node:*` imports, same
 // as `../jsx-runtime.js`/`../jsx-dev-runtime.js` (already their own

@@ -1,5 +1,77 @@
 # Changelog
 
+## 0.0.4 (2026-09-26)
+
+### Fixed
+- **`linkTo()`/`warn()`/`markdownToHtml()`/`drainBuildContext()` are now
+  reachable from `@johnhenry/fileable/browser`, and `api.ts` no longer
+  drags `glob` into a browser bundle just by being imported (closes #8).**
+  `@johnhenry/fileable/browser` (0.0.3, #6) covers Build -> Resolve ->
+  Layout -> Hash, but four runtime-API helpers callers reasonably expect
+  alongside it -- `linkTo`/`warn` (`api.ts`), `markdownToHtml`
+  (`markdown.ts`), `drainBuildContext` (`context.ts`) -- were only
+  reachable by importing each file directly by path, not from `./browser`
+  itself. Worse, importing `linkTo`/`warn` that way still pulled in trouble:
+  `api.ts` imported `glob` at module load time (for `useCollection()`'s
+  use of it), and `glob` itself imports `node:events`/`node:fs`/
+  `node:path`/`node:url` -- so a bundler targeting the browser either
+  hard-failed to resolve those (esbuild `--platform=browser`) or silently
+  replaced them with empty modules (Vite), even though `linkTo`/`warn`
+  don't touch `glob` at all. Reported from real friction: found while
+  updating ORRERY's JSX Studio room to 0.0.3, which had to work around it
+  with a scoped Vite plugin stubbing `glob` out by hand.
+  - `src/api.ts`: `glob` is no longer imported at module scope. Both
+    `glob()` and `useCollection()` (the only two functions that actually
+    need it) now load it lazily, at call time, via
+    `process.getBuiltinModule("node:module")` + `createRequire(...)("glob")`
+    -- a plain runtime function call where `"node:module"`/`"glob"` only
+    ever appear as ordinary strings, not a static `import`/`require()`
+    specifier a bundler's resolver can see. This was checked, not assumed:
+    a straight `await import("glob")` nested inside the same function
+    *still* failed the exact same way, because esbuild eagerly resolves a
+    dynamic `import()`'s target for code-splitting purposes regardless of
+    whether the enclosing function ever runs; the `process.getBuiltinModule`
+    lookup bundles clean in both the tree-shaken-away case (a bundle that
+    never references `useCollection()`/`glob()`) and the
+    retained-but-never-called case (one that imports them but never runs
+    them in a browser) -- both verified directly against real
+    `esbuild --platform=browser` output. `glob()`/`useCollection()`
+    themselves stay fully synchronous, unchanged Node behavior --
+    `test/api.test.ts` needed zero changes.
+  - `src/browser/index.ts` now re-exports `linkTo`, `warn` (from `../api.js`,
+    now safe to import from a browser bundle per the above),
+    `markdownToHtml` (from `../markdown.js` -- which never had a Node-only
+    import problem in the first place; it was only unreachable from
+    `./browser` by omission) and `drainBuildContext` (from `../context.js`,
+    likewise). `glob()`/`useCollection()` are deliberately still **not**
+    re-exported here -- both genuinely need the real `glob` npm package
+    (itself `node:fs`-backed, no browser equivalent) and would throw
+    immediately if called from an actual browser regardless of how they're
+    loaded.
+  - Verified for real, end to end, not just by code inspection: built and
+    `npm pack`ed the package, installed the tarball into a scratch app
+    alongside real `esbuild`/`vite`, bundled a scratch entry importing all
+    four fixed exports (plus the pre-existing `plan()`) from
+    `@johnhenry/fileable/browser` with both `esbuild --platform=browser
+    --bundle` and `vite build`, confirmed zero `node:*` specifiers in
+    either output, then actually executed both bundles inside a Node `vm`
+    sandbox exposing no Node builtins (`console`/`TextEncoder`/
+    `TextDecoder`/`crypto`/`fetch`/`atob`/`btoa` only) -- `markdownToHtml()`,
+    `warn()` + `drainBuildContext()`, `linkTo()`, and a full `plan()` run
+    all executed correctly in both bundles.
+  - New regression test, `test/browser-bundle.test.ts`: bundles a scratch
+    entry importing the same four exports (plus `plan`) from the compiled
+    `dist/src/browser/index.js` with esbuild's real resolver
+    (`platform: "browser"`), asserting the bundle has zero errors, zero
+    `node:*` specifiers in its output, and that each of the four functions'
+    implementations are actually present (not silently dropped). Confirmed
+    as a real regression guard, not a tautology: reverting this fix and
+    re-running the exact same test reproduces the original failure
+    (`No matching export ... for import "linkTo"` / `"warn"` /
+    `"markdownToHtml"` / `"drainBuildContext"`, since the pre-fix
+    `./browser` entry point didn't export any of them yet); restoring the
+    fix makes it pass again.
+
 ## 0.0.3 (2026-09-26)
 
 ### Added
