@@ -12,3 +12,6 @@ jobs:
       node-versions: '["26"]'
       os: '["ubuntu-latest", "windows-latest"]'
       gate-commands: npm test
+
+  workflow-lint:
+    uses: johnhenry/workflows/.github/workflows/workflow-lint.yml@v1
