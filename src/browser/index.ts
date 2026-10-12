@@ -76,6 +76,10 @@ export { drainBuildContext } from "../context.js";
 // be built, planned, and previewed entirely from browser-safe subpaths,
 // with no dependency on the Node-only main entry point at all.
 export { File, Dir, Rm } from "../components.js";
+export { Fragment } from "../jsx-runtime.js";
+export { toFiles } from "./to-files.js";
+export type { Files, ToFilesOptions } from "./to-files.js";
+export { h, dir, file, rm } from "./builders.js";
 export type {
   ArtifactNode,
   Descriptor,
