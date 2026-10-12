@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.1 (2026-10-12)
+
+### Fixed
+- Binary (`Uint8Array`/`ArrayBuffer`) JSX children now throw a clear error
+  instead of being silently written as comma-joined numbers; pass binary content
+  via `<File base64={...} />` (#13).
+- A Fragment nested in `<File>` no longer drops its text children (e.g. a
+  leading `<!doctype html>`) (#14).
+- Attribute values now also escape `<` and `>` (#15).
+
 ## 0.1.0 (2026-10-11)
 
 ### Added
