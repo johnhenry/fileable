@@ -210,10 +210,14 @@ test("toFiles() rejects binary (Uint8Array) children instead of writing 'comma,j
     () => toFiles(file("x.bin", [new Uint8Array([1, 2, 3])] as never)),
     /binary content .*base64/,
   );
+});
+
 test("a Fragment nested in a <File> keeps its text children (not just its elements)", async () => {
   const frag = h(Fragment, null, "<!doctype html>\n", h("b", null, "x"), "\n");
   assert.deepEqual(await toFiles(file("a.html", frag)), { "a.html": "<!doctype html>\n<b>x</b>\n" });
   assert.deepEqual(await toFiles(file("a.html", [h(Fragment, null, "a", h(Fragment, null, "b", h("i", null, "c")))])), { "a.html": "ab<i>c</i>" });
+});
+
 test("attribute values escape < and > as well as & and \"", async () => {
   const files = await toFiles(file("a.html", h("meta", { content: `"><script>x</script> & y` })));
   assert.equal(files["a.html"], `<meta content="&quot;&gt;&lt;script&gt;x&lt;/script&gt; &amp; y" />`);
