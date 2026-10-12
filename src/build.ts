@@ -44,6 +44,12 @@ export function build(root: unknown): Descriptor[] {
         flat.push(String(item));
         continue;
       }
+      if (isDescriptor(item) && item.tag === FRAGMENT) {
+        // Flatten into the parent INCLUDING text: `<File><>{"<!doctype html>"}<html/></></File>` must keep the doctype.
+        if (item.__id === undefined) item.__id = nextId();
+        flat.push(...normalizeChildren(item.children));
+        continue;
+      }
       if (isDescriptor(item)) {
         flat.push(...normalizeOne(item));
         continue;
