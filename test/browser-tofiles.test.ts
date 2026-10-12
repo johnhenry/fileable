@@ -204,3 +204,10 @@ test("main entry exports toFiles and the builders for parity", () => {
   assert.equal(main.file, file);
   assert.equal(main.rm, rm);
 });
+
+test("toFiles() rejects binary (Uint8Array) children instead of writing 'comma,joined,numbers'", async () => {
+  await assert.rejects(
+    () => toFiles(file("x.bin", [new Uint8Array([1, 2, 3])] as never)),
+    /binary content .*base64/,
+  );
+});
