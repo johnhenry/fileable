@@ -75,3 +75,58 @@ test("esbuild --platform=browser bundles linkTo/warn/markdownToHtml/drainBuildCo
     rmSync(scratchDir, { recursive: true, force: true });
   }
 });
+
+test("toFiles + builders bundle for the browser with zero node:* specifiers and no Node built-ins reachable at runtime", async () => {
+  const scratchDir = mkdtempSync(join(tmpdir(), "fileable-browser-tofiles-"));
+  try {
+    const entryFile = join(scratchDir, "entry.mjs");
+    writeFileSync(
+      entryFile,
+      [
+        `import { toFiles, h, dir, file, rm } from ${JSON.stringify(browserEntry)};`,
+        `export { toFiles, h, dir, file, rm };`,
+        "",
+      ].join("\n"),
+    );
+    const result = await esbuild.build({
+      entryPoints: [entryFile],
+      bundle: true,
+      platform: "browser",
+      format: "esm",
+      write: false,
+    });
+    assert.equal(result.errors.length, 0, JSON.stringify(result.errors));
+    const code = result.outputFiles[0].text;
+    assert.doesNotMatch(code, /["']node:[a-zA-Z0-9/]+["']/, "bundle output must not reference any node:* specifier");
+    assert.doesNotMatch(code, /\brequire\(["'](fs|path|crypto|zlib|url|events|child_process)["']\)/);
+    assert.match(code, /function toFiles\b/);
+
+    // Actually run the bundle in a context with no Node globals (no
+    // process, Buffer, require) -- only what a browser provides.
+    const mod = await import(`data:text/javascript;base64,${Buffer.from(code).toString("base64")}`);
+    const sandbox = await runWithoutNodeGlobals(async () => {
+      const files = await mod.toFiles(mod.dir("site", [mod.file("a.txt", "hello")]));
+      return files;
+    });
+    assert.deepEqual(sandbox, { "site/a.txt": "hello" });
+  } finally {
+    rmSync(scratchDir, { recursive: true, force: true });
+  }
+});
+
+async function runWithoutNodeGlobals<T>(fn: () => Promise<T>): Promise<T> {
+  const g = globalThis as Record<string, unknown>;
+  const saved: Record<string, PropertyDescriptor | undefined> = {};
+  for (const name of ["process", "Buffer", "require"]) {
+    saved[name] = Object.getOwnPropertyDescriptor(g, name);
+    Object.defineProperty(g, name, { value: undefined, configurable: true, writable: true });
+  }
+  try {
+    return await fn();
+  } finally {
+    for (const [name, desc] of Object.entries(saved)) {
+      if (desc) Object.defineProperty(g, name, desc);
+      else delete g[name];
+    }
+  }
+}

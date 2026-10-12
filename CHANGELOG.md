@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.1.0 (2026-10-11)
+
+### Added
+- **`toFiles(tree, options?)` -> `Promise<Files>` in `@johnhenry/fileable/browser`
+  (and the main entry for parity).** Runs Build -> Resolve -> Layout in the
+  browser-safe pipeline and returns `{ relativePosixPath: string | Uint8Array }`
+  (text as `string`, binary as `Uint8Array`), so a browser app can use fileable
+  JSX as a template format and get real bytes (`plan()` only reported paths and
+  hashes). `encode="zip"`/`"wbn"` throw a clear "not supported in the browser"
+  error; `onConflict` and `<Rm>` act on an optional in-memory `existing: Files`;
+  symlinks materialize as copies; directories are implied by paths.
+- **JSX-free builders `h(type, props, ...children)`, `dir(name, children, props?)`,
+  `file(name, content, props?)`, `rm(target, props?)`**, plus `Fragment`, exported
+  from `./browser` and the main entry.
+- **Output path safety in `toFiles()`:** empty, absolute, drive-letter, `..`,
+  backslash, and NUL paths throw `unsafe output path`.
+- `test/browser-bundle.test.ts` now also bundles `toFiles` + builders with
+  esbuild `platform: "browser"` (zero `node:*` specifiers) and runs the bundle
+  with `process`/`Buffer`/`require` removed from the global scope.
+
 ## 0.0.4 (2026-09-26)
 
 ### Fixed
