@@ -40,7 +40,8 @@ export interface SerializeCtx {
 }
 
 function escapeAttr(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  // `<`/`>` too: legal inside a quoted attribute, but a raw `<script>` in a value trips naive scanners/sanitizers and is never wanted.
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function serializeAttrs(props: Record<string, unknown>): string {
