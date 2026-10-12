@@ -67,6 +67,14 @@ export function build(root: unknown): Descriptor[] {
           "<jsx child>",
         );
       }
+      if (ArrayBuffer.isView(item) || item instanceof ArrayBuffer) {
+        // Would otherwise be String()-ed to "0,255,10,..." and written silently as corrupt text.
+        throw new FileableError(
+          "binary content (Uint8Array/ArrayBuffer) can't be a JSX child -- it would be written as comma-joined " +
+            "numbers. Pass it as base64 instead: <File base64={...} />",
+          "<jsx child>",
+        );
+      }
       // Anything else (e.g. an object an author mistakenly rendered directly)
       // is coerced to a string rather than silently dropped.
       flat.push(String(item));
