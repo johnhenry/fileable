@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Changed
-- **Faster loose writes and warm (lock-cache) runs at large sizes (#22).** The
+- **Faster loose writes and warm (lock-cache) runs at large sizes (#22, #23).** The
   loose writer creates each distinct directory once instead of once per file
   and writes up to 64 files at a time; the warm-path "is this unchanged output
   still on disk" checks run 64 at a time too. Output bytes, modes, symlinks
@@ -16,6 +16,14 @@
   (documented in the README). `<Rm>` removals stay sequential. New
   `npm run bench` (not part of `npm test`): at 10,000 files, loose cold
   1,180 ms -> 530 ms, warm 296 ms -> 240 ms on macOS.
+
+### Tests
+- `test/packfile-interop.test.ts` checks the README's Family claim that
+  `<Dir encode="wbn">` output is directly readable by `@johnhenry/packfile`:
+  `fromArchive()` yields exactly the loose render's paths and bytes (HTML,
+  CSS, a 0-255 binary, a nested dir), and `createRouter()` serves a page, the
+  binary and a 404. `@johnhenry/packfile` is a devDependency only; it is not
+  in `dependencies` or the published tarball (#19, #21).
 
 ## 0.1.1 (2026-10-12)
 
