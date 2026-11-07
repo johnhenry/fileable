@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Tests
+- `test/packfile-interop.test.ts` checks the README's Family claim that
+  `<Dir encode="wbn">` output is directly readable by `@johnhenry/packfile`:
+  `fromArchive()` yields exactly the loose render's paths and bytes (HTML,
+  CSS, a 0-255 binary, a nested dir), and `createRouter()` serves a page, the
+  binary and a 404. `@johnhenry/packfile` is a devDependency only; it is not
+  in `dependencies` or the published tarball (#19).
+
 ## 0.1.1 (2026-10-12)
 
 ### Fixed
