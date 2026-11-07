@@ -882,6 +882,13 @@ shares its archive format with a third.
   dependency of this package). The resulting `.wbn` file is directly
   readable by packfile's own `fromArchive()`/`createRouter()` with no
   unpacking to disk needed.
+- **[`@johnhenry/sitefile`](https://github.com/johnhenry/sitefile)** --
+  a fileable build's output is an ordinary Sitefile input: a loose
+  directory (`COPY ./generated/ /`) or an `encode="zip"` archive (`IMPORT gen
+  FROM ./site.zip AS tree`, then `COPY gen:/ /`), both giving the same
+  output. No dependency in either direction. Sitefile's `AS tree` reads only
+  plain Web Bundles, so the gzip-wrapped `encode="wbn"` archive isn't a
+  Sitefile input yet (johnhenry/sitefile#141).
 
 `@johnhenry/hostable` (the third package in the lineage) never depends on
 fileable directly -- it mounts fileable content transitively, through
