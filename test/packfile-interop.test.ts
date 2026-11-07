@@ -98,12 +98,17 @@ test("the archive's paths depend on fileable's base URL matching packfile's (mut
   // packfile's fromArchive() silently drops exchanges outside its own base URL,
   // so a writer with a different base would produce an "empty" archive.
   // Prove that is detectable: re-reading uncompressed (wrong options) must throw,
-  // and an archive built by packfile from a different base URL yields no files.
+  // and an archive whose entries are under a different base URL yields no files.
+  // Its primary URL is packfile's own base: since johnhenry/packfile#22, fromArchive()
+  // without a baseURL strips against the primary URL's root, so this stays empty there too.
   const { archive } = await renderBoth();
   await assert.rejects(fromArchive(archive, { compressed: false }));
 
   const wrongBase = gzipSync(
-    toWebBundle(await fromFiles({ "index.html": HTML }), { baseURL: "https://not-packfile.invalid/" }),
+    toWebBundle(await fromFiles({ "index.html": HTML }), {
+      baseURL: "https://not-packfile.invalid/",
+      primaryURL: "https://packfile.invalid/",
+    }),
   );
   assert.equal((await fromArchive(wrongBase)).size, 0);
 });
