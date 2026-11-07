@@ -881,7 +881,13 @@ shares its archive format with a third.
   an intermediate, and packfile isn't even published to npm as a runtime
   dependency of this package). The resulting `.wbn` file is directly
   readable by packfile's own `fromArchive()`/`createRouter()` with no
-  unpacking to disk needed.
+  unpacking to disk needed. Three limits (checked by a packfile interop
+  test, johnhenry/fileable#21): file names containing `#` make the `wbn`
+  render throw, and names with `?` or `%` are dropped when packfile reads
+  the archive (johnhenry/fileable#20); an empty `<Dir>` isn't kept, since a
+  Web Bundle has no directory entries; and `createRouter()` works out
+  `Content-Type` from its own MIME table rather than the one fileable
+  wrote (they agree on the common extensions).
 - **[`@johnhenry/sitefile`](https://github.com/johnhenry/sitefile)** --
   a fileable build's output is an ordinary Sitefile input: a loose
   directory (`COPY ./generated/ /`) or an `encode="zip"` archive (`IMPORT gen
