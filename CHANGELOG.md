@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Changed
+- **Faster loose writes and warm (lock-cache) runs at large sizes (#22, #23).** The
+  loose writer creates each distinct directory once instead of once per file
+  and writes up to 64 files at a time; the warm-path "is this unchanged output
+  still on disk" checks run 64 at a time too. Output bytes, modes, symlinks
+  (and the Windows copy fallback), every `onConflict` mode, `--strict`,
+  dry-run, the lock file, and the order of `written`/`skipped`/`warnings` are
+  unchanged; operations on paths that are one file on a case-insensitive
+  filesystem stay in tree order. When a write fails, the first failing
+  artifact in tree order is still the error reported; in-flight writes finish
+  first, and some artifacts after the failing one may already be written
+  (documented in the README). `<Rm>` removals stay sequential. New
+  `npm run bench` (not part of `npm test`): at 10,000 files, loose cold
+  1,180 ms -> 530 ms, warm 296 ms -> 240 ms on macOS.
+
 ### Tests
 - `test/packfile-interop.test.ts` checks the README's Family claim that
   `<Dir encode="wbn">` output is directly readable by `@johnhenry/packfile`:

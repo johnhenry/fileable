@@ -11,6 +11,7 @@ import { readLockFile, writeLockFile, isUnchanged } from "./lock.js";
 import { applyRemovals, pathExists, writeLoose } from "./write/loose.js";
 import { writeZips } from "./write/zip.js";
 import { writeWbn } from "./write/wbn.js";
+import { IO_CONCURRENCY, mapLimit } from "./concurrency.js";
 import { drainBuildContext } from "./context.js";
 import { cloneDescriptorTree } from "./types.js";
 import type { RenderOptions, WriteSummary } from "./types.js";
@@ -40,29 +41,27 @@ export async function render(tree: unknown, options: RenderOptions = {}): Promis
   // else ever re-checks disk once the hash says "nothing to do".
   const looseCandidates = hashed.artifacts.filter((a) => a.target === "loose");
   const looseChanged = looseCandidates.filter((a) => !isUnchanged(a, lock));
+  // Existence checks run IO_CONCURRENCY at a time (issue #22); results are
+  // consumed in artifact order, so both lists keep their sequential order.
   const looseSkipped: string[] = [];
-  for (const artifact of looseCandidates) {
-    if (!isUnchanged(artifact, lock)) continue;
-    if (await pathExists(join(outDir, artifact.outputPath))) {
-      looseSkipped.push(artifact.outputPath);
-    } else {
-      looseChanged.push(artifact);
-    }
-  }
+  const looseUnchanged = looseCandidates.filter((a) => isUnchanged(a, lock));
+  const looseExists = await mapLimit(looseUnchanged, IO_CONCURRENCY, (a) => pathExists(join(outDir, a.outputPath)));
+  looseUnchanged.forEach((artifact, i) => {
+    if (looseExists[i]) looseSkipped.push(artifact.outputPath);
+    else looseChanged.push(artifact);
+  });
 
   const containerRoots = hashed.artifacts.filter(
     (a) => (a.target === "zip" || a.target === "wbn") && a.containerPath === a.outputPath,
   );
   const dirtyRootIds = new Set(containerRoots.filter((root) => !isUnchanged(root, lock)).map((r) => r.id));
   const containerSkipped: string[] = [];
-  for (const root of containerRoots) {
-    if (dirtyRootIds.has(root.id)) continue;
-    if (await pathExists(join(outDir, root.outputPath))) {
-      containerSkipped.push(root.outputPath);
-    } else {
-      dirtyRootIds.add(root.id);
-    }
-  }
+  const cleanRoots = containerRoots.filter((root) => !dirtyRootIds.has(root.id));
+  const rootExists = await mapLimit(cleanRoots, IO_CONCURRENCY, (r) => pathExists(join(outDir, r.outputPath)));
+  cleanRoots.forEach((root, i) => {
+    if (rootExists[i]) containerSkipped.push(root.outputPath);
+    else dirtyRootIds.add(root.id);
+  });
 
   const dryRun = !!options.dryRun;
   const removeResult = await applyRemovals(hashed.removals, outDir, dryRun);

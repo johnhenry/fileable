@@ -162,6 +162,14 @@ touch it and fails the build. Loose target only; a container (`"zip"` or
 `"wbn"`) is always rebuilt as one atomic unit, so there's no per-entry
 "already exists" to ask.
 
+A loose build that fails partway through Write is not rolled back. Write
+keeps up to 64 file operations in flight, so the error you get is the
+first failing artifact in tree order (the same one a one-at-a-time write
+would hit), everything before it has been written, and some artifacts
+after it may have been written too. Operations already in flight finish
+before `render()` rejects, and the lock file is only written when the
+whole build succeeds, so the next run rewrites anything left behind.
+
 `encode="zip"`/`encode="wbn"` can't be requested again, switched to each other, or
 switched back to `encode="loose"`, once already nested inside a container --
 all three throw rather than silently doing nothing, since neither nested
