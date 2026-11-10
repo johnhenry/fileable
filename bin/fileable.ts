@@ -39,6 +39,7 @@ import { createInterface } from "node:readline/promises";
 import { pathToFileURL } from "node:url";
 import { render } from "../src/render.js";
 import { readLockFile } from "../src/lock.js";
+import { checkCleanPaths, removeCleanPath } from "../src/clean.js";
 import { BINARY_MODES, CONTENT_MODES, reflect } from "../src/eject.js";
 import { assertPermitted, describeError, EXIT_OK } from "../src/errors.js";
 import { FileableError } from "../src/types.js";
@@ -606,10 +607,13 @@ async function runClean(args: ParsedArgs, emitter: Emitter): Promise<number> {
   // only the container's own .zip/.wbn (no "::") is a real path to remove;
   // deleting that removes everything inside it. Loose artifacts' ids already
   // *are* their real relative path.
-  const realPaths = Object.keys(lock.artifacts).filter((id) => !id.includes("::"));
+  // The ids come from a file in the output directory, so they are untrusted
+  // (#34): every one is checked (outDir containment, as for a build's own
+  // writes) before any is removed, and a link is removed as a link.
+  const realPaths = await checkCleanPaths(dir, Object.keys(lock.artifacts).filter((id) => !id.includes("::")));
 
   for (const relative of realPaths) {
-    if (!args.dryRun) await rm(resolvePath(dir, relative), { recursive: true, force: true });
+    if (!args.dryRun) await removeCleanPath(dir, relative);
     emitter.say(`  rm ${relative}`);
     emitter.emit({ event: "file", path: relative, action: "removed" });
   }

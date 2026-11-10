@@ -544,6 +544,12 @@ was (or its default, the template's own directory) -- not a subfolder your
 tree's own `<Dir name="...">` happens to create inside it, since paths in
 the lock file are recorded relative to `[dir]` itself, not to that subfolder.
 
+`clean` never removes anything outside `[dir]`: every path in the lock file
+is checked before any is removed, and one that climbs out, is absolute, or
+goes through a symlink leading outside fails the whole clean with
+`E_UNSAFE_PATH` (see "Security model"). A path that is itself a symlink is
+removed as a link, not followed.
+
 ### `eject` -- build's other dual
 
 `build` turns a JSX tree into a real filesystem tree. `fileable eject
@@ -936,6 +942,13 @@ shells out and uses its stdout as file content -- everything else (`src`,
   with a link while a build runs (a race between the check and the write),
   and the target a `<File symlink>` itself points at, which is yours to
   choose.
+- **`fileable clean` only removes inside its directory** (#34). The lock
+  file lives in the output directory, so its ids are treated as untrusted:
+  each one is normalized and must pass the same path rule, and its parent
+  must really be inside `[dir]` (a symlink or junction leading outside is
+  not walked through). One unsafe id throws `E_UNSAFE_PATH` before anything
+  is removed. A listed path that is itself a link is removed as a link; its
+  target is left alone.
 - **One file on disk means one artifact, on every filesystem.** Two paths
   that differ only in case or Unicode normalization (`A.txt`/`a.txt`, NFC
   and NFD `café`) are the same file on macOS and Windows, so they throw
