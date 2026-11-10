@@ -47,6 +47,18 @@
     as `--allow-fs-write`; without it the build stops with `E_ACCESS_DENIED`
     naming the flag.
 
+- **`fileable clean` removed whatever paths the lock file listed (#34).**
+  The lock file sits in the output directory, so whoever can write there
+  (a checked-in or downloaded build output) chose what `clean` deleted,
+  recursively: `"../../x"`, an absolute path, or `link/x` through a symlink
+  or junction in `[dir]` that leads outside it. Every lock id is now checked
+  before anything is removed, with the build's own rule: normalized, then
+  the `E_UNSAFE_ENTRY` path rule, then `lstat`/`realpath` (its parent must
+  really be inside `[dir]`). One unsafe id fails the whole clean with
+  `E_UNSAFE_PATH` (exit 1) and nothing is removed, `--dry-run` included. A
+  listed path that is itself a symlink or junction is removed as a link,
+  never its target, and a removed directory's links are not followed.
+
 - **`<Dir src decode="zip"|"wbn">` had no limit on decompressed size (zip
   bombs, #32, PR #37).** A small archive could inflate to gigabytes in memory. Each
   archive now has four limits, enforced while inflating: `maxBytes` (total

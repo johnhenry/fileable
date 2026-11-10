@@ -31,7 +31,7 @@ export const ERROR_CODES: Readonly<Record<ErrorCode, ErrorCodeInfo>> = Object.fr
   E_INVALID_PROP: { exitCode: 1, summary: "A prop is missing or has an unrecognized value." },
   E_INVALID_OPTION: { exitCode: 1, summary: "An SDK option has an unrecognized value." },
   E_PATH_CONFLICT: { exitCode: 1, summary: "Two artifacts resolve to the same output path, differ only in case or Unicode normalization, or one would be written inside a path the build writes as a file." },
-  E_UNSAFE_PATH: { exitCode: 1, summary: "An output path (template name, <Rm target>, archive entry name being encoded) would leave outDir or its archive, or a write would go through a symlink or hard link that leads outside outDir." },
+  E_UNSAFE_PATH: { exitCode: 1, summary: "An output path (template name, <Rm target>, archive entry name being encoded) would leave outDir or its archive, or a write would go through a symlink or hard link that leads outside outDir; or `fileable clean` found an unsafe path in the lock file." },
   E_CONFLICT: { exitCode: 1, summary: "onConflict refused to touch a file that already exists." },
   E_SRC: { exitCode: 1, summary: "A src, from, or prop value couldn't be read, fetched, or awaited." },
   E_DECODE: { exitCode: 1, summary: "<Dir src decode> couldn't decode the archive or read an entry." },
