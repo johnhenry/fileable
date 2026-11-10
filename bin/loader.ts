@@ -11,8 +11,9 @@
  *    installed, checked in this order:
  *      - `typescript` 5.x/6.x (`transpileModule()`, pure JS, so it also works
  *        under the permission model without --allow-child-process)
- *      - `esbuild` (`transformSync()`; it runs esbuild's native binary, so
- *        under the permission model it needs --allow-child-process)
+ *      - `esbuild` (`transformSync()`; it runs esbuild's native binary from
+ *        a worker thread, so under the permission model it needs both
+ *        --allow-child-process and --allow-worker)
  *    With neither, loading a `.tsx`/`.jsx` module throws E_JSX_COMPILER
  *    naming the options. TypeScript 7 (the native compiler) has no
  *    in-process transpile API, so it doesn't count.
@@ -159,15 +160,20 @@ export function installLoader(): void {
         code = transform(source, filename);
       } catch (cause) {
         const denied = (cause as { code?: string }).code === "ERR_ACCESS_DENIED";
-        throw new FileableError(
+        const permission = (cause as { permission?: string }).permission;
+        const flag = permission === "WorkerThreads" ? "--allow-worker" : "--allow-child-process";
+        const error = new FileableError(
           denied
-            ? `can't compile ${filename}: the JSX compiler (esbuild) needs to start a child process -- ` +
-                "run node with --allow-child-process, or install typescript@5 in the project, which compiles in-process"
+            ? `can't compile ${filename}: the JSX compiler (esbuild) needs ${flag} under Node's permission model ` +
+                "(esbuild needs both --allow-child-process and --allow-worker), or install typescript@5 in the project, " +
+                "which compiles in-process with no extra grants"
             : `can't compile ${filename}`,
           filename,
           cause,
           denied ? "E_ACCESS_DENIED" : "E_MODULE_LOAD",
         );
+        if (denied && permission) error.permission = permission;
+        throw error;
       }
       return { format: "module", source: code, shortCircuit: true };
     },

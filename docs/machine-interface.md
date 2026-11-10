@@ -226,8 +226,10 @@ one; the CLI uses whichever of these the template's project has installed
 
 1. `typescript` 5.x or 6.x (`transpileModule()`). Pure JavaScript, so it
    also works under the permission model with no extra grants.
-2. `esbuild` (`transformSync()`). It runs esbuild's native binary, so under
-   the permission model it needs `--allow-child-process`.
+2. `esbuild` (`transformSync()`). It runs esbuild's native binary from a
+   worker thread, so under the permission model it needs both
+   `--allow-child-process` and `--allow-worker`; without them the error is
+   `E_ACCESS_DENIED` naming the missing flag.
 
 TypeScript 7 (the native compiler) has no in-process transpile API, so it
 doesn't count. With neither installed, a `.tsx`/`.jsx` module fails with
@@ -252,8 +254,9 @@ The CLI runs under `node --permission`. It needs:
   through the same check). In a project with fileable in its own
   `node_modules`, the project directory covers it.
 - `--allow-fs-write` for the output directory.
-- `--allow-child-process` only for `cmd` (with `--allow-exec`), or for
-  `.tsx`/`.jsx` compiled by esbuild.
+- `--allow-child-process` only for `cmd` (with `--allow-exec`), or, together
+  with `--allow-worker`, for `.tsx`/`.jsx` compiled by esbuild. With
+  `typescript` 5.x/6.x as the compiler, `.tsx` needs no extra grants.
 
 ```sh
 node --permission \
