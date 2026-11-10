@@ -130,7 +130,7 @@
     `--json`, `--debounce`, `--version`.
 
 ### Fixed
-- **The installed CLI did nothing when run through npm's bin link (#41).**
+- **The installed CLI did nothing when run through npm's bin link (#41, PR #42).**
   `node_modules/.bin/fileable`, `npx fileable` and a global install start
   the CLI through a symlink, and the "am I the entry point" check compared
   that link's path with the module's real URL, so they never matched:
