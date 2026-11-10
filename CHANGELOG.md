@@ -48,7 +48,7 @@
     naming the flag.
 
 - **`<Dir src decode="zip"|"wbn">` had no limit on decompressed size (zip
-  bombs, #32).** A small archive could inflate to gigabytes in memory. Each
+  bombs, #32, PR #37).** A small archive could inflate to gigabytes in memory. Each
   archive now has four limits, enforced while inflating: `maxBytes` (total
   uncompressed, default 1 GiB), `maxEntries` (default 100,000),
   `maxEntryBytes` (default 256 MiB) and `maxRatio` (uncompressed /
