@@ -177,6 +177,11 @@ fails. Details for each item are in the sections below.
     `--json`, `--debounce`, `--version`.
 
 ### Fixed
+- **Docs: granting write to an output directory that doesn't exist yet.** Node 26's
+  permission model needs `--allow-fs-write=<out>/*` (or the directory created
+  first); a plain `--allow-fs-write=<out>` fails on the first file. Found while
+  testing the packed 0.2.0 tarball; documented in docs/machine-interface.md and
+  the README.
 - **The installed CLI did nothing when run through npm's bin link (#41, PR #42).**
   `node_modules/.bin/fileable`, `npx fileable` and a global install start
   the CLI through a symlink, and the "am I the entry point" check compared

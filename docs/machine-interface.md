@@ -264,14 +264,19 @@ The CLI runs under `node --permission`. It needs:
   and the fileable package with its dependencies (Node reads module files
   through the same check). In a project with fileable in its own
   `node_modules`, the project directory covers it.
-- `--allow-fs-write` for the output directory.
+- `--allow-fs-write` for the output directory. If the output directory
+  doesn't exist yet when Node starts, grant it as `--allow-fs-write=<out>/*`:
+  Node 26 doesn't extend a grant for a path that doesn't exist to files
+  created under it later, so `--allow-fs-write=<out>` (or `<out>/`) fails
+  with `E_ACCESS_DENIED` on the first file. Creating the directory first
+  also works.
 - `--allow-child-process` only for `cmd` (with `--allow-exec`), or, together
   with `--allow-worker`, for `.tsx`/`.jsx` compiled by esbuild. With
   `typescript` 5.x/6.x as the compiler, `.tsx` needs no extra grants.
 
 ```sh
 node --permission \
-  --allow-fs-read="$PWD" --allow-fs-read="$PWD/out" --allow-fs-write="$PWD/out" \
+  --allow-fs-read="$PWD" --allow-fs-read="$PWD/out" --allow-fs-write="$PWD/out/*" \
   node_modules/@johnhenry/fileable/dist/bin/fileable.js build --json
 ```
 
