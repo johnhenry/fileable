@@ -344,7 +344,21 @@ test("under node --permission: works with read on project + fileable and write o
     assert.equal(writeError.permission, "FileSystemWrite");
     assert.match(String(writeError.message), /--allow-fs-write=/);
 
-    const noLockRead = await runCli(["build", "--project", project, "--json"], { nodeArgs: [...base, `--allow-fs-write=${out}`] });
+    // outDir needs read too: fileable checks it for symlinks before writing (#31).
+    const noOutRead = await runCli(["build", "--project", project, "--json"], { nodeArgs: [...base, `--allow-fs-write=${out}`] });
+    assert.equal(noOutRead.code, 5);
+    const readError = only(noOutRead.events, "error")[0];
+    assert.equal(readError.code, "E_ACCESS_DENIED");
+    assert.equal(readError.permission, "FileSystemRead");
+    assert.ok(String(readError.message).includes(`--allow-fs-read=${out}`), String(readError.message));
+
+    // A lock file outside outDir that can be written but not read: the build
+    // works, as a full rebuild every time.
+    const lockDir = join(dir, "lock");
+    await mkdir(lockDir);
+    const noLockRead = await runCli(["build", "--project", project, "--json", "--lock-file", join(lockDir, "lock.json")], {
+      nodeArgs: [...full, `--allow-fs-write=${lockDir}`],
+    });
     assert.equal(noLockRead.code, 0, noLockRead.stderr);
     assert.equal(only(noLockRead.events, "warning")[0].code, "E_CACHE_UNREADABLE");
 

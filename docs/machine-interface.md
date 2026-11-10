@@ -122,8 +122,8 @@ Exit code 4 is not used by fileable (it's servable's `E_LISTEN`).
 | `E_INVALID_TREE` | A Promise or binary value as a JSX child, or a reserved lowercase tag. |
 | `E_INVALID_PROP` | A required prop is missing (`name`, `src`), or `encode`/`decode`/`join`/`onConflict`/`kind`/`onMissing`/`base64` has an invalid value. |
 | `E_INVALID_OPTION` | An SDK option is invalid (eject modes, `encode` with a root that isn't a `<Dir>`). |
-| `E_PATH_CONFLICT` | Two artifacts resolve to the same output path. |
-| `E_UNSAFE_PATH` | `toFiles()` produced an empty, absolute or escaping path. |
+| `E_PATH_CONFLICT` | Two artifacts resolve to the same output path; or two paths differ only in case or Unicode normalization (`A.txt`/`a.txt`, NFC/NFD), which is one file on macOS and Windows, so it is refused on every platform; or an artifact would be written inside a path the same build writes as a file, symlink or archive (`link` and `link/x`). Checked before anything is written. |
+| `E_UNSAFE_PATH` | An output path would leave `outDir`. Before anything is written: a template name or `<Rm target>` that, after joining, has a `..` climbing out, is absolute or has a drive letter, a backslash, a control character, or an empty, `.` or dots-and-spaces segment (the `E_UNSAFE_ENTRY` rule), or an `encode="zip"`/`"wbn"` entry name like that (the archive would be unsafe to extract). While writing: a write, `<Dir mode>` or `<Rm>` would go through a symlink or junction already in `outDir` that leads outside it (or doesn't resolve), or `append`/`prepend` would write through such a link or a hard link. The message ends with the reason. Also: `toFiles()` produced an empty, absolute or escaping path. |
 | `E_CONFLICT` | `onConflict="error"` found an existing file, or `append`/`prepend` on a symlink. |
 | `E_SRC` | A `src`/`from`/prop value couldn't be read, fetched or awaited. |
 | `E_DECODE` | `<Dir src decode>` couldn't decode the archive, or couldn't read an entry (encrypted, unsupported compression, truncated). |
@@ -250,7 +250,8 @@ SDK doesn't install them.
 The CLI runs under `node --permission`. It needs:
 
 - `--allow-fs-read` for the project (template, partials, `src` files), the
-  output directory (to read the lock file and check what's already there),
+  output directory (to read the lock file, check what's already there, and
+  check for symlinks that lead outside it),
   and the fileable package with its dependencies (Node reads module files
   through the same check). In a project with fileable in its own
   `node_modules`, the project directory covers it.
@@ -271,7 +272,8 @@ What happens when a grant is missing:
 | --- | --- |
 | write on `outDir` | Checked before the build starts: `E_ACCESS_DENIED`, exit 5, `permission: "FileSystemWrite"`, message names `--allow-fs-write=<outDir>`. Nothing is written. |
 | read on the template / project | `E_ACCESS_DENIED`, exit 5, `permission: "FileSystemRead"`, message names `--allow-fs-read=<path>`. |
-| read on `outDir` (write only) | The build works, with an `E_CACHE_UNREADABLE` warning: the lock file can't be read, so every build is a full rebuild. |
+| read on `outDir` (write only) | Checked before the build starts: `E_ACCESS_DENIED`, exit 5, `permission: "FileSystemRead"`, message names `--allow-fs-read=<outDir>`. fileable reads `outDir` to check for symlinks before writing into it. |
+| read on a `--lock-file` outside `outDir` (write only) | The build works, with an `E_CACHE_UNREADABLE` warning: the lock file can't be read, so every build is a full rebuild. |
 | child process, with `--allow-exec` and a `cmd` | Checked before spawning: `E_ACCESS_DENIED`, exit 5, `permission: "ChildProcess"`, message names `--allow-child-process`. |
 | read on the fileable package itself | Node can't load the CLI at all; it exits 1 with its own `ERR_ACCESS_DENIED` before any fileable code runs, so there are no events. |
 

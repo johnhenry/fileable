@@ -182,38 +182,24 @@ test("append/prepend across many files keep every existing byte, in the right or
   });
 });
 
-test("paths that are one file on a case-insensitive filesystem are still applied in artifact order", async () => {
+test("paths that are one file on a case-insensitive filesystem are refused on every filesystem (#31)", async () => {
   await withOutDir(async (outDir) => {
-    await writeFile(join(outDir, "probe"), "");
-    const caseInsensitive = await stat(join(outDir, "PROBE")).then(
-      () => true,
-      () => false,
-    );
-    await rm(join(outDir, "probe"));
     await mkdir(join(outDir, "site"));
     await writeFile(join(outDir, "site/notes.txt"), "0");
-    // Adjacent, so all four are in flight together without the per-path ordering.
-    const variants: Array<[string, string, string]> = [
-      ["notes.txt", "1", "append"],
-      ["NOTES.txt", "2", "prepend"],
-      ["Notes.txt", "3", "append"],
-      ["nOtes.txt", "4", "prepend"],
-    ];
     const filler = Array.from({ length: 100 }, (_, i) => file(`fill${i}.txt`, "x"));
     const tree = dir("site", [
       ...filler.slice(0, 10),
-      ...variants.map(([name, content, onConflict]) => file(name, content, { onConflict })),
+      file("notes.txt", "1", { onConflict: "append" }),
+      file("NOTES.txt", "2", { onConflict: "prepend" }),
       ...filler.slice(10),
     ]);
-    await render(tree, { outDir, cache: false });
-    if (caseInsensitive) {
-      assert.equal(await readFile(join(outDir, "site/notes.txt"), "utf8"), "42013");
-    } else {
-      assert.equal(await readFile(join(outDir, "site/notes.txt"), "utf8"), "01");
-      for (const [name, content] of variants.slice(1)) {
-        assert.equal(await readFile(join(outDir, "site", name), "utf8"), content);
-      }
-    }
+    await assert.rejects(
+      () => render(tree, { outDir, cache: false }),
+      (e: unknown) => e instanceof FileableError && e.code === "E_PATH_CONFLICT",
+    );
+    // Refused in layout, before anything is written.
+    assert.deepEqual(await readdir(join(outDir, "site")), ["notes.txt"]);
+    assert.equal(await readFile(join(outDir, "site/notes.txt"), "utf8"), "0");
   });
 });
 
