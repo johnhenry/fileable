@@ -130,6 +130,13 @@
     `--json`, `--debounce`, `--version`.
 
 ### Fixed
+- **The installed CLI did nothing when run through npm's bin link (#41).**
+  `node_modules/.bin/fileable`, `npx fileable` and a global install start
+  the CLI through a symlink, and the "am I the entry point" check compared
+  that link's path with the module's real URL, so they never matched:
+  nothing ran and the exit code was 0. Running `dist/bin/fileable.js`
+  directly worked. The check now compares real paths. Affected every
+  release since the CLI was added.
 - **`encode="zip"` silently dropped an entry named `__proto__` (#36, PR #40).** The
   archive was built with fflate's `zipSync()`, which takes a plain object
   keyed by entry name, so `<File name="__proto__">` set the object's

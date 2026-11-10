@@ -34,9 +34,9 @@
  */
 import { dirname, relative as relativePath, resolve as resolvePath, sep } from "node:path";
 import { mkdir, rm, stat, writeFile } from "node:fs/promises";
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { render } from "../src/render.js";
 import { readLockFile } from "../src/lock.js";
 import { checkCleanPaths, removeCleanPath } from "../src/clean.js";
@@ -772,7 +772,23 @@ async function dispatch(argv: string[], emitter: Emitter, mainOptions: MainOptio
   }
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+/**
+ * True when this module is the script Node was started with. Compared by
+ * real path: npm runs a bin through a symlink (`node_modules/.bin/fileable`,
+ * a global install), so `process.argv[1]` is the link while
+ * `import.meta.url` is the real file (#41).
+ */
+function isEntryPoint(): boolean {
+  const script = process.argv[1];
+  if (!script) return false;
+  try {
+    return realpathSync(script) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isEntryPoint()) {
   main(process.argv.slice(2)).then((code) => {
     process.exitCode = code;
   });
