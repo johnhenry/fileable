@@ -3,7 +3,7 @@
 ## Unreleased
 
 **Fixes**
-- #44: `fileable watch` could ignore an edit as stale. It dropped an event
+- #44 (PR #45): `fileable watch` could ignore an edit as stale. It dropped an event
   when the file's mtime wasn't newer than the moment the last build started
   (`Date.now()`); on Linux the filesystem clock can lag that by a few ms, so
   an edit saved right after a build started (e.g. straight after a fast
