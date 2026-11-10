@@ -204,3 +204,60 @@ test("a corrupt archive throws a clear FileableError instead of a raw parser cra
     await rm(outDir, { recursive: true, force: true });
   }
 });
+
+/** Builds a gzip(Web Bundle) with exactly these exchange URLs, as an attacker or another tool might. */
+async function writeForeignWbn(dir: string, urls: string[], primaryURL = "https://packfile.invalid/"): Promise<void> {
+  const builder = new wbn.BundleBuilder();
+  for (const url of urls) builder.addExchange(url, 200, { "Content-Type": "text/plain" }, "X");
+  builder.setPrimaryURL(primaryURL);
+  await writeFile(join(dir, "foreign.wbn"), gzipSync(Buffer.from(builder.createBundle())));
+}
+
+test('decode="wbn" percent-decodes entry names (#20)', async () => {
+  const outDir = await mkdtemp(join(tmpdir(), "fileable-decode-wbn-names-"));
+  try {
+    await writeForeignWbn(outDir, ["https://packfile.invalid/a%20b/%C3%BC%25.txt", "https://packfile.invalid/q%3Fx%23y.txt"]);
+    const [resolved] = await resolve([{ tag: "dir", props: { name: "out", src: "foreign.wbn", decode: "wbn" }, children: [] }], { cwd: outDir });
+    assert.deepEqual(
+      (resolved.children as Descriptor[]).map((c) => c.props.name).sort(),
+      ["a b/ü%.txt", "q?x#y.txt"],
+    );
+  } finally {
+    await rm(outDir, { recursive: true, force: true });
+  }
+});
+
+test('decode="wbn" strips entries against the primary URL\'s root, like packfile 0.2.x fromArchive()', async () => {
+  const outDir = await mkdtemp(join(tmpdir(), "fileable-decode-wbn-primary-"));
+  try {
+    await writeForeignWbn(outDir, ["https://example.com/index.html", "https://example.com/css/site.css"], "https://example.com/index.html");
+    const [resolved] = await resolve([{ tag: "dir", props: { name: "out", src: "foreign.wbn", decode: "wbn" }, children: [] }], { cwd: outDir });
+    assert.deepEqual((resolved.children as Descriptor[]).map((c) => c.props.name).sort(), ["css/site.css", "index.html"]);
+  } finally {
+    await rm(outDir, { recursive: true, force: true });
+  }
+});
+
+for (const [label, url, reason] of [
+  ["an encoded .. segment", "https://packfile.invalid/%2E%2E/escape.txt", "traversal"],
+  ["a raw .. segment", "https://packfile.invalid/a/../../escape.txt", "traversal"],
+  ["an encoded backslash", "https://packfile.invalid/a%5Cb.txt", "backslash"],
+  ["an encoded NUL", "https://packfile.invalid/a%00b.txt", "control-character"],
+  ["a malformed escape", "https://packfile.invalid/100%.txt", "malformed-encoding"],
+  ["a literal query", "https://packfile.invalid/a.txt?x=1", "query-or-fragment"],
+  ["a URL outside the base", "https://elsewhere.invalid/a.txt", "outside-base"],
+  ["an encoded leading slash", "https://packfile.invalid/%2Fetc%2Fpasswd", "absolute"],
+] as const) {
+  test(`decode="wbn" throws on ${label} instead of writing it (#20)`, async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "fileable-decode-wbn-unsafe-"));
+    try {
+      await writeForeignWbn(outDir, [url]);
+      await assert.rejects(
+        () => resolve([{ tag: "dir", props: { name: "out", src: "foreign.wbn", decode: "wbn" }, children: [] }], { cwd: outDir }),
+        (err: unknown) => err instanceof FileableError && err.message.includes(`(${reason})`),
+      );
+    } finally {
+      await rm(outDir, { recursive: true, force: true });
+    }
+  });
+}

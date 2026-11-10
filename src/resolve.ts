@@ -52,7 +52,7 @@ import { bufferToContent, combineContent, decodeBase64Strict } from "./content-u
 import { execCommand } from "./exec.js";
 import { recordWarning } from "./context.js";
 import { splitGlobBase, toPosixPattern } from "./glob-util.js";
-import { ARCHIVE_BASE_URL } from "./wbn-constants.js";
+import { archiveBase, archiveUrlToPath } from "./wbn-constants.js";
 import { markdownToHtml } from "./markdown.js";
 
 const CODE_EXTENSIONS = new Set([".jsx", ".tsx", ".js", ".mjs", ".ts"]);
@@ -213,8 +213,19 @@ function decodeWbn(buffer: Buffer, path: string): DecodedEntry[] {
     throw new FileableError("`decode=\"wbn\"` failed -- not a valid gzip(application/webbundle) archive", path, cause);
   }
   const entries: DecodedEntry[] = [];
+  // Exchange URLs are percent-encoded (encode="wbn" and packfile both encode
+  // each segment), so decode them back to file names (#20). An entry that
+  // cannot be a safe relative path throws rather than being skipped.
+  const base = archiveBase(bundle.primaryURL);
   for (const url of bundle.urls) {
-    const name = url.startsWith(ARCHIVE_BASE_URL) ? url.slice(ARCHIVE_BASE_URL.length) : url;
+    const result = archiveUrlToPath(url, base);
+    if ("reason" in result) {
+      throw new FileableError(
+        `\`decode="wbn"\` failed -- entry ${JSON.stringify(url)} is not a safe path under ${base} (${result.reason})`,
+        path,
+      );
+    }
+    const name = result.path;
     entries.push({ name, data: Buffer.from(bundle.getResponse(url).body) });
   }
   return entries;

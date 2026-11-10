@@ -1,12 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
-import { createRouter, fromArchive, fromFiles } from "@johnhenry/packfile";
-import { toWebBundle } from "@johnhenry/packfile/web-bundle";
-import { gzipSync } from "node:zlib";
+import { createRouter, fromArchive, fromFiles, toArchive } from "@johnhenry/packfile";
+import { toWebBundle, createWebBundleRouter } from "@johnhenry/packfile/web-bundle";
+import * as wbn from "wbn";
+import { gunzipSync, gzipSync } from "node:zlib";
 import { render } from "../src/render.js";
+import { resolve } from "../src/resolve.js";
 import type { Descriptor } from "../src/types.js";
 
 /**
@@ -140,4 +142,107 @@ test('packfile createRouter() serves encode="wbn" output: a page, a nested page,
   assert.equal(missing.status, 404);
   // Web Bundles have no directory entries, so a directory path is a 404 too.
   assert.equal((await router("/nested")).status, 404);
+});
+
+/**
+ * #20: file names with characters that mean something in a URL. Before the
+ * fix, `#` made the render throw, and packfile dropped `?` and `%` names
+ * (`query-or-fragment`, `malformed-encoding`); fileable's own decode returned
+ * spaces and non-ASCII still percent-encoded. Compared against the tree's
+ * own names rather than a loose render, because `?` is not a valid file name
+ * on Windows.
+ */
+const AWKWARD: Record<string, string> = {
+  "a#b.txt": "hash",
+  "q?x.txt": "query",
+  "100%.txt": "percent",
+  "%41.txt": "looks-encoded",
+  "a b.txt": "space",
+  "a@b+c&d=e.txt": "reserved",
+  "ü.txt": "non-ascii",
+  "dir with space/x%y#z?.html": "<p>nested</p>",
+};
+
+function awkwardTree(): Descriptor {
+  const top: Descriptor[] = [];
+  const nested: Descriptor[] = [];
+  for (const [path, body] of Object.entries(AWKWARD)) {
+    const parts = path.split("/");
+    const file: Descriptor = { tag: "file", props: { name: parts.at(-1)! }, children: [body] };
+    (parts.length > 1 ? nested : top).push(file);
+  }
+  return {
+    tag: "dir",
+    props: { name: "site", encode: "wbn" },
+    children: [...top, { tag: "dir", props: { name: "dir with space" }, children: nested }],
+  };
+}
+
+async function renderAwkward(): Promise<{ dir: string; archive: Buffer }> {
+  const dir = await mkdtemp(join(tmpdir(), "fileable-packfile-interop-awkward-"));
+  await render(awkwardTree(), { outDir: dir, cache: false });
+  return { dir, archive: await readFile(join(dir, "site.wbn")) };
+}
+
+test('encode="wbn" encodes each path segment like packfile, so #, ? and % names survive (#20)', async () => {
+  const { dir, archive } = await renderAwkward();
+  try {
+    const urls = new wbn.Bundle(new Uint8Array(gunzipSync(archive))).urls;
+    const expected = Object.keys(AWKWARD).map((p) =>
+      new URL(p.split("/").map(encodeURIComponent).join("/"), "https://packfile.invalid/").href,
+    );
+    assert.deepEqual([...urls].sort(), expected.sort());
+
+    const skipped: unknown[] = [];
+    const map = await fromArchive(archive, { onSkip: (s: unknown) => skipped.push(s) });
+    assert.deepEqual(skipped, []);
+    assert.deepEqual([...map.keys()].sort(), Object.keys(AWKWARD).sort());
+    for (const [path, body] of Object.entries(AWKWARD)) {
+      assert.equal(Buffer.from(map.get(path)!.data).toString("utf8"), body, path);
+    }
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("packfile createRouter() and createWebBundleRouter() serve the awkward names by request URL (#20, johnhenry/packfile#35)", async () => {
+  const { dir, archive } = await renderAwkward();
+  try {
+    const router = createRouter(await fromArchive(archive));
+    const bundle = new wbn.Bundle(new Uint8Array(gunzipSync(archive)));
+    const bundleRouter = createWebBundleRouter(bundle, { baseURL: "https://packfile.invalid/" });
+    for (const [path, body] of Object.entries(AWKWARD)) {
+      const href = `https://example.test/${path.split("/").map(encodeURIComponent).join("/")}`;
+      for (const [label, serve] of [["createRouter", router], ["createWebBundleRouter", bundleRouter]] as const) {
+        const res = await serve(new Request(href));
+        assert.equal(res.status, 200, `${label} ${path}`);
+        assert.equal(await res.text(), body, `${label} ${path}`);
+      }
+      // A string input is a decoded path for both routers.
+      assert.equal(await (await router(`/${path}`)).text(), body);
+      assert.equal(await (await bundleRouter(`/${path}`)).text(), body);
+    }
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('<Dir src decode="wbn"> reads the awkward names back as the same names, from fileable and from packfile archives (#20)', async () => {
+  const { dir } = await renderAwkward();
+  try {
+    const packfileArchive = await toArchive(await fromFiles(AWKWARD));
+    await writeFile(join(dir, "packfile.wbn"), packfileArchive);
+    for (const src of ["site.wbn", "packfile.wbn"]) {
+      const [decoded] = await resolve([{ tag: "dir", props: { name: "out", src, decode: "wbn" }, children: [] }], { cwd: dir });
+      const got = Object.fromEntries(
+        (decoded.children as Descriptor[]).map((c) => [
+          c.props.name as string,
+          (c.props as { __resolvedContent?: string }).__resolvedContent,
+        ]),
+      );
+      assert.deepEqual(got, AWKWARD, src);
+    }
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
