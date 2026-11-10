@@ -47,7 +47,7 @@
     as `--allow-fs-write`; without it the build stops with `E_ACCESS_DENIED`
     naming the flag.
 
-- **`fileable clean` removed whatever paths the lock file listed (#34).**
+- **`fileable clean` removed whatever paths the lock file listed (#34, PR #38).**
   The lock file sits in the output directory, so whoever can write there
   (a checked-in or downloaded build output) chose what `clean` deleted,
   recursively: `"../../x"`, an absolute path, or `link/x` through a symlink
@@ -58,6 +58,22 @@
   `E_UNSAFE_PATH` (exit 1) and nothing is removed, `--dry-run` included. A
   listed path that is itself a symlink or junction is removed as a link,
   never its target, and a removed directory's links are not followed.
+
+- **Names that are only hazardous on Windows were accepted (#35).** A
+  reserved device name (`CON`, `PRN`, `AUX`, `NUL`, `CONIN$`, `CONOUT$`,
+  `COM0`-`COM9`, `LPT0`-`LPT9`, superscript `COM¹`-`³`/`LPT¹`-`³`; any case,
+  with any extension, such as `nul.txt`) opened the device on Windows, a
+  `:` (`a.txt:stream`) wrote a hidden NTFS alternate data stream, and a
+  trailing dot or space (`a.txt.`, `dir `) was trimmed by Win32, so `a.txt.`
+  and `a.txt` were one file and got past the `E_PATH_CONFLICT` fold. The
+  shared path rule (`src/archive-path.ts`) now refuses all three on every
+  platform, for template names and `<Rm>` targets (`E_UNSAFE_PATH`), names
+  `encode="zip"`/`"wbn"` would write (`E_UNSAFE_PATH`), and entries
+  `decode="zip"`/`"wbn"` read (`E_UNSAFE_ENTRY`), and lock-file ids
+  `fileable clean` reads (`E_UNSAFE_PATH`), with the reasons
+  `reserved-name`, `alternate-stream` and `trailing-dot-or-space`.
+  **Behaviour change:** a template that names a file `aux.js`, `con.ts` or
+  `notes.` now fails on Linux and macOS too; rename it.
 
 - **`<Dir src decode="zip"|"wbn">` had no limit on decompressed size (zip
   bombs, #32, PR #37).** A small archive could inflate to gigabytes in memory. Each

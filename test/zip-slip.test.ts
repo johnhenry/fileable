@@ -165,6 +165,21 @@ const UNSAFE_NAMES: ReadonlyArray<readonly [label: string, name: string, reason:
   ["a '.. ' segment (Windows trims it to ..)", ".. /escaped.txt", "traversal"],
   ["a '. .' segment", ". ./escaped.txt", "dot-segment"],
   ["a .. directory entry", "../", "traversal"],
+  // Windows-only name hazards, refused on every platform (#35).
+  ["a reserved device name", "CON", "reserved-name"],
+  ["a lowercase reserved name with an extension", "nul.txt", "reserved-name"],
+  ["a reserved name with two extensions", "Aux.tar.gz", "reserved-name"],
+  ["a reserved name as a directory", "com1/escaped.txt", "reserved-name"],
+  ["a reserved name with a trailing space before the extension", "lpt9 .log", "reserved-name"],
+  ["a reserved name with a superscript digit", "COM\u00b9", "reserved-name"],
+  ["CONIN$", "conin$", "reserved-name"],
+  ["PRN in a nested segment", "a/b/prn.html", "reserved-name"],
+  ["an NTFS alternate data stream", "a.txt:hidden", "alternate-stream"],
+  ["a stream on a directory segment", "dir:x/a.txt", "alternate-stream"],
+  ["a trailing dot", "a.txt.", "trailing-dot-or-space"],
+  ["a trailing space", "a.txt ", "trailing-dot-or-space"],
+  ["a directory with a trailing space", "dir /a.txt", "trailing-dot-or-space"],
+  ["a directory with a trailing dot", "dir./a.txt", "trailing-dot-or-space"],
 ];
 
 for (const [label, name, reason] of UNSAFE_NAMES) {
@@ -225,7 +240,7 @@ test('decode="zip" refuses duplicate entry names instead of keeping one silently
 test('decode="zip" writes legitimate nested names, dotted names and a __proto__ entry under the root (#28)', async () => {
   const root = await mkdtemp(join(tmpdir(), "fileable-zip-safe-"));
   try {
-    const names = ["top.txt", "a/b/c/deep.txt", ".hidden/x.txt", "..foo", "foo..", "a..b/c...d.txt", "dir/", "ü/ß.txt", "__proto__", "constructor"];
+    const names = ["top.txt", "a/b/c/deep.txt", ".hidden/x.txt", "..foo", "foo..bar", "a..b/c...d.txt", "dir/", "ü/ß.txt", "__proto__", "constructor"];
     await writeFile(join(root, "ok.zip"), rawZip(names.map((name) => ({
       name,
       utf8: true,
@@ -292,7 +307,19 @@ test("decode=\"zip\" and decode=\"wbn\" agree on every unsafe name (one shared r
 });
 
 test("unsafeArchivePathReason accepts ordinary names", () => {
-  for (const name of ["a.txt", "a/b/c.txt", ".hidden", "..foo", "foo..", "a b/c d.txt", "ü/ß.txt", "C", "__proto__"]) {
+  for (const name of [
+    "a.txt", "a/b/c.txt", ".hidden", "..foo", "foo..bar", "a b/c d.txt", "ü/ß.txt", "C", "__proto__",
+    // Close to a reserved device name, but not one (#35).
+    "console.txt", "nullable", "auxiliary.js", "com10", "lpt", "COMx.txt", "conf", "x/con-tents.md", "a.con", "CON_",
+  ]) {
     assert.equal(unsafeArchivePathReason(name), undefined, name);
+  }
+});
+
+test("unsafeArchivePathReason refuses the Windows name hazards in any case (#35)", () => {
+  for (const base of ["CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$", ...Array.from({ length: 10 }, (_, i) => `COM${i}`), ...Array.from({ length: 10 }, (_, i) => `LPT${i}`)]) {
+    for (const name of [base, base.toLowerCase(), `${base}.txt`, `x/${base.toLowerCase()}.tar.gz`, `${base}/y.txt`]) {
+      assert.equal(unsafeArchivePathReason(name), "reserved-name", name);
+    }
   }
 });

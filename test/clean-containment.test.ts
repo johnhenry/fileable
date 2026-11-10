@@ -101,6 +101,10 @@ const UNSAFE_IDS: Array<[string, (f: Fixture) => string]> = [
   ["dot (outDir itself)", () => "."],
   ["dots-and-spaces segment", () => ".. /outside"],
   ["control character", () => "a\u0000b"],
+  // The shared rule's Windows name hazards apply to lock ids too (#35).
+  ["Windows reserved device name", () => "nul.txt"],
+  ["NTFS alternate data stream", () => "keep.txt:hidden"],
+  ["trailing dot", () => "keep.txt."],
 ];
 
 for (const [label, id] of UNSAFE_IDS) {
