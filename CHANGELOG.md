@@ -4,7 +4,7 @@
 
 ### Security
 - **`<Dir src decode="zip">` could write outside the output directory
-  (zip-slip, #28).** Entry names were used as file names unchecked, so an
+  (zip-slip, #28, PR #30).** Entry names were used as file names unchecked, so an
   entry named `../../escaped.txt` was written two levels above the `<Dir>`.
   Every entry name is now checked before any is used, with the same rule
   `decode="wbn"` uses (one shared helper, `src/archive-path.ts`): a `..`
