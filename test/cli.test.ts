@@ -45,24 +45,24 @@ test("--help returns 0 without requiring a template", async () => {
   assert.equal(await main(["build", "--help"]), 0);
 });
 
-test("no command / unknown command returns 1", async () => {
-  assert.equal(await main([]), 1);
-  assert.equal(await main(["frobnicate"]), 1);
+test("no command / unknown command returns 2 (E_USAGE)", async () => {
+  assert.equal(await main([]), 2);
+  assert.equal(await main(["frobnicate"]), 2);
 });
 
-test("`build` with no template path returns 1", async () => {
-  assert.equal(await main(["build"]), 1);
+test("`build` with no template path (and no manifest) returns 2 (E_USAGE)", async () => {
+  assert.equal(await main(["build"]), 2);
 });
 
-test("a nonexistent template module returns 1", async () => {
-  assert.equal(await main(["build", "does-not-exist.js"]), 1);
+test("a nonexistent template module returns 3 (E_MODULE_NOT_FOUND)", async () => {
+  assert.equal(await main(["build", "does-not-exist.js"]), 3);
 });
 
-test("a template module with no default export returns 1", async () => {
+test("a template module with no default export returns 3 (E_NOT_A_TEMPLATE)", async () => {
   await withTempDir(async (outDir) => {
     const template = join(process.cwd(), "test/fixtures/no-default-export.js");
     const code = await main(["build", template, "--out-dir", outDir]);
-    assert.equal(code, 1);
+    assert.equal(code, 3);
   });
 });
 
@@ -96,10 +96,10 @@ test("a template function with no --var flags gets defaults from the template it
   });
 });
 
-test("an invalid --var returns 1 with a clear message, without importing the template", async () => {
+test("an invalid --var returns 2 (E_USAGE) with a clear message, without importing the template", async () => {
   await withTempDir(async (outDir) => {
     const code = await main(["build", fixtureTemplateFn, "--out-dir", outDir, "--var", "count:number=abc"]);
-    assert.equal(code, 1);
+    assert.equal(code, 2);
   });
 });
 
@@ -238,19 +238,19 @@ test("eject --content overrides the global content mode for matching files", asy
   });
 });
 
-test("eject with no path argument returns 1", async () => {
-  assert.equal(await main(["eject"]), 1);
+test("eject with no path argument returns 2 (E_USAGE)", async () => {
+  assert.equal(await main(["eject"]), 2);
 });
 
-test("eject with an invalid --content-mode returns 1", async () => {
+test("eject with an invalid --content-mode returns 2 (E_USAGE)", async () => {
   await withTempDir(async (root) => {
-    assert.equal(await main(["eject", root, "--content-mode", "bogus"]), 1);
+    assert.equal(await main(["eject", root, "--content-mode", "bogus"]), 2);
   });
 });
 
-test("eject with a malformed --content flag returns 1", async () => {
+test("eject with a malformed --content flag returns 2 (E_USAGE)", async () => {
   await withTempDir(async (root) => {
-    assert.equal(await main(["eject", root, "--content", "no-equals-sign"]), 1);
+    assert.equal(await main(["eject", root, "--content", "no-equals-sign"]), 2);
   });
 });
 

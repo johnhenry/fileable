@@ -59,7 +59,7 @@ export function jsx(
     throw new FileableError(
       `<${type}> is reserved and not a fileable primitive on its own -- ` +
         `import { ${component} } from "@johnhenry/fileable" and write <${component}> instead of the bare lowercase tag`,
-      `<${type}>`,
+      `<${type}>`, undefined, "E_INVALID_TREE",
     );
   }
   const { children, ...rest } = allProps;

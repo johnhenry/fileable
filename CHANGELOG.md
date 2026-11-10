@@ -2,6 +2,43 @@
 
 ## Unreleased
 
+### Added
+- **Machine interface for desktop apps (#25).** Full reference:
+  `docs/machine-interface.md`.
+  - `--json` on `build`, `watch`, `clean`, `eject`, `manifest` and
+    `--version`: NDJSON events on stdout, nothing else (a template's own
+    `console.log` goes to stderr). Envelope `{"v":1,"event":...,"time":...}`
+    and the shared events (`warning`, `error` with `fatal`, `reloading`,
+    `stopping`, `stopped`) match `@johnhenry/servable` and
+    `@johnhenry/hostable`. Build events: `start`, `file`
+    (written/unchanged/skipped/removed with kind, encode, hash), `done`
+    (counts, `buildHash`, output shape), `watching`.
+  - Stable error codes on every `FileableError` (`code`), in text and JSON,
+    with `ERROR_CODES` and `describeError()` exported. Warnings carry codes
+    too (`E_WARN`, `E_SYMLINK_FALLBACK`, `E_RM_NO_MATCH`,
+    `E_CACHE_UNREADABLE`, `E_VARS_IGNORED`, `E_WATCH`).
+  - `fileable watch [template]`: debounced rebuilds on change using the
+    lock-file cache; a broken template is reported and watching continues;
+    templates and partials are re-imported fresh.
+  - `.ts`/`.mts` templates load directly (Node 26 type stripping).
+    `.tsx`/`.jsx` load without a compile step when the project has
+    `typescript` 5.x/6.x or `esbuild`; otherwise `E_JSX_COMPILER`. No new
+    dependency: the compiler is the project's own. In the CLI,
+    `@johnhenry/fileable` imports from a template always resolve to the
+    running fileable.
+  - Runs under `node --permission`: a missing `--allow-fs-write` for the
+    output directory, or `--allow-child-process` for `cmd`, is reported up
+    front as `E_ACCESS_DENIED` (exit 5) naming the flag; an unreadable lock
+    file is an `E_CACHE_UNREADABLE` warning instead of a silent full rebuild.
+  - Project manifest: `fileable.config.json` or package.json `"fileable"`
+    (`template`, `outDir`, `cwd`, `vars`, `encode`, `strict`, `cache`,
+    `lockFile`, `ipfsGateway`, `watch`), used by `build`/`watch`/`clean`
+    with no template, plus `fileable manifest`. `allowExec` is rejected as
+    a manifest key.
+  - `render()` options `onWarning` and `encode`; the summary adds `outputs`,
+    `warningDetails` and `buildHash`. CLI flags `--project`, `--encode`,
+    `--json`, `--debounce`, `--version`.
+
 ### Fixed
 - **`encode="wbn"` file names with `#`, `?` or `%` (#20).** Each path segment
   is now percent-encoded the way `@johnhenry/packfile`'s `toWebBundle()` does
@@ -19,6 +56,16 @@
   for the same reason (packfile never read those entries either).
 
 ### Changed
+- **CLI exit codes are now by class (#25):** 1 build failed or internal
+  error, 2 usage/manifest error, 3 template couldn't be loaded, 5 denied by
+  Node's permission model. Before, every failure exited 1; scripts that
+  test for exactly 1 need updating. Unknown `--options` and missing option
+  values are now usage errors (before, an unknown option was taken as a
+  positional argument). Text-mode errors are now one line,
+  `fileable: error <CODE>: <message>`, plus `caused by:` lines, instead of
+  a printed stack.
+- `--strict`'s symlink-copy refusal on Windows now throws a `FileableError`
+  (`E_SYMLINK`) instead of a plain `Error` (#25).
 - **Faster loose writes and warm (lock-cache) runs at large sizes (#22, #23).** The
   loose writer creates each distinct directory once instead of once per file
   and writes up to 64 files at a time; the warm-path "is this unchanged output

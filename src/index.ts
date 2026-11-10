@@ -38,6 +38,12 @@ export type {
   RenderTarget,
   RmProps,
   WriteSummary,
+  ErrorCode,
+  WarningCode,
+  FileableWarning,
+  OutputEntry,
 } from "./types.js";
 export { FileableError } from "./types.js";
+export { ERROR_CODES, describeError } from "./errors.js";
+export type { ErrorCodeInfo, ErrorDescription } from "./errors.js";
 export type { BinaryMode, ContentMode, ContentOverride, EjectFileInfo, EjectOptions } from "./eject.js";

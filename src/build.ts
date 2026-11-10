@@ -70,7 +70,7 @@ export function build(root: unknown): Descriptor[] {
         throw new FileableError(
           "a Promise can't be used directly as JSX content (only as a prop value, e.g. `src`/`cmd`, or any " +
             "other prop) -- await it yourself before rendering, or pass it as a prop instead",
-          "<jsx child>",
+          "<jsx child>", undefined, "E_INVALID_TREE",
         );
       }
       if (ArrayBuffer.isView(item) || item instanceof ArrayBuffer) {
@@ -78,7 +78,7 @@ export function build(root: unknown): Descriptor[] {
         throw new FileableError(
           "binary content (Uint8Array/ArrayBuffer) can't be a JSX child -- it would be written as comma-joined " +
             "numbers. Pass it as base64 instead: <File base64={...} />",
-          "<jsx child>",
+          "<jsx child>", undefined, "E_INVALID_TREE",
         );
       }
       // Anything else (e.g. an object an author mistakenly rendered directly)

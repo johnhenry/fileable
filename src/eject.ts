@@ -118,21 +118,21 @@ function validateOptions(options: EjectOptions): void {
   if (options.contentMode !== undefined && !CONTENT_MODES.has(options.contentMode)) {
     throw new FileableError(
       `invalid contentMode "${options.contentMode}" -- expected "infer", "inline", "ref", or "ask"`,
-      "<eject options>",
+      "<eject options>", undefined, "E_INVALID_OPTION",
     );
   }
   for (const override of options.content ?? []) {
     if (override.mode !== "inline" && override.mode !== "ref") {
       throw new FileableError(
         `invalid content override mode "${String(override.mode)}" for pattern "${override.pattern}" -- expected "inline" or "ref"`,
-        override.pattern,
+        override.pattern, undefined, "E_INVALID_OPTION",
       );
     }
   }
   if (options.binaryMode !== undefined && !BINARY_MODES.has(options.binaryMode)) {
     throw new FileableError(
       `invalid binaryMode "${options.binaryMode}" -- expected "ref" or "base64"`,
-      "<eject options>",
+      "<eject options>", undefined, "E_INVALID_OPTION",
     );
   }
 }
@@ -216,7 +216,7 @@ async function describeFile(
       throw new FileableError(
         `cannot inline binary content as source text: ${relPath} -- use contentMode "ref" (or a content override), ` +
           `or set { binaryMode: "base64" } to inline it as base64 instead`,
-        relPath,
+        relPath, undefined, "E_EJECT_BINARY",
       );
     }
     return File({ name, children: [buffer.toString("utf8")] });
@@ -249,7 +249,7 @@ async function resolveMode(info: EjectFileInfo, options: EjectOptions): Promise<
   if (!options.onAsk) {
     throw new FileableError(
       `contentMode "ask" requires an onAsk callback (the CLI supplies an interactive prompt automatically; the SDK does not)`,
-      info.relativePath,
+      info.relativePath, undefined, "E_INVALID_OPTION",
     );
   }
   return options.onAsk(info);

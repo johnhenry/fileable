@@ -46,7 +46,7 @@ function parseOnConflict(props: Record<string, unknown>, path: string): "replace
   }
   throw new FileableError(
     `invalid onConflict="${String(value)}" -- expected "replace", "append", "prepend", "skip", or "error"`,
-    path,
+    path, undefined, "E_INVALID_PROP",
   );
 }
 
@@ -161,7 +161,7 @@ async function writeOneFile(
       if (onConflict === "error") {
         throw new FileableError(
           `refusing to overwrite existing file (onConflict="error"): ${file.outputPath}`,
-          file.outputPath,
+          file.outputPath, undefined, "E_CONFLICT",
         );
       }
       if (onConflict === "skip") {
@@ -171,7 +171,7 @@ async function writeOneFile(
         throw new FileableError(
           `onConflict="${onConflict}" doesn't apply to a symlink -- there's no existing content at ` +
             `${file.outputPath} to ${onConflict} to`,
-          file.outputPath,
+          file.outputPath, undefined, "E_CONFLICT",
         );
       }
     }
@@ -191,7 +191,7 @@ async function writeOneFile(
       const message =
         `symlink to ${file.symlinkTo} was materialized as a copy because creating a real ` +
         "symlink requires elevated permissions or Developer Mode on Windows.";
-      if (strict) throw new Error(message);
+      if (strict) throw new FileableError(message, file.outputPath, undefined, "E_SYMLINK");
       warning = message;
       await writeFile(fullPath, file.content ?? "");
       if (file.mode) await chmod(fullPath, parseInt(file.mode, 8));
@@ -202,7 +202,7 @@ async function writeOneFile(
       if (alreadyExists && onConflict === "error") {
         throw new FileableError(
           `refusing to overwrite existing file (onConflict="error"): ${file.outputPath}`,
-          file.outputPath,
+          file.outputPath, undefined, "E_CONFLICT",
         );
       }
       if (alreadyExists && onConflict === "skip") {
@@ -330,7 +330,7 @@ export async function applyRemovals(removals: RemovalSpec[], outDir: string, dry
         try {
           ok = await spec.deletable(fileInfo, { path: relative, pattern: spec.pattern });
         } catch (cause) {
-          throw new FileableError(`deletable() threw for "${relative}"`, relative, cause);
+          throw new FileableError(`deletable() threw for "${relative}"`, relative, cause, "E_RM");
         }
         if (!ok) continue;
       }
@@ -361,7 +361,7 @@ export async function applyRemovals(removals: RemovalSpec[], outDir: string, dry
     if (removedForThisTarget === 0 && spec.onMissing !== "ignore") {
       const message = `<Rm target="${spec.pattern}"> matched nothing to remove`;
       if (spec.onMissing === "error") {
-        throw new FileableError(message, spec.pattern);
+        throw new FileableError(message, spec.pattern, undefined, "E_RM");
       }
       warnings.push(message);
     }

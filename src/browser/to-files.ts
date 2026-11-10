@@ -73,7 +73,7 @@ function assertSafePath(path: string): void {
   if (reason) {
     throw new FileableError(
       `unsafe output path ${JSON.stringify(path)} (${reason}) -- toFiles() only produces relative POSIX paths inside the tree`,
-      path,
+      path, undefined, "E_UNSAFE_PATH",
     );
   }
 }
@@ -98,7 +98,7 @@ function parseOnConflict(props: Record<string, unknown>, path: string): "replace
   if (typeof value === "string" && ON_CONFLICT_VALUES.has(value)) return value as "replace";
   throw new FileableError(
     `invalid onConflict="${String(value)}" -- expected "replace", "append", "prepend", "skip", or "error"`,
-    path,
+    path, undefined, "E_INVALID_PROP",
   );
 }
 
@@ -133,7 +133,7 @@ async function applyRemovals(removals: RemovalSpec[], files: Files, warnings: st
             { path, pattern: spec.pattern },
           );
         } catch (cause) {
-          throw new FileableError(`deletable() threw for "${path}"`, path, cause);
+          throw new FileableError(`deletable() threw for "${path}"`, path, cause, "E_RM");
         }
         if (!ok) continue;
       }
@@ -146,7 +146,7 @@ async function applyRemovals(removals: RemovalSpec[], files: Files, warnings: st
     }
     if (removed === 0 && spec.onMissing !== "ignore") {
       const message = `<Rm target="${spec.pattern}"> matched nothing to remove`;
-      if (spec.onMissing === "error") throw new FileableError(message, spec.pattern);
+      if (spec.onMissing === "error") throw new FileableError(message, spec.pattern, undefined, "E_RM");
       warnings.push(message);
     }
   }
@@ -167,7 +167,7 @@ export async function toFiles(tree: unknown, options: ToFilesOptions = {}): Prom
       throw new FileableError(
         `encode="${artifact.target}" (${artifact.containerPath ?? artifact.outputPath}) is not supported in the browser entry point -- ` +
           `use render() from the Node entry point ("@johnhenry/fileable") to produce archives`,
-        artifact.outputPath,
+        artifact.outputPath, undefined, "E_BROWSER_UNSUPPORTED",
       );
     }
   }
@@ -206,7 +206,7 @@ export async function toFiles(tree: unknown, options: ToFilesOptions = {}): Prom
       throw new FileableError(
         `symlink ${link.path} -> ${link.target} points at ${JSON.stringify(targetPath)}, which is not a file in the result -- ` +
           "symlinks are materialized as copies in toFiles()",
-        link.path,
+        link.path, undefined, "E_SYMLINK",
       );
     }
     place(link.path, files[targetPath], link.onConflict);
@@ -216,7 +216,7 @@ export async function toFiles(tree: unknown, options: ToFilesOptions = {}): Prom
     // Only pre-existing content (from `existing`) can conflict; same-build duplicates already threw in Layout.
     if (isExisting(path) && !generated.has(path)) {
       if (onConflict === "error") {
-        throw new FileableError(`refusing to overwrite existing file (onConflict="error"): ${path}`, path);
+        throw new FileableError(`refusing to overwrite existing file (onConflict="error"): ${path}`, path, undefined, "E_CONFLICT");
       }
       if (onConflict === "skip") return;
       if (onConflict === "append") content = combine(files[path], content);
