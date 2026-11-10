@@ -4,6 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { listenLoopback } from "./local-server.js";
 import { createServer } from "node:http";
 import type { Server } from "node:http";
 import { linkTo, toFiles, h, dir, file, rm, Dir, File, Rm, Fragment } from "../src/browser/index.js";
@@ -60,8 +61,7 @@ test("toFiles() fetches https:// and ipfs:// sources", async () => {
     res.writeHead(200);
     res.end(`body of ${req.url}`);
   });
-  await new Promise<void>((r) => server.listen(0, r));
-  const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  const base = `http://127.0.0.1:${await listenLoopback(server)}`;
   try {
     const files = await toFiles(
       Dir({

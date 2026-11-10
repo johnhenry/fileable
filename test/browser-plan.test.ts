@@ -9,6 +9,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { listenLoopback } from "./local-server.js";
 import { createServer } from "node:http";
 import type { Server } from "node:http";
 import { plan, toLockFileShape } from "../src/browser/index.js";
@@ -24,8 +25,7 @@ async function withServer(
     res.writeHead(status);
     res.end(body);
   });
-  await new Promise<void>((resolvePromise) => server.listen(0, resolvePromise));
-  const port = (server.address() as { port: number }).port;
+  const port = await listenLoopback(server);
   try {
     await run(`http://127.0.0.1:${port}`);
   } finally {

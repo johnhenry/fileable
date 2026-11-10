@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { listenLoopback } from "./local-server.js";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -37,8 +38,7 @@ test("<MarkdownHTML src> reuses loadSrc() fully -- https:// works, not just loca
     res.writeHead(200);
     res.end("## From the network");
   });
-  await new Promise<void>((resolvePromise) => server.listen(0, resolvePromise));
-  const port = (server.address() as { port: number }).port;
+  const port = await listenLoopback(server);
   try {
     const node = MarkdownHTML({ name: "post.html", src: `http://127.0.0.1:${port}/post.md` });
     const [resolved] = await resolve([node]);
@@ -60,8 +60,7 @@ test("<MarkdownHTML src> reuses loadSrc() fully -- ipfs:// works too", async () 
     res.writeHead(404);
     res.end();
   });
-  await new Promise<void>((resolvePromise) => server.listen(0, resolvePromise));
-  const port = (server.address() as { port: number }).port;
+  const port = await listenLoopback(server);
   try {
     const node = MarkdownHTML({ name: "post.html", src: `ipfs://${CID}/post.md` });
     const [resolved] = await resolve([node], { ipfsGateway: `http://127.0.0.1:${port}/ipfs/` });
