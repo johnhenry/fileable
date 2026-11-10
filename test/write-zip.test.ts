@@ -1,11 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { strFromU8, unzipSync } from "fflate";
 import { render } from "../src/render.js";
 import type { Descriptor } from "../src/types.js";
+import { readZipEntries } from "../src/zip-read.js";
 
 test("encode=\"zip\" produces a .zip with the same tree inside it", async () => {
   const outDir = await mkdtemp(join(tmpdir(), "fileable-archive-"));
@@ -102,6 +103,49 @@ test("an archive whose hash is unchanged but whose .zip was deleted by hand gets
     assert.ok(second.written.includes("docs.zip"));
     assert.equal(second.skipped.includes("docs.zip"), false);
     await stat(join(outDir, "docs.zip"));
+  } finally {
+    await rm(outDir, { recursive: true, force: true });
+  }
+});
+
+// #36: zipSync() keyed a plain object by entry name, so `__proto__` set the
+// prototype and the entry was silently dropped. unzipSync() has the same
+// problem on the way back, so these read with fileable's own zip reader.
+test('encode="zip" keeps entries named __proto__, constructor and prototype (#36)', async () => {
+  const outDir = await mkdtemp(join(tmpdir(), "fileable-zip-proto-"));
+  try {
+    const names = ["__proto__", "constructor", "prototype", "hasOwnProperty", "toString"];
+    const file = (name: string): Descriptor => ({ tag: "file", props: { name }, children: [`content of ${name}`] });
+    const tree: Descriptor = { tag: "dir", props: { name: "bundle", encode: "zip" }, children: [
+      ...names.map(file),
+      { tag: "dir", props: { name: "__proto__dir" }, children: [file("x.txt")] },
+      { tag: "dir", props: { name: "sub" }, children: [file("__proto__")] },
+    ] };
+    await render(tree, { outDir, cache: false });
+
+    const entries = readZipEntries(new Uint8Array(await readFile(join(outDir, "bundle.zip"))));
+    const files = new Map(entries.filter((e) => !e.isDirectory).map((e) => [e.name, new TextDecoder().decode(e.read())]));
+    for (const name of names) assert.equal(files.get(name), `content of ${name}`, name);
+    assert.equal(files.get("sub/__proto__"), "content of __proto__");
+    assert.equal(files.get("__proto__dir/x.txt"), "content of x.txt");
+    assert.equal(files.size, names.length + 2, "every entry, nothing dropped or duplicated");
+  } finally {
+    await rm(outDir, { recursive: true, force: true });
+  }
+});
+
+test('encode="zip" output round-trips through decode="zip", __proto__ included (#36)', async () => {
+  const outDir = await mkdtemp(join(tmpdir(), "fileable-zip-proto-rt-"));
+  try {
+    const tree: Descriptor = { tag: "dir", props: { name: "bundle", encode: "zip" }, children: [
+      { tag: "file", props: { name: "__proto__" }, children: ["P"] },
+      { tag: "file", props: { name: "a.txt" }, children: ["A"] },
+      { tag: "dir", props: { name: "empty" }, children: [] },
+    ] };
+    await render(tree, { outDir, cache: false });
+    await render({ tag: "dir", props: { name: "out", src: "bundle.zip", decode: "zip" }, children: [] }, { outDir, cwd: outDir, cache: false });
+    assert.deepEqual((await readdir(join(outDir, "out"))).sort(), ["__proto__", "a.txt"]);
+    assert.equal(await readFile(join(outDir, "out", "__proto__"), "utf8"), "P");
   } finally {
     await rm(outDir, { recursive: true, force: true });
   }
