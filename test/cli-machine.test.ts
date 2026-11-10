@@ -8,10 +8,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, realpath, rename, rm, utimes, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { main } from "../bin/fileable.js";
 import { describeError, ERROR_CODES } from "../src/errors.js";
 import { render } from "../src/render.js";
@@ -376,6 +376,74 @@ test("under node --permission: works with read on project + fileable and write o
   });
 });
 
+
+/**
+ * Runs `fileable watch` in-process on a template in `dir`, collecting its
+ * events. Every wait polls for an event the watcher must emit; nothing
+ * sleeps for a fixed time hoping the watcher has caught up (#44).
+ */
+async function watching(dir: string, body: (w: WatchHarness) => Promise<void>): Promise<Event[]> {
+  const lines: string[] = [];
+  const io = { stdout: (t: string) => lines.push(...t.split("\n").filter(Boolean)), stderr: () => {} };
+  const events = () => lines.map((l) => JSON.parse(l) as Event);
+  const waitFor = async (predicate: (e: Event[]) => boolean, what: string) => {
+    const deadline = Date.now() + 15000;
+    while (!predicate(events())) {
+      if (Date.now() > deadline) assert.fail(`timed out waiting for ${what}: ${JSON.stringify(events().filter((e) => e.event !== "file"))}`);
+      await new Promise((r) => setTimeout(r, 25));
+    }
+  };
+  let writes = 0;
+  // Replaces a file in one step (write beside the project, then rename), so
+  // the watcher never sees it half-written, optionally with an old mtime.
+  const put = async (path: string, content: string, mtime?: Date) => {
+    const temp = join(dirname(dir), `${basename(dir)}.put-${writes++}`);
+    await writeFile(temp, content);
+    if (mtime) await utimes(temp, mtime, mtime);
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await rename(temp, path);
+        return;
+      } catch (error) {
+        // Windows: the watcher may be reading the old file for a moment.
+        if ((error as { code?: string }).code !== "EPERM" || attempt > 50) throw error;
+        await new Promise((r) => setTimeout(r, 20));
+      }
+    }
+  };
+  const controller = new AbortController();
+  const running = main(["watch", join(dir, "template.js"), "--json", "--debounce", "50"], { io, signal: controller.signal });
+  try {
+    await body({ events, waitFor, put, dones: () => only(events(), "done") });
+  } finally {
+    controller.abort();
+  }
+  assert.equal(await running, 0);
+  const all = events();
+  assert.deepEqual(names(all).slice(-2), ["stopping", "stopped"]);
+  assert.equal(only(all, "stopping")[0].signal, "abort");
+  // Each reloading is followed by exactly one build: one start and one done.
+  const seq = names(all).filter((n) => n === "reloading" || n === "start" || n === "done");
+  for (let i = 0; i < seq.length; i++) {
+    if (seq[i] === "reloading") assert.deepEqual(seq.slice(i + 1, i + 3), ["start", "done"]);
+  }
+  return all;
+}
+
+interface WatchHarness {
+  events: () => Event[];
+  waitFor: (predicate: (e: Event[]) => boolean, what: string) => Promise<void>;
+  put: (path: string, content: string, mtime?: Date) => Promise<void>;
+  dones: () => Event[];
+}
+
+/** The build's own output (site/, the lock file) never shows up as a change. */
+function onlySourcesReloaded(all: Event[], sources: string[]) {
+  for (const r of only(all, "reloading")) {
+    for (const file of r.files as string[]) assert.ok(sources.includes(file), `unexpected reloading: ${JSON.stringify(r.files)}`);
+  }
+}
+
 test("fileable watch: rebuilds on change, reports a broken template without stopping, and stops cleanly", async () => {
   await withTempDir(async (dir) => {
     await writeFile(join(dir, "partial.js"), `export const text = "v1";`);
@@ -384,55 +452,128 @@ test("fileable watch: rebuilds on change, reports a broken template without stop
       `import { text } from "./partial.js";
        export default { tag: "dir", props: { name: "site" }, children: [{ tag: "file", props: { name: "a.txt" }, children: [text] }] };`,
     );
-    const lines: string[] = [];
-    const io = { stdout: (t: string) => lines.push(...t.split("\n").filter(Boolean)), stderr: () => {} };
-    const events = () => lines.map((l) => JSON.parse(l) as Event);
-    const waitFor = async (predicate: (e: Event[]) => boolean, what: string) => {
-      const deadline = Date.now() + 15000;
-      while (!predicate(events())) {
-        if (Date.now() > deadline) assert.fail(`timed out waiting for ${what}: ${JSON.stringify(names(events()))}`);
-        await new Promise((r) => setTimeout(r, 25));
-      }
+    const all = await watching(dir, async ({ events, waitFor, put, dones }) => {
+      await waitFor((e) => e.some((x) => x.event === "watching"), "watching");
+      assert.equal(await readFile(join(dir, "site/a.txt"), "utf8"), "v1");
+
+      await put(join(dir, "partial.js"), `export const text = "v2";`);
+      await waitFor(() => dones().length >= 2, "rebuild after change");
+      assert.deepEqual(only(events(), "reloading")[0].files, ["partial.js"]);
+      assert.equal(await readFile(join(dir, "site/a.txt"), "utf8"), "v2", "the partial was re-imported fresh");
+
+      await put(join(dir, "partial.js"), `export const text = ;`);
+      await waitFor(() => dones().some((d) => d.ok === false), "failed done");
+      const error = only(events(), "error")[0];
+      assert.equal(error.code, "E_MODULE_LOAD");
+      assert.equal(error.fatal, false);
+
+      // Written straight after a failed build, which finishes in a few ms: on
+      // Linux this write's mtime could predate that build's start (#44).
+      await put(join(dir, "partial.js"), `export const text = "v3";`);
+      await waitFor(() => dones().filter((d) => d.ok === true).length >= 3, "recovery");
+      assert.equal(await readFile(join(dir, "site/a.txt"), "utf8"), "v3");
+    });
+    // One build per content change: initial, v2, broken, v3. A replayed or
+    // duplicate event, or one for the build's own output, would add one.
+    assert.deepEqual(only(all, "done").map((d) => d.ok), [true, true, false, true]);
+    onlySourcesReloaded(all, ["partial.js"]);
+  });
+});
+
+test("fileable watch: an edit is rebuilt whatever its mtime (#44)", async () => {
+  await withTempDir(async (dir) => {
+    await writeFile(join(dir, "partial.js"), `export const text = "v1";`);
+    await writeFile(
+      join(dir, "template.js"),
+      `import { text } from "./partial.js";
+       export default { tag: "dir", props: { name: "site" }, children: [{ tag: "file", props: { name: "a.txt" }, children: [text] }] };`,
+    );
+    const all = await watching(dir, async ({ waitFor, put, dones }) => {
+      await waitFor((e) => e.some((x) => x.event === "watching"), "watching");
+      // An mtime from before the build started, as a coarse filesystem clock,
+      // `cp -p`, or an archive extraction gives. Watch used to drop it as stale.
+      const past = new Date(Date.now() - 60_000);
+      await put(join(dir, "partial.js"), `export const text = "v2";`, past);
+      await waitFor(() => dones().length >= 2, "rebuild after an edit with an old mtime");
+      assert.equal(await readFile(join(dir, "site/a.txt"), "utf8"), "v2");
+      await put(join(dir, "partial.js"), `export const text = "v3";`, new Date(0));
+      await waitFor(() => dones().length >= 3, "rebuild after an edit with mtime 1970");
+      assert.equal(await readFile(join(dir, "site/a.txt"), "utf8"), "v3");
+    });
+    assert.deepEqual(only(all, "done").map((d) => d.ok), [true, true, true]);
+    onlySourcesReloaded(all, ["partial.js"]);
+  });
+});
+
+test("fileable watch: an edit made while a build runs, the first one included, is rebuilt; new outputs aren't (#44)", async () => {
+  await withTempDir(async (dir) => {
+    await writeFile(join(dir, "partial.js"), `export const text = "v1";`);
+    // Each build waits on a gate the test controls, so edits land mid-build
+    // deterministically. The output's name follows the content, so every
+    // build writes a path the previous one didn't.
+    await writeFile(
+      join(dir, "template.js"),
+      `import { text } from "./partial.js";
+       export default async () => {
+         await globalThis.__fileableWatchGate?.();
+         return { tag: "dir", props: { name: "site" }, children: [{ tag: "file", props: { name: text + ".txt" }, children: [text] }] };
+       };`,
+    );
+    const gates: { entered: Promise<void>; release: () => void }[] = [];
+    // Fails (rather than hangs) when a build that should start never does.
+    const started = (n: number) =>
+      Promise.race([
+        gates[n].entered,
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`build ${n + 1} never started`)), 15000).unref()),
+      ]);
+    let entered: () => void = () => {};
+    const nextGate = () => {
+      let release!: () => void;
+      const gate = new Promise<void>((r) => (release = r));
+      const enteredPromise = new Promise<void>((r) => (entered = r));
+      gates.push({ entered: enteredPromise, release });
+      return gate;
     };
-    const doneCount = () => only(events(), "done").length;
-    const controller = new AbortController();
-    const running = main(["watch", join(dir, "template.js"), "--json", "--debounce", "50"], { io, signal: controller.signal });
+    let gate = nextGate();
+    (globalThis as { __fileableWatchGate?: () => Promise<void> }).__fileableWatchGate = () => {
+      const current = gate;
+      entered();
+      gate = nextGate();
+      return current;
+    };
     try {
-
-    await waitFor((e) => e.some((x) => x.event === "watching"), "watching");
-    assert.equal(await readFile(join(dir, "site/a.txt"), "utf8"), "v1");
-    // Give the watcher a moment to settle so the initial build's own writes are behind us.
-    await new Promise((r) => setTimeout(r, 200));
-    assert.equal(doneCount(), 1, `the first build's own output doesn't trigger a rebuild: ${JSON.stringify(only(events(), "reloading"))}`);
-
-    await writeFile(join(dir, "partial.js"), `export const text = "v2";`);
-    await waitFor(() => doneCount() >= 2, "rebuild after change");
-    const reloading = only(events(), "reloading")[0];
-    assert.ok((reloading.files as string[]).includes("partial.js"), JSON.stringify(only(events(), "reloading")));
-    assert.equal(await readFile(join(dir, "site/a.txt"), "utf8"), "v2", "the partial was re-imported fresh");
-
-    await writeFile(join(dir, "partial.js"), `export const text = ;`);
-    await waitFor(() => only(events(), "error").length >= 1, "error for broken partial");
-    const error = only(events(), "error")[0];
-    assert.equal(error.code, "E_MODULE_LOAD");
-    assert.equal(error.fatal, false);
-    await waitFor(() => only(events(), "done").some((d) => d.ok === false), "failed done");
-
-    await writeFile(join(dir, "partial.js"), `export const text = "v3";`);
-    await waitFor(() => only(events(), "done").filter((d) => d.ok === true).length >= 3, "recovery");
-    assert.equal(await readFile(join(dir, "site/a.txt"), "utf8"), "v3");
-
+      const all = await watching(dir, async ({ waitFor, put, dones }) => {
+        try {
+          // Build 1 (initial) is running and has already read partial.js (v1).
+          await started(0);
+          await put(join(dir, "partial.js"), `export const text = "v2";`);
+          gates[0].release();
+          await waitFor((e) => e.some((x) => x.event === "watching"), "watching");
+          // Build 2 picks up the edit made during build 1.
+          await started(1);
+          await put(join(dir, "partial.js"), `export const text = "v3";`);
+          gates[1].release();
+          // Build 3 picks up the edit made during build 2.
+          await started(2);
+          gates[2].release();
+          await waitFor(() => dones().length >= 3, "rebuild after an edit during build 2");
+          assert.equal(await readFile(join(dir, "site/v3.txt"), "utf8"), "v3");
+          // A sentinel edit: any held event for v2.txt/v3.txt was judged before it.
+          await put(join(dir, "partial.js"), `export const text = "v4";`);
+          await started(3);
+          gates[3].release();
+          await waitFor(() => dones().length >= 4, "rebuild after the sentinel edit");
+          assert.equal(await readFile(join(dir, "site/v4.txt"), "utf8"), "v4");
+        } finally {
+          // A failed step mustn't leave a build blocked, or stopping would wait on it.
+          for (const g of gates) g.release();
+        }
+      });
+      assert.deepEqual(only(all, "done").map((d) => d.ok), [true, true, true, true]);
+      onlySourcesReloaded(all, ["partial.js"]);
     } finally {
-      controller.abort();
-    }
-    assert.equal(await running, 0);
-    const tail = names(events()).slice(-2);
-    assert.deepEqual(tail, ["stopping", "stopped"]);
-    assert.equal(only(events(), "stopping")[0].signal, "abort");
-    // Each reloading is followed by exactly one build: one start and one done.
-    const seq = names(events()).filter((n) => n === "reloading" || n === "start" || n === "done");
-    for (let i = 0; i < seq.length; i++) {
-      if (seq[i] === "reloading") assert.deepEqual(seq.slice(i + 1, i + 3), ["start", "done"]);
+      delete (globalThis as { __fileableWatchGate?: unknown }).__fileableWatchGate;
+      for (const g of gates) g.release();
     }
   });
 });
