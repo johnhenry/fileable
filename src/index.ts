@@ -44,6 +44,8 @@ export type {
   OutputEntry,
 } from "./types.js";
 export { FileableError } from "./types.js";
+export { DEFAULT_DECODE_LIMITS, RATIO_GRACE_BYTES } from "./archive-limits.js";
+export type { DecodeLimits } from "./archive-limits.js";
 export { ERROR_CODES, describeError } from "./errors.js";
 export type { ErrorCodeInfo, ErrorDescription } from "./errors.js";
 export type { BinaryMode, ContentMode, ContentOverride, EjectFileInfo, EjectOptions } from "./eject.js";

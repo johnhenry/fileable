@@ -2,6 +2,7 @@
  * Core descriptor tree types shared by every pipeline stage (Build -> Resolve ->
  * Layout -> Hash -> Write). See PRD SS2-4.
  */
+import type { DecodeLimits } from "./archive-limits.js";
 
 export const FRAGMENT: unique symbol = Symbol.for("fileable.fragment");
 
@@ -87,6 +88,12 @@ export interface DirProps extends BaseProps {
    */
   src?: string;
   decode?: "zip" | "wbn";
+  /**
+   * Size limits for decoding this `<Dir src decode>` archive (#32), per
+   * key over the `decodeLimits` render option and `DEFAULT_DECODE_LIMITS`.
+   * Crossing one throws `E_ARCHIVE_LIMIT`. `Infinity` turns one off.
+   */
+  decodeLimits?: DecodeLimits;
   /**
    * How this subtree materializes. `"loose"` (default): real files/
    * directories on disk. `"zip"`: one `.zip` (via `fflate`). `"wbn"`: one
@@ -383,6 +390,15 @@ export interface RenderOptions {
    * (E_INVALID_OPTION) rather than silently leaving it loose.
    */
   encode?: RenderTarget;
+  /**
+   * Size limits for every `<Dir src decode>` archive (#32): total
+   * uncompressed bytes, entry count, per-entry bytes and compression ratio.
+   * Unset keys use `DEFAULT_DECODE_LIMITS`; a `<Dir decodeLimits>` prop
+   * overrides per key. The CLI's `--max-decoded-bytes`,
+   * `--max-decoded-entries`, `--max-entry-bytes`, `--max-compression-ratio`
+   * and the manifest's `"decodeLimits"` set this.
+   */
+  decodeLimits?: DecodeLimits;
 }
 
 /**
@@ -536,6 +552,7 @@ export type ErrorCode =
   | "E_SRC"
   | "E_DECODE"
   | "E_UNSAFE_ENTRY"
+  | "E_ARCHIVE_LIMIT"
   | "E_EXEC_DENIED"
   | "E_EXEC_FAILED"
   | "E_SYMLINK"
