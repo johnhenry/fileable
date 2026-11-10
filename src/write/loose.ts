@@ -5,10 +5,11 @@
  * degrade (archive/inline can't hold a real symlink); this OS-level failure
  * can only be discovered here.
  */
-import { access, appendFile, chmod, lstat, mkdir, readFile, readdir, rm, rmdir, symlink, writeFile } from "node:fs/promises";
-import { dirname, join, sep } from "node:path";
+import { access, appendFile, chmod, lstat, readFile, readdir, rm, rmdir, symlink, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { glob } from "glob";
 import { combineContent } from "../content-util.js";
+import { lstatIfExists, OutDirGuard } from "./contain.js";
 import { splitGlobBase, toPosixPattern } from "../glob-util.js";
 import { FileableError } from "../types.js";
 import { IO_CONCURRENCY, mapLimit } from "../concurrency.js";
@@ -55,17 +56,6 @@ const WRITTEN: FileOutcome = { status: "written" };
 const SKIPPED: FileOutcome = { status: "skipped" };
 
 /**
- * Key for "these two paths are the same file on disk". Layout already
- * rejects two artifacts on one output path, but on a case-insensitive
- * (macOS/Windows default) or normalizing (APFS) filesystem `A.txt` and
- * `a.txt` are still one file -- operations on such paths are serialized in
- * artifact order, exactly as the old one-at-a-time loop ran them.
- */
-function samePathKey(fullPath: string): string {
-  return fullPath.normalize("NFC").toLowerCase();
-}
-
-/**
  * Stage 5 for `encode="loose"`. Directories first (in tree order, parents
  * before children), then files, each phase with up to IO_CONCURRENCY
  * operations in flight (issue #22) -- previously every file awaited its own
@@ -86,48 +76,28 @@ export async function writeLoose(
   outDir: string,
   strict: boolean,
   dryRun = false,
+  guard: OutDirGuard = new OutDirGuard(outDir, dryRun),
 ): Promise<LooseWriteResult> {
   const dirs = artifacts.filter((a) => a.kind === "dir" && a.target === "loose");
   const files = artifacts.filter((a) => a.kind === "file" && a.target === "loose");
 
-  // One promise per distinct directory: created once, and only after its
-  // parent's promise (including a parent <Dir mode> chmod) has settled.
-  // Tasks start in artifact (tree pre-)order and register synchronously, so
-  // a <Dir>'s own task is always the one its children find here.
-  const root = join(outDir, ".");
-  const ensured = new Map<string, Promise<void>>();
-  const ensureDir = (path: string, mode?: string): Promise<void> => {
-    const existing = ensured.get(path);
-    if (existing && mode === undefined) return existing;
-    const parent = dirname(path);
-    const isTop = path === root || parent === path || !path.startsWith(root + sep);
-    const created = (async () => {
-      if (existing) await existing;
-      else if (!isTop) await ensureDir(parent);
-      await mkdir(path, { recursive: true });
-      if (mode) await chmod(path, parseInt(mode, 8));
-    })();
-    ensured.set(path, created);
-    return created;
-  };
-
-  if (!dryRun) {
-    await mapLimit(dirs, IO_CONCURRENCY, (dir) => ensureDir(join(outDir, dir.outputPath), dir.mode ?? ""));
-  }
+  // One promise per distinct directory (OutDirGuard.ensureDir): created once,
+  // and only after its parent's promise (including a parent <Dir mode>
+  // chmod) has settled. Tasks start in artifact (tree pre-)order and
+  // register synchronously, so a <Dir>'s own task is always the one its
+  // children find. Every level that already exists is checked for a symlink
+  // leading outside outDir (#31) -- in a dry run too, so a dry run reports
+  // the same E_UNSAFE_PATH a real run would.
+  await mapLimit(dirs, IO_CONCURRENCY, (dir) => guard.ensureDir(join(outDir, dir.outputPath), dir.mode ?? ""));
   const written: string[] = dirs.map((d) => d.outputPath);
 
-  const lastOnPath = new Map<string, Promise<unknown>>();
-  const outcomes = await mapLimit(files, IO_CONCURRENCY, (file) => {
+  // No two files here can be one file on disk: layout refuses paths that
+  // differ only in case or Unicode normalization (E_PATH_CONFLICT, #31), so
+  // files are written independently.
+  const outcomes = await mapLimit(files, IO_CONCURRENCY, async (file) => {
     const fullPath = join(outDir, file.outputPath);
-    const key = samePathKey(fullPath);
-    const before = lastOnPath.get(key);
-    const run = (async () => {
-      if (before) await before.catch(() => {});
-      if (!dryRun) await ensureDir(dirname(fullPath));
-      return writeOneFile(file, fullPath, strict, dryRun);
-    })();
-    lastOnPath.set(key, run);
-    return run;
+    await guard.ensureDir(dirname(fullPath));
+    return writeOneFile(file, fullPath, strict, dryRun, guard);
   });
 
   const skipped: string[] = [];
@@ -144,9 +114,14 @@ async function writeOneFile(
   fullPath: string,
   strict: boolean,
   dryRun: boolean,
+  guard: OutDirGuard,
 ): Promise<FileOutcome> {
   let warning: string | undefined;
   const onConflict = parseOnConflict(file.descriptor.props, file.outputPath);
+  // lstat, not access(): access() follows a symlink, so a dangling link
+  // looked like "nothing here" and a link to a file outside outDir looked
+  // like a file inside it (#31).
+  const existing = await lstatIfExists(fullPath);
 
   if (file.symlinkTo !== undefined) {
     // onConflict used to be silently ignored for symlinks -- a pre-existing
@@ -157,7 +132,7 @@ async function writeOneFile(
     // content to append to -- so those throw whenever there's something to
     // conflict with in the first place; with nothing there yet, creating
     // the symlink normally is no different from any other onConflict mode.
-    if (onConflict !== "replace" && (await pathExists(fullPath))) {
+    if (onConflict !== "replace" && existing !== undefined) {
       if (onConflict === "error") {
         throw new FileableError(
           `refusing to overwrite existing file (onConflict="error"): ${file.outputPath}`,
@@ -198,7 +173,10 @@ async function writeOneFile(
     }
   } else {
     if (onConflict !== "replace") {
-      const alreadyExists = await pathExists(fullPath);
+      const alreadyExists = existing !== undefined;
+      if (existing !== undefined && (onConflict === "append" || onConflict === "prepend")) {
+        await guard.assertAppendable(fullPath, existing);
+      }
       if (alreadyExists && onConflict === "error") {
         throw new FileableError(
           `refusing to overwrite existing file (onConflict="error"): ${file.outputPath}`,
@@ -225,13 +203,16 @@ async function writeOneFile(
         // writes new+existing back -- combineContent stays binary-safe
         // either way (SS2.2).
         if (!dryRun) {
-          const existing = await readFile(fullPath);
-          await writeFile(fullPath, combineContent(file.content ?? "", existing));
+          const previous = await readFile(fullPath);
+          await writeFile(fullPath, combineContent(file.content ?? "", previous));
           if (file.mode) await chmod(fullPath, parseInt(file.mode, 8));
         }
         return WRITTEN;
       }
     }
+    // A symlink or hard link already at this path is replaced, not written
+    // through: writeFile would otherwise change whatever it points at (#31).
+    await guard.prepareReplace(fullPath);
     if (!dryRun) {
       // `writeFile`'s own `mode` option only takes effect when it
       // *creates* the file -- on a rewrite of an existing file (e.g. only
@@ -256,7 +237,12 @@ export interface RemovalResult {
  * `deletable()` is user code whose call order and non-overlap are
  * observable. It also only runs for builds that use <Rm>.
  */
-export async function applyRemovals(removals: RemovalSpec[], outDir: string, dryRun = false): Promise<RemovalResult> {
+export async function applyRemovals(
+  removals: RemovalSpec[],
+  outDir: string,
+  dryRun = false,
+  guard: OutDirGuard = new OutDirGuard(outDir, dryRun),
+): Promise<RemovalResult> {
   const removed: string[] = [];
   const warnings: string[] = [];
 
@@ -292,6 +278,10 @@ export async function applyRemovals(removals: RemovalSpec[], outDir: string, dry
       if (match === "." || match === "") continue;
       const relative = (base ? `${base}/${match}` : match).replace(/\\/g, "/");
       const fullPath = join(outDir, relative);
+      // A pattern like "link/*" makes glob walk through `link`; if that is a
+      // symlink leading outside outDir, its matches are not ours to remove
+      // (#31). The matched path itself, if a link, is removed as a link.
+      await guard.assertParentInside(fullPath);
 
       // lstat, not stat -- same reason resolve.ts's own <Dir from> glob
       // matching uses the dirent's own (unfollowed) type rather than a

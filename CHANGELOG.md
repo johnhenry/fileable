@@ -19,6 +19,33 @@
   means only that the archive or an entry couldn't be read. The zip central
   directory is read by fileable itself (Zip64 included); fflate is still
   used to inflate.
+- **The loose writer could write outside the output directory (#31, PR #33).**
+  - A template's own `<File name="../x">`, `<Dir name="..">` or
+    `<Rm target="../*">` was joined into the output path and written (or
+    deleted) outside `outDir`. Every output path, `<Rm>` target and
+    produced archive entry name now gets the `E_UNSAFE_ENTRY` rule after
+    joining, and an unsafe one throws `E_UNSAFE_PATH` before anything is
+    written. `encode="zip"`/`"wbn"` also check entry names where they write
+    the archive.
+  - A symlink (or junction) already inside `outDir` was followed: a write
+    to `link/file` landed wherever `link` pointed, including a decoded
+    archive entry landing on a link an earlier build's `<File symlink>`
+    made. Every existing directory a write goes through is now checked with
+    `lstat`/`realpath`, and a link that leads outside `outDir` (or dangles)
+    throws `E_UNSAFE_PATH`. `<Dir mode>` and `<Rm>` matches are checked the
+    same way.
+  - Replacing a file that was a symlink or hard link wrote through it to its
+    target. The link is now removed and a new regular file written (also
+    for a produced `.zip`/`.wbn` and the default lock file), and
+    `append`/`prepend` refuse a link leading outside `outDir` or a hard link.
+  - Paths differing only in case or Unicode normalization (`A.txt`/`a.txt`,
+    NFC/NFD) were one file on macOS/Windows and the last write won. They now
+    throw `E_PATH_CONFLICT` on every platform, as does a path inside another
+    artifact that is a file, symlink or archive (a decoded `link/x` next to
+    `<File name="link" symlink>`).
+  - Under `node --permission`, `outDir` now needs `--allow-fs-read` as well
+    as `--allow-fs-write`; without it the build stops with `E_ACCESS_DENIED`
+    naming the flag.
 
 ### Added
 - **Machine interface for desktop apps (#25).** Full reference:

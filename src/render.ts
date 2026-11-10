@@ -3,7 +3,7 @@
  * performs Stage 5 (Write).
  */
 import { createHash } from "node:crypto";
-import { join } from "node:path";
+import { join, resolve as resolvePath } from "node:path";
 import { build } from "./build.js";
 import { resolve } from "./resolve.js";
 import { layout } from "./layout.js";
@@ -12,9 +12,10 @@ import { readLockFile, writeLockFile, isUnchanged } from "./lock.js";
 import { applyRemovals, pathExists, writeLoose } from "./write/loose.js";
 import { writeZips } from "./write/zip.js";
 import { writeWbn } from "./write/wbn.js";
+import { OutDirGuard } from "./write/contain.js";
 import { IO_CONCURRENCY, mapLimit } from "./concurrency.js";
 import { drainBuildContext } from "./context.js";
-import { permissionModel } from "./errors.js";
+import { assertPermitted, permissionModel } from "./errors.js";
 import { cloneDescriptorTree, FileableError } from "./types.js";
 import type { Descriptor, FileableWarning, HashedArtifact, OutputEntry, RenderOptions, WarningCode, WriteSummary } from "./types.js";
 
@@ -28,6 +29,10 @@ export async function render(tree: unknown, options: RenderOptions = {}): Promis
   // cloning up front means calling render() twice on the exact same tree
   // object (a natural SDK pattern: build a tree once, render it under
   // different options) can never leak one call's mutations into the next.
+  // Keeping writes inside outDir means looking at what's already there
+  // (lstat/realpath, #31), so under `node --permission` outDir needs read as
+  // well as write. Say so before any work starts.
+  assertPermitted("fs.read", resolvePath(outDir), "fileable checks outDir for symlinks before writing into it");
   const builtRoots = build(cloneDescriptorTree(tree));
   applyDefaultEncode(builtRoots, options.encode);
   const resolvedRoots = await resolve(builtRoots, options);
@@ -78,12 +83,20 @@ export async function render(tree: unknown, options: RenderOptions = {}): Promis
   });
 
   const dryRun = !!options.dryRun;
-  const removeResult = await applyRemovals(hashed.removals, outDir, dryRun);
-  const looseResult = await writeLoose(looseChanged, outDir, !!options.strict, dryRun);
-  const zipWritten = await writeZips(hashed.artifacts, outDir, dirtyRootIds, dryRun);
-  const wbnWritten = await writeWbn(hashed.artifacts, outDir, dirtyRootIds, dryRun);
+  // One guard for the whole write stage (#31): every directory it creates is
+  // checked once, and every write stays inside outDir.
+  const guard = new OutDirGuard(outDir, dryRun);
+  const removeResult = await applyRemovals(hashed.removals, outDir, dryRun, guard);
+  const looseResult = await writeLoose(looseChanged, outDir, !!options.strict, dryRun, guard);
+  const zipWritten = await writeZips(hashed.artifacts, outDir, dirtyRootIds, dryRun, guard);
+  const wbnWritten = await writeWbn(hashed.artifacts, outDir, dirtyRootIds, dryRun, guard);
 
-  if (!dryRun) await writeLockFile(lockPath, hashed.artifacts);
+  if (!dryRun) {
+    // The default lock file lives in outDir: replace a link there rather
+    // than writing through it. A lockFile path you chose is used as given.
+    if (options.lockFile === undefined) await guard.prepareReplace(lockPath);
+    await writeLockFile(lockPath, hashed.artifacts);
+  }
 
   const coded = (code: WarningCode, messages: string[]): FileableWarning[] => messages.map((message) => ({ code, message }));
   const warningDetails: FileableWarning[] = [

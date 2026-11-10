@@ -25,6 +25,80 @@ import type {
   RenderTarget,
 } from "./types.js";
 import { parseJoin, serializeChildren } from "./serialize.js";
+import { unsafeArchivePathReason } from "./archive-path.js";
+
+/**
+ * #31: an output path (relative to outDir for loose artifacts and archive
+ * files, relative to the archive for entries inside one) must pass the same
+ * rule `<Dir src decode>` applies to entry names. It is checked after
+ * joining and normalizing, so `<File name="a/../b">` is fine (it lands on
+ * `b`) but anything that climbs out (`..`, `a/../../b`), is absolute, has a
+ * drive letter, backslash or control character is refused. The one
+ * exception is a `<Dir name=".">`, which means outDir itself.
+ */
+function unsafeOutputPathReason(outputPath: string, isDir: boolean): string | undefined {
+  if (isDir && outputPath === ".") return undefined;
+  const trimmed = isDir && outputPath.length > 1 && outputPath.endsWith("/") ? outputPath.slice(0, -1) : outputPath;
+  return unsafeArchivePathReason(trimmed);
+}
+
+/**
+ * The key two paths share when a case-insensitive or Unicode-normalizing
+ * filesystem (macOS and Windows defaults) would treat them as one: NFC, then
+ * lowercase. Folding is the same on every platform, so a tree that would
+ * collide on one filesystem is refused on all of them (#31).
+ */
+export function pathFoldKey(path: string): string {
+  return path.normalize("NFC").toLowerCase().normalize("NFC");
+}
+
+function unsafeOutputPath(outputPath: string, reason: string, path: string, inside?: string): FileableError {
+  return new FileableError(
+    `unsafe output path ${JSON.stringify(outputPath)} (${reason})${inside ? ` inside ${inside}` : ""} -- ` +
+      "output paths must be relative and stay inside outDir (and inside their archive)",
+    path, undefined, "E_UNSAFE_PATH",
+  );
+}
+
+/**
+ * Same-build collisions a case-insensitive or normalizing filesystem would
+ * create (#31): two artifacts whose paths fold to the same key, or an
+ * artifact under a path another artifact writes as a file (a regular file,
+ * a symlink, or an archive) -- e.g. a decoded entry `link/x` next to a
+ * template's `<File name="link" symlink>`. Both throw E_PATH_CONFLICT on
+ * every platform instead of depending on the filesystem.
+ */
+function assertNoFoldedConflicts(artifacts: ArtifactNode[]): void {
+  const namespace = (a: ArtifactNode) => (a.target === "loose" || a.containerPath === a.outputPath ? "" : `${a.containerPath}::`);
+  const strip = (p: string) => (p.length > 1 && p.endsWith("/") ? p.slice(0, -1) : p);
+  const byKey = new Map<string, ArtifactNode>();
+  for (const artifact of artifacts) {
+    const key = namespace(artifact) + pathFoldKey(strip(artifact.outputPath));
+    const other = byKey.get(key);
+    if (other) {
+      throw new FileableError(
+        `output paths "${other.outputPath}" and "${artifact.outputPath}" differ only in case or Unicode normalization -- ` +
+          "they are the same file on a case-insensitive or normalizing filesystem (macOS, Windows)",
+        artifact.outputPath, undefined, "E_PATH_CONFLICT",
+      );
+    }
+    byKey.set(key, artifact);
+  }
+  for (const artifact of artifacts) {
+    const segments = strip(artifact.outputPath).split("/");
+    for (let i = 1; i < segments.length; i++) {
+      const parent = byKey.get(namespace(artifact) + pathFoldKey(segments.slice(0, i).join("/")));
+      if (!parent) continue;
+      const isArchive = parent.target !== "loose" && parent.containerPath === parent.outputPath;
+      if (parent.kind !== "file" && !isArchive) continue;
+      const what = isArchive ? "an archive file" : parent.descriptor.props.symlink !== undefined ? "a symlink" : "a file";
+      throw new FileableError(
+        `output path "${artifact.outputPath}" would be written inside "${parent.outputPath}", which this build writes as ${what}`,
+        artifact.outputPath, undefined, "E_PATH_CONFLICT",
+      );
+    }
+  }
+}
 
 interface IdentityInfo {
   realArtifactId: string;
@@ -67,6 +141,9 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
     if (byId.has(node.id)) {
       throw new FileableError(`duplicate output path "${node.outputPath}" -- two artifacts both resolve here`, path, undefined, "E_PATH_CONFLICT");
     }
+    const isEntry = node.target !== "loose" && node.containerPath !== node.outputPath;
+    const reason = unsafeOutputPathReason(node.outputPath, node.kind === "dir" && !isEntry);
+    if (reason !== undefined) throw unsafeOutputPath(node.outputPath, reason, path, isEntry ? node.containerPath : undefined);
     artifacts.push(node);
     byId.set(node.id, node);
     if (parentId) byId.get(parentId)?.children.push(node.id);
@@ -90,6 +167,10 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
         const target = node.props.target as string;
         const negated = target.startsWith("!");
         const joined = posixPath.join(ctx.basePath, negated ? target.slice(1) : target);
+        // An <Rm> deletes, so its target gets the same containment rule as
+        // a write (#31). "**" or "*.tmp" are fine; "../x" is not.
+        const rmReason = joined === "." ? undefined : unsafeOutputPathReason(joined, true);
+        if (rmReason !== undefined) throw unsafeOutputPath(joined, rmReason, path);
         removals.push({
           pattern: negated ? `!${joined}` : joined,
           kind,
@@ -250,6 +331,8 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
   for (const root of roots) {
     walk(root, { basePath: "", target: "loose", insideFile: false }, null, String(root.tag));
   }
+
+  assertNoFoldedConflicts(artifacts);
 
   // --- Symlink resolution (needs the complete identity map) -----------------
   for (const pending of pendingSymlinks) {

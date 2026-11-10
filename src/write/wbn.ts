@@ -20,10 +20,12 @@
  */
 import { gzip } from "node:zlib";
 import { promisify } from "node:util";
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import * as wbn from "wbn";
 import type { HashedArtifact } from "../types.js";
+import { assertSafeEntryName } from "./entry-name.js";
+import { OutDirGuard } from "./contain.js";
 import { getContentType } from "../mime.js";
 import { ARCHIVE_BASE_URL, encodeArchivePath } from "../wbn-constants.js";
 
@@ -34,6 +36,7 @@ export async function writeWbn(
   outDir: string,
   dirtyRootIds: Set<string>,
   dryRun = false,
+  guard: OutDirGuard = new OutDirGuard(outDir, dryRun),
 ): Promise<string[]> {
   const written: string[] = [];
   const wbnRoots = artifacts.filter(
@@ -41,6 +44,9 @@ export async function writeWbn(
   );
 
   for (const root of wbnRoots) {
+    for (const artifact of artifacts) {
+      if (artifact.containerPath === root.containerPath && artifact !== root) assertSafeEntryName(artifact.outputPath, "wbn", root.containerPath!);
+    }
     if (!dryRun) {
       const builder = new wbn.BundleBuilder();
       for (const artifact of artifacts) {
@@ -54,7 +60,7 @@ export async function writeWbn(
 
       const packed = await gzipAsync(Buffer.from(builder.createBundle()));
       const fullPath = join(outDir, root.containerPath!);
-      await mkdir(dirname(fullPath), { recursive: true });
+      await guard.prepareReplace(fullPath);
       await writeFile(fullPath, packed);
     }
     written.push(root.containerPath!);

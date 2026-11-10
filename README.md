@@ -516,7 +516,8 @@ engine first). The full reference, with every event, field and code, is
 - **Node's permission model**: works under `node --permission` with
   `--allow-fs-read` for the project, the output directory and fileable
   itself, and `--allow-fs-write` for the output directory. A missing write
-  grant, or a `cmd` without `--allow-child-process`, is `E_ACCESS_DENIED`
+  or output-directory read grant, or a `cmd` without
+  `--allow-child-process`, is `E_ACCESS_DENIED`
   (exit 5) before anything runs, naming the flag to add.
 
 ### `clean` -- build's dual
@@ -908,9 +909,33 @@ shells out and uses its stdout as file content -- everything else (`src`,
   entry can point outside the root, or be written through by a later
   entry) and duplicate names; `decode="wbn"` also refuses a query or
   fragment, a malformed `%` escape, and a URL outside the bundle's root.
-  This covers names from archives only: a name your template writes itself
-  (`<File name="../x">`) is trusted like the rest of the template, and the
-  loose writer does not check for symlinks already on disk inside `outDir`.
+- **Nothing is written outside `outDir`** (#31). Every output path gets the
+  same rule as an archive entry name after joining, so a template's own
+  `<File name="../x">`, `<Dir name="..">` or `<Rm target="../*">` throws
+  `E_UNSAFE_PATH` before anything is written (`<File name="a/../b">` is
+  fine: it lands on `b`; `<Dir name=".">` is `outDir` itself).
+  `encode="zip"`/`"wbn"` refuse to put such a name in the archive they
+  produce. On disk, a symlink or Windows junction already inside `outDir`
+  (left by an earlier build's `<File symlink>`, or by anyone else) is only
+  followed when its real target is inside `outDir`; a write, `<Dir mode>`
+  or `<Rm>` through one that leads outside (or dangles) throws
+  `E_UNSAFE_PATH`. A file being replaced is never written through: an
+  existing symlink or hard link at that path is removed and a new regular
+  file is created (the same for a `.zip`/`.wbn` and the lock file).
+  `onConflict="append"`/`"prepend"` refuse a link that leads outside and any
+  hard link. This needs read access to `outDir` (under `node --permission`,
+  `--allow-fs-read` for it). Not covered: another process replacing a path
+  with a link while a build runs (a race between the check and the write),
+  and the target a `<File symlink>` itself points at, which is yours to
+  choose.
+- **One file on disk means one artifact, on every filesystem.** Two paths
+  that differ only in case or Unicode normalization (`A.txt`/`a.txt`, NFC
+  and NFD `café`) are the same file on macOS and Windows, so they throw
+  `E_PATH_CONFLICT` everywhere, including two entries of one decoded archive
+  and two entries of one produced archive. So does a path inside another
+  artifact that is a file (a decoded `link/x` next to a `<File name="link"
+  symlink>`). Folding is NFC plus lowercase; other filesystem-specific
+  equivalences are not modelled.
 - **Malformed input fails loudly, not silently.** An unrecognized `encode`,
   `join`, `onConflict`, or `decode` value throws rather than falling back to
   a default; malformed `base64` throws rather than writing corrupted bytes.
