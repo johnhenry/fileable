@@ -157,9 +157,19 @@ project changes, until SIGINT or SIGTERM.
 - It watches the template's directory (or the manifest's project directory),
   plus `cwd` if that's outside it, recursively.
 - It ignores `node_modules`, `.git`, the lock file, the output directory
-  when it's a separate folder inside the project, every path the previous
-  build wrote, and the manifest's `watch.ignore` globs. A build never
-  triggers itself.
+  when it's a separate folder inside the project, every path a build in
+  this session wrote or removed, and the manifest's `watch.ignore` globs.
+  A build never triggers itself, and events that arrive while a build runs
+  are only judged once it has finished.
+- A change is a change of content, not of timestamp. Before the first
+  build, each watched file's size and SHA-256 are recorded; an event
+  rebuilds only when the file's content (or whether it exists) differs from
+  the last recorded state. So an edit is never dropped because of its mtime
+  (an old one from `cp -p` or an archive, or a coarse filesystem clock), an
+  edit made during a build (the first included) gets a rebuild after it,
+  and saving a file without changing it, or a replayed or duplicate event,
+  doesn't rebuild. The cost is reading every watched file once at start and
+  each changed file once per event.
 - Changes are debounced (`--debounce`, or the manifest's
   `watch.debounceMs`; default 100 ms). Changes during a build queue one more
   build.

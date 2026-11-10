@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+**Fixes**
+- #44 (PR #45): `fileable watch` could ignore an edit as stale. It dropped
+  an event when the file's mtime wasn't newer than the moment the last build
+  started (`Date.now()`); on Linux the filesystem clock can lag that by a
+  few ms, so an edit saved right after a build started (e.g. straight after
+  a fast failed build) was ignored until the next edit, and so was any edit
+  carrying an older mtime (`cp -p`, archive extraction). Edits made during
+  the first build were never seen at all. Watch now compares file content
+  (size and SHA-256) with what was last recorded, holds events that arrive
+  mid-build until the build is done, and ignores every path any build in the
+  session wrote. This also fixes the flaky watch test on ubuntu CI.
+
 ## 0.2.0 (2026-11-10)
 
 A minor release: it adds the machine interface (#25) and closes five
