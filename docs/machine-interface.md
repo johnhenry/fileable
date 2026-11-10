@@ -104,7 +104,7 @@ codes: `FileableError.code`, `ERROR_CODES` and `describeError()` from
 | --- | --- | --- |
 | 0 | | Success. `watch` stopped by a signal also exits 0. |
 | 1 | `E_INTERNAL` | An unexpected error (probably a fileable bug). |
-| 1 | `E_INVALID_TREE`, `E_INVALID_PROP`, `E_INVALID_OPTION`, `E_PATH_CONFLICT`, `E_UNSAFE_PATH`, `E_CONFLICT`, `E_SRC`, `E_DECODE`, `E_EXEC_DENIED`, `E_EXEC_FAILED`, `E_SYMLINK`, `E_LINK`, `E_RM`, `E_EJECT_BINARY`, `E_BROWSER_UNSUPPORTED` | The build failed; the code says why (see below). |
+| 1 | `E_INVALID_TREE`, `E_INVALID_PROP`, `E_INVALID_OPTION`, `E_PATH_CONFLICT`, `E_UNSAFE_PATH`, `E_CONFLICT`, `E_SRC`, `E_DECODE`, `E_UNSAFE_ENTRY`, `E_EXEC_DENIED`, `E_EXEC_FAILED`, `E_SYMLINK`, `E_LINK`, `E_RM`, `E_EJECT_BINARY`, `E_BROWSER_UNSUPPORTED` | The build failed; the code says why (see below). |
 | 2 | `E_USAGE`, `E_MANIFEST` | Bad command line, or the manifest is missing, invalid or ambiguous. |
 | 3 | `E_MODULE_NOT_FOUND`, `E_MODULE_LOAD`, `E_JSX_COMPILER`, `E_NOT_A_TEMPLATE` | The template couldn't be loaded. Not fatal under `watch`. |
 | 5 | `E_ACCESS_DENIED` | Node's permission model refused something. `permission` names the scope, and the message names the `--allow-*` flag to add. |
@@ -126,7 +126,8 @@ Exit code 4 is not used by fileable (it's servable's `E_LISTEN`).
 | `E_UNSAFE_PATH` | `toFiles()` produced an empty, absolute or escaping path. |
 | `E_CONFLICT` | `onConflict="error"` found an existing file, or `append`/`prepend` on a symlink. |
 | `E_SRC` | A `src`/`from`/prop value couldn't be read, fetched or awaited. |
-| `E_DECODE` | `<Dir src decode>` couldn't decode the archive, or an entry isn't a safe path. |
+| `E_DECODE` | `<Dir src decode>` couldn't decode the archive, or couldn't read an entry (encrypted, unsupported compression, truncated). |
+| `E_UNSAFE_ENTRY` | `<Dir src decode>` found an entry that could land outside the `<Dir>`: a `..` segment, an absolute path or drive letter, a backslash, a control character (including NUL), an empty, `.` or dots-and-spaces segment; for `zip`, also a symlink, a device/FIFO, or a duplicate name; for `wbn`, also a query/fragment, a malformed `%` escape, or a URL outside the bundle's root. The message ends with the reason in parentheses. Nothing from the archive is written. |
 | `E_EXEC_DENIED` | `cmd` without `--allow-exec`. |
 | `E_EXEC_FAILED` | The `cmd` command failed. |
 | `E_SYMLINK` | A symlink can't be made, or `--strict` refused a copy fallback. |

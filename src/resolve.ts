@@ -44,7 +44,6 @@ import { gunzipSync } from "node:zlib";
 import { extname, isAbsolute, relative as relativePath, resolve as resolvePath } from "node:path";
 import { pathToFileURL } from "node:url";
 import { glob } from "glob";
-import { unzipSync } from "fflate";
 import * as wbn from "wbn";
 import { cloneDescriptorTree, isDescriptor, isLinkRef, isThenable, FileableError } from "./types.js";
 import type { Descriptor, DescriptorChild, RenderOptions } from "./types.js";
@@ -53,6 +52,9 @@ import { execCommand } from "./exec.js";
 import { recordWarning } from "./context.js";
 import { splitGlobBase, toPosixPattern } from "./glob-util.js";
 import { archiveBase, archiveUrlToPath } from "./wbn-constants.js";
+import { unsafeArchivePathReason } from "./archive-path.js";
+import { readZipEntries, S_IFDIR, S_IFLNK, S_IFREG } from "./zip-read.js";
+import type { ZipEntry } from "./zip-read.js";
 import { assertPermitted } from "./errors.js";
 import { markdownToHtml } from "./markdown.js";
 
@@ -192,18 +194,41 @@ interface DecodedEntry {
 }
 
 function decodeZip(buffer: Buffer, path: string): DecodedEntry[] {
-  let unzipped: Record<string, Uint8Array>;
+  let zipEntries: ZipEntry[];
   try {
-    unzipped = unzipSync(buffer);
+    zipEntries = readZipEntries(buffer);
   } catch (cause) {
     throw new FileableError("`decode=\"zip\"` failed -- not a valid zip archive", path, cause, "E_DECODE");
   }
-  const entries: DecodedEntry[] = [];
-  for (const [name, data] of Object.entries(unzipped)) {
-    if (name.endsWith("/")) continue; // directory entry (see write/zip.ts) -- no File to synthesize
-    entries.push({ name, data: Buffer.from(data) });
+  // Every entry name is checked before any is read, so an archive with one
+  // unsafe entry contributes nothing (#28). Directory entries are checked
+  // too, even though they synthesize no File.
+  const unsafe = (name: string, reason: string): FileableError =>
+    new FileableError(`\`decode="zip"\` failed -- entry ${JSON.stringify(name)} is not a safe path (${reason})`, path, undefined, "E_UNSAFE_ENTRY");
+  const seen = new Set<string>();
+  const files: ZipEntry[] = [];
+  for (const entry of zipEntries) {
+    const name = entry.isDirectory && entry.name.endsWith("/") ? entry.name.slice(0, -1) : entry.name;
+    const reason = unsafeArchivePathReason(name);
+    if (reason !== undefined) throw unsafe(entry.name, reason);
+    // fileable never materializes a symlink (or device/FIFO) from an
+    // archive: refusing it means no entry can point outside the root, and no
+    // later entry can write through an earlier link.
+    if (entry.unixType === S_IFLNK) throw unsafe(entry.name, "symlink");
+    if (entry.unixType !== 0 && entry.unixType !== S_IFREG && entry.unixType !== S_IFDIR) throw unsafe(entry.name, "special-file");
+    if (seen.has(name)) throw unsafe(entry.name, "duplicate");
+    seen.add(name);
+    if (!entry.isDirectory) files.push(entry);
   }
-  return entries;
+  return files.map((entry) => {
+    let data: Uint8Array;
+    try {
+      data = entry.read();
+    } catch (cause) {
+      throw new FileableError(`\`decode="zip"\` failed -- couldn't read entry ${JSON.stringify(entry.name)}`, path, cause, "E_DECODE");
+    }
+    return { name: entry.name, data: Buffer.from(data.buffer, data.byteOffset, data.byteLength) };
+  });
 }
 
 function decodeWbn(buffer: Buffer, path: string): DecodedEntry[] {
@@ -223,7 +248,7 @@ function decodeWbn(buffer: Buffer, path: string): DecodedEntry[] {
     if ("reason" in result) {
       throw new FileableError(
         `\`decode="wbn"\` failed -- entry ${JSON.stringify(url)} is not a safe path under ${base} (${result.reason})`,
-        path, undefined, "E_DECODE",
+        path, undefined, "E_UNSAFE_ENTRY",
       );
     }
     const name = result.path;
