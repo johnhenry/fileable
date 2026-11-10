@@ -19,7 +19,18 @@ export type UnsafeArchivePathReason =
   | "absolute"
   | "empty-segment"
   | "dot-segment"
-  | "traversal";
+  | "traversal"
+  | "reserved-name"
+  | "alternate-stream"
+  | "trailing-dot-or-space";
+
+/**
+ * Windows reserved device names: `CON`, `PRN`, `AUX`, `NUL`, `CONIN$`,
+ * `CONOUT$`, `COM0`-`COM9`, `LPT0`-`LPT9`, and `COM`/`LPT` with a
+ * superscript 1-3. Matched against a segment's part before its first dot,
+ * with trailing spaces removed, case-insensitively (`nul.txt`, `Con .tar.gz`).
+ */
+const RESERVED_DEVICE_NAME = /^(?:con|prn|aux|nul|conin\$|conout\$|(?:com|lpt)[0-9\u00b9\u00b2\u00b3])$/i;
 
 /**
  * Returns the reason `path` (an already-decoded entry name) can't be written
@@ -27,7 +38,8 @@ export type UnsafeArchivePathReason =
  * name; any backslash (a separator on Windows); control characters
  * including NUL; a leading `/` (absolute, or a `//server` UNC path); a drive
  * letter (`C:`, `c:foo`); empty segments (`a//b`, a trailing `/`); `.`; `..`;
- * and segments of only dots and spaces.
+ * segments of only dots and spaces; and the Windows name hazards (#35):
+ * reserved device names, `:`, and a trailing dot or space.
  */
 export function unsafeArchivePathReason(path: string): UnsafeArchivePathReason | undefined {
   if (path === "") return "empty";
@@ -38,6 +50,9 @@ export function unsafeArchivePathReason(path: string): UnsafeArchivePathReason |
     if (segment === "") return "empty-segment";
     if (segment === "..") return "traversal";
     if (/^[. ]+$/.test(segment)) return segment.replace(/ +$/, "") === ".." ? "traversal" : "dot-segment";
+    if (segment.includes(":")) return "alternate-stream";
+    if (/[. ]$/.test(segment)) return "trailing-dot-or-space";
+    if (RESERVED_DEVICE_NAME.test(segment.split(".")[0].replace(/ +$/, ""))) return "reserved-name";
   }
   return undefined;
 }

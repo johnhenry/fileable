@@ -917,7 +917,9 @@ shells out and uses its stdout as file content -- everything else (`src`,
   `//server/share`), a drive letter (`C:x`, `C:/x`), a backslash (a
   separator on Windows), a control character including NUL, an empty
   segment (`a//b`), `.`, or a segment of only dots and spaces (`...`,
-  `.. `, which Windows trims to `.`/`..`). The two decoders share one rule
+  `.. `, which Windows trims to `.`/`..`), or a Windows name hazard (a
+  reserved device name, `:`, a trailing dot or space; see below). The two
+  decoders share one rule
   (`src/archive-path.ts`). `decode="zip"` also refuses symlink entries and
   device/FIFO entries (fileable never creates a link from an archive, so no
   entry can point outside the root, or be written through by a later
@@ -956,7 +958,22 @@ shells out and uses its stdout as file content -- everything else (`src`,
   and two entries of one produced archive. So does a path inside another
   artifact that is a file (a decoded `link/x` next to a `<File name="link"
   symlink>`). Folding is NFC plus lowercase; other filesystem-specific
-  equivalences are not modelled.
+  equivalences are not modelled, except the Windows name hazards below,
+  which are refused outright.
+- **Names Windows would mishandle are refused on every platform (#35).**
+  The shared path rule (`src/archive-path.ts`), used for template names,
+  `<Rm>` targets, the names `encode="zip"`/`"wbn"` put in an archive, and
+  the entries `decode="zip"`/`"wbn"` read, also refuses: a reserved device
+  name in any segment (`CON`, `PRN`, `AUX`, `NUL`, `CONIN$`, `CONOUT$`,
+  `COM0`-`COM9`, `LPT0`-`LPT9`, `COM`/`LPT` with a superscript 1-3), in any
+  case and with any extension (`nul.txt`, `Com1.tar.gz`), which on Windows
+  opens the device instead of a file; a `:` (`a.txt:hidden` writes an NTFS
+  alternate data stream); and a segment ending in a dot or space (`a.txt.`,
+  `dir `), which Win32 trims, so `a.txt.` would be the same file as `a.txt`
+  and get past the `E_PATH_CONFLICT` fold. A template throws
+  `E_UNSAFE_PATH`, an archive entry `E_UNSAFE_ENTRY`. They are refused on
+  Linux and macOS too, so output and archives stay portable. Names that
+  only start like a device name (`console.txt`, `com10`) are fine.
 - **A decoded archive can't inflate without bound (#32).** `<Dir src
   decode="zip"|"wbn">` stops as soon as one archive crosses a limit and
   throws `E_ARCHIVE_LIMIT`, naming the limit and how to raise it. Nothing

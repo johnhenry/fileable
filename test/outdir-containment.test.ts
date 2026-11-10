@@ -91,6 +91,12 @@ const UNSAFE_TEMPLATE_NAMES: Array<[string, string]> = [
   [".../escaped.txt", "dot-segment"],
   [".. /escaped.txt", "traversal"],
   [".", "dot-segment"],
+  ["CON", "reserved-name"],
+  ["nul.txt", "reserved-name"],
+  ["sub/Com1.json", "reserved-name"],
+  ["a.txt:stream", "alternate-stream"],
+  ["a.txt.", "trailing-dot-or-space"],
+  ["a.txt ", "trailing-dot-or-space"],
 ];
 
 for (const [name, reason] of UNSAFE_TEMPLATE_NAMES) {
@@ -361,5 +367,53 @@ test("the same name in different directories or different archives is not a coll
     ];
     await render(tree, { outDir: out, cache: false });
     assert.deepEqual((await readdir(out)).sort(), [".fileable-lock.json", "one", "three.zip", "two.zip"]);
+  });
+});
+
+// --- Windows-only name hazards (#35), refused on every platform -------------
+
+const WINDOWS_HAZARDS: Array<[string, string]> = [
+  ["CON", "reserved-name"],
+  ["nul.txt", "reserved-name"],
+  ["Lpt3.tar.gz", "reserved-name"],
+  ["com1/x.txt", "reserved-name"],
+  ["a.txt:stream", "alternate-stream"],
+  ["a.txt.", "trailing-dot-or-space"],
+  ["dir /x.txt", "trailing-dot-or-space"],
+];
+
+for (const encode of ["zip", "wbn"] as const) {
+  for (const [name, reason] of WINDOWS_HAZARDS) {
+    test(`encode="${encode}" refuses the Windows hazard ${JSON.stringify(name)} (${reason})`, async () => {
+      await withFixture(async ({ out }) => {
+        const error = await rejectsWith("E_UNSAFE_PATH", () => render(dir("site", [file(name)], { encode }), { outDir: out, cache: false }));
+        assert.match(error.message, new RegExp(`\\(${reason}\\)`));
+        assert.deepEqual(await readdir(out), []);
+      });
+    });
+  }
+}
+
+test("a Windows hazard as a <Dir name> or the archive's own name is refused (#35)", async () => {
+  await withFixture(async ({ out }) => {
+    await rejectsWith("E_UNSAFE_PATH", () => render(dir("aux", [file("x.txt")]), { outDir: out, cache: false }));
+    await rejectsWith("E_UNSAFE_PATH", () => render(dir("site ", [file("x.txt")]), { outDir: out, cache: false }));
+    await rejectsWith("E_UNSAFE_PATH", () => render(dir("con", [file("x.txt")], { encode: "zip" }), { outDir: out, cache: false }));
+    assert.deepEqual(await readdir(out), []);
+  });
+});
+
+test("a.txt and a.txt. can't both be built: the trailing-dot name is refused before the fold (#35)", async () => {
+  await withFixture(async ({ out }) => {
+    const error = await rejectsWith("E_UNSAFE_PATH", () => render(dir("site", [file("a.txt"), file("a.txt.")]), { outDir: out, cache: false }));
+    assert.match(error.message, /\(trailing-dot-or-space\)/);
+    assert.deepEqual(await readdir(out), []);
+  });
+});
+
+test("names near a reserved device name still build (#35)", async () => {
+  await withFixture(async ({ out }) => {
+    await render(dir("site", [file("console.txt"), file("nullable"), file("com10"), file("auxiliary.js"), file("a.con")]), { outDir: out, cache: false });
+    assert.deepEqual((await readdir(join(out, "site"))).sort(), ["a.con", "auxiliary.js", "com10", "console.txt", "nullable"]);
   });
 });
