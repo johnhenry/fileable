@@ -19,7 +19,7 @@
   means only that the archive or an entry couldn't be read. The zip central
   directory is read by fileable itself (Zip64 included); fflate is still
   used to inflate.
-- **The loose writer could write outside the output directory (#31).**
+- **The loose writer could write outside the output directory (#31, PR #33).**
   - A template's own `<File name="../x">`, `<Dir name="..">` or
     `<Rm target="../*">` was joined into the output path and written (or
     deleted) outside `outDir`. Every output path, `<Rm>` target and
