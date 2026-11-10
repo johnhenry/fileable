@@ -18,6 +18,12 @@
   1,180 ms -> 530 ms, warm 296 ms -> 240 ms on macOS.
 
 ### Tests
+- Test HTTP servers now listen on `127.0.0.1`, the address their requests go
+  to, through a shared `test/local-server.ts` helper (`examples/05-ipfs-src/run.mjs`
+  too). `listen(0)` with no host bound `::`, so another process holding the
+  same port on 127.0.0.1 could answer instead: the intermittent 404 in
+  `markdown-tag.test.ts`. `test/local-server.test.ts` fails if a test or that
+  example calls `listen()` without a host again (#24).
 - `test/packfile-interop.test.ts` checks the README's Family claim that
   `<Dir encode="wbn">` output is directly readable by `@johnhenry/packfile`:
   `fromArchive()` yields exactly the loose render's paths and bytes (HTML,

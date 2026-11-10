@@ -30,7 +30,7 @@ const server = createServer((req, res) => {
   res.end("not found");
 });
 
-await new Promise((resolve) => server.listen(0, resolve));
+await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const { port } = server.address();
 const ipfsGateway = `http://127.0.0.1:${port}/ipfs/`;
 

@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { listenLoopback } from "./local-server.js";
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -236,8 +237,7 @@ test("src pointing at a URL fetches it", async () => {
   const server = createServer((_req, res) => {
     res.end("remote content");
   });
-  await new Promise<void>((resolvePromise) => server.listen(0, resolvePromise));
-  const port = (server.address() as { port: number }).port;
+  const port = await listenLoopback(server);
   try {
     const node: Descriptor = {
       tag: "file",
@@ -257,8 +257,7 @@ test("src pointing at a URL that 404s throws a FileableError", async () => {
     res.statusCode = 404;
     res.end("not found");
   });
-  await new Promise<void>((resolvePromise) => server.listen(0, resolvePromise));
-  const port = (server.address() as { port: number }).port;
+  const port = await listenLoopback(server);
   try {
     const node: Descriptor = {
       tag: "file",
