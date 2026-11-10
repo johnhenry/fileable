@@ -41,7 +41,7 @@ function unsupportedInBrowser(what: string, path: string): FileableError {
     `${what} requires real filesystem/process access, which isn't available in the browser-safe ` +
       `"@johnhenry/fileable/browser" entry point -- use the Node entry point (\`import { render } from ` +
       `"@johnhenry/fileable"\`) for this tree instead`,
-    path,
+    path, undefined, "E_BROWSER_UNSUPPORTED",
   );
 }
 
@@ -50,7 +50,7 @@ async function fetchIpfs(src: string, gateway: string, path: string): Promise<Ui
   const url = gateway.endsWith("/") ? `${gateway}${rest}` : `${gateway}/${rest}`;
   const res = await fetch(url);
   if (!res.ok) {
-    throw new FileableError(`ipfs fetch failed: ${src} via ${url} (${res.status})`, path);
+    throw new FileableError(`ipfs fetch failed: ${src} via ${url} (${res.status})`, path, undefined, "E_SRC");
   }
   return new Uint8Array(await res.arrayBuffer());
 }
@@ -69,7 +69,7 @@ async function loadSrc(
   if (/^https?:\/\//.test(src)) {
     const res = await fetch(src);
     if (!res.ok) {
-      throw new FileableError(`src fetch failed: ${src} (${res.status})`, path);
+      throw new FileableError(`src fetch failed: ${src} (${res.status})`, path, undefined, "E_SRC");
     }
     return { content: bufferToContent(new Uint8Array(await res.arrayBuffer())) };
   }
@@ -86,7 +86,7 @@ export async function resolve(
     if (node.tag === "ipfs") {
       const src = node.props.src as string | undefined;
       if (typeof src !== "string") {
-        throw new FileableError("<IPFS> requires a `src` attribute", path);
+        throw new FileableError("<IPFS> requires a `src` attribute", path, undefined, "E_INVALID_PROP");
       }
       const props = node.props as { __resolvedContent?: string | Uint8Array; src?: string };
       props.__resolvedContent = combineContent(props.__resolvedContent, bufferToContent(await fetchIpfs(src, ipfsGateway, path)));
@@ -97,11 +97,11 @@ export async function resolve(
     if (node.tag === "markdownhtml") {
       const src = node.props.src as string | undefined;
       if (typeof src !== "string") {
-        throw new FileableError("<MarkdownHTML> requires a `src` attribute", path);
+        throw new FileableError("<MarkdownHTML> requires a `src` attribute", path, undefined, "E_INVALID_PROP");
       }
       const loaded = await loadSrc(src, path, ipfsGateway);
       if (typeof loaded.content !== "string") {
-        throw new FileableError(`<MarkdownHTML src="${src}"> must resolve to text content -- got binary data instead`, path);
+        throw new FileableError(`<MarkdownHTML src="${src}"> must resolve to text content -- got binary data instead`, path, undefined, "E_SRC");
       }
       const props = node.props as { __resolvedContent?: string | Uint8Array; src?: string };
       props.__resolvedContent = combineContent(props.__resolvedContent, markdownToHtml(loaded.content));
@@ -131,7 +131,7 @@ export async function resolve(
           try {
             props.__resolvedContent = combineContent(props.__resolvedContent, await src);
           } catch (cause) {
-            throw new FileableError("`src` promise rejected", path, cause);
+            throw new FileableError("`src` promise rejected", path, cause, "E_SRC");
           }
         } else {
           const loaded = await loadSrc(src, path, ipfsGateway);
@@ -154,7 +154,7 @@ export async function resolve(
         try {
           node.props[key] = await value;
         } catch (cause) {
-          throw new FileableError(`prop "${key}" promise rejected`, path, cause);
+          throw new FileableError(`prop "${key}" promise rejected`, path, cause, "E_SRC");
         }
       }
     }

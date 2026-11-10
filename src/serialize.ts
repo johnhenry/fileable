@@ -32,7 +32,7 @@ export function parseJoin(props: Record<string, unknown>, path: string): "concat
   const value = props.join;
   if (value === undefined) return "concat";
   if (value === "concat" || value === "dom-merge") return value;
-  throw new FileableError(`invalid join="${String(value)}" -- expected "concat" or "dom-merge"`, path);
+  throw new FileableError(`invalid join="${String(value)}" -- expected "concat" or "dom-merge"`, path, undefined, "E_INVALID_PROP");
 }
 
 export interface SerializeCtx {

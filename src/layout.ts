@@ -65,7 +65,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
     // otherwise silently collide: both get written, whichever runs last in
     // Write wins, with no trace anything was lost.
     if (byId.has(node.id)) {
-      throw new FileableError(`duplicate output path "${node.outputPath}" -- two artifacts both resolve here`, path);
+      throw new FileableError(`duplicate output path "${node.outputPath}" -- two artifacts both resolve here`, path, undefined, "E_PATH_CONFLICT");
     }
     artifacts.push(node);
     byId.set(node.id, node);
@@ -78,11 +78,11 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
       if (ctx.target === "loose") {
         const kind = (node.props.kind as string | undefined) ?? "file";
         if (kind !== "file" && kind !== "dir" && kind !== "any") {
-          throw new FileableError(`invalid kind="${kind}" -- expected "file", "dir", or "any"`, path);
+          throw new FileableError(`invalid kind="${kind}" -- expected "file", "dir", or "any"`, path, undefined, "E_INVALID_PROP");
         }
         const onMissing = (node.props.onMissing as string | undefined) ?? "ignore";
         if (onMissing !== "ignore" && onMissing !== "warn" && onMissing !== "error") {
-          throw new FileableError(`invalid onMissing="${onMissing}" -- expected "ignore", "warn", or "error"`, path);
+          throw new FileableError(`invalid onMissing="${onMissing}" -- expected "ignore", "warn", or "error"`, path, undefined, "E_INVALID_PROP");
         }
         // Joining a negated target ("!*.draft.html") directly with basePath
         // would bury the leading "!" mid-string (e.g. "site/!*.draft.html"),
@@ -104,7 +104,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
     if (node.tag === "dir") {
       const name = node.props.name as string | undefined;
       if (!ctx.insideFile && !name) {
-        throw new FileableError("<dir> requires a `name` attribute", path);
+        throw new FileableError("<dir> requires a `name` attribute", path, undefined, "E_INVALID_PROP");
       }
       if (ctx.insideFile) {
         identity.set(node, {
@@ -122,7 +122,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
       if (requestedEncode !== undefined && requestedEncode !== "loose" && requestedEncode !== "zip" && requestedEncode !== "wbn") {
         throw new FileableError(
           `invalid encode="${String(requestedEncode)}" -- expected "loose", "zip", or "wbn"`,
-          path,
+          path, undefined, "E_INVALID_PROP",
         );
       }
       // Any explicit <Dir encode> nested inside a container (zip/wbn) used
@@ -138,7 +138,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
         throw new FileableError(
           `<Dir encode="${requestedEncode}"> nested inside a "${ctx.target}" container can't change render target -- ` +
             "nested containers, switching container formats, and escaping back to loose mid-tree aren't supported",
-          path,
+          path, undefined, "E_INVALID_PROP",
         );
       }
       const nextChildCtx: WalkCtx = { ...ctx };
@@ -201,7 +201,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
         return;
       }
       if (!name) {
-        throw new FileableError("<file> requires a `name` attribute", path);
+        throw new FileableError("<file> requires a `name` attribute", path, undefined, "E_INVALID_PROP");
       }
       const outputPath = posixPath.join(ctx.basePath, name);
       const artifactId = ctx.target !== "loose" ? `${ctx.containerPath}::${outputPath}` : outputPath;
@@ -268,7 +268,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
     } else {
       const info = identity.get(pending.targetRef);
       if (!info) {
-        throw new FileableError("symlink target is not a descriptor present in this tree", pending.path);
+        throw new FileableError("symlink target is not a descriptor present in this tree", pending.path, undefined, "E_SYMLINK");
       }
       targetRealArtifactId = info.realArtifactId;
       targetArtifact = byId.get(info.realArtifactId);
@@ -281,7 +281,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
         `symlink to ${targetOutputPath} was materialized as a copy because target format ` +
         `"${artifact.target}" does not support links.`;
       if (options.strict) {
-        throw new FileableError(message, pending.path);
+        throw new FileableError(message, pending.path, undefined, "E_SYMLINK");
       }
       warnings.push(message);
     } else if (!targetIsLiteral && targetArtifact && targetArtifact.target !== "loose") {
@@ -296,7 +296,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
       throw new FileableError(
         `symlink target "${targetOutputPath}" lives inside a "${targetArtifact.target}" container (${targetArtifact.containerPath}) -- ` +
           "a real symlink needs a real filesystem path; content inside a container has no addressable path outside it",
-        pending.path,
+        pending.path, undefined, "E_SYMLINK",
       );
     } else {
       // Real symlink is attempted first at Write time; __copyFromId is kept as
@@ -319,7 +319,7 @@ export function layout(roots: Descriptor[], options: RenderOptions = {}): Layout
     } else {
       const info = identity.get(ref.target);
       if (!info) {
-        throw new FileableError("linkTo() target is not a descriptor present in this tree", "linkTo()");
+        throw new FileableError("linkTo() target is not a descriptor present in this tree", "linkTo()", undefined, "E_LINK");
       }
       if (info.realArtifactId === currentArtifactId) {
         usedAnchors.add(ref.target);

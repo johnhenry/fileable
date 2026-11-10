@@ -422,17 +422,26 @@ throws a clear error rather than feeding garbage into `marked`.
 ## CLI
 
 ```
-fileable build <template> [options]
+fileable build [template] [options]
+fileable watch [template] [options]
 fileable clean [dir] [options]
 fileable eject <path> [options]
+fileable manifest [dir] [--json]
+fileable --version [--json]
 
   -o, --out-dir <dir>     Directory artifacts are written into (default for
                           build: the template file's own directory; default
                           for clean: [dir] or ".")
   -c, --cwd <dir>         Base directory for resolving relative src/from paths
                           (build only; default: same as --out-dir)
+  -p, --project <dir>     Project directory holding the manifest, used when
+                          no template is given (default ".")
       --var <key[:type]=value>
                           Pass a value to a template function (repeatable, build only)
+      --encode <loose|zip|wbn>
+                          Default encode for root <Dir>s that don't set one
+      --json              NDJSON events on stdout instead of text
+      --debounce <ms>     watch only: quiet time before a rebuild (default 100)
       --allow-exec        Allow the `cmd` attribute to execute shell commands
       --strict            Promote symlink-fallback warnings to hard errors
       --no-cache          Force a full rebuild, ignoring .fileable-lock.json
@@ -452,10 +461,63 @@ fileable eject <path> [options]
                           to --out instead of pointing at their original location
 ```
 
-`<template>` is any module whose default export is a fileable tree. Like
-`src="partials/x.jsx"` on `File`, it needs to already be compiled to plain
-JS (or loadable via a registered Node loader) -- there's no JSX/TS transform
-built in, so point the CLI at `.js`, not `.tsx`.
+`<template>` is any module whose default export is a fileable tree (or a
+function returning one). `.js` and `.ts`/`.mts` load as they are (Node 26
+strips types itself). `.tsx`/`.jsx` load without a separate compile step
+when the template's project has `typescript` 5.x/6.x or `esbuild` installed;
+fileable doesn't bundle a JSX compiler, so with neither the CLI fails with
+`E_JSX_COMPILER` (compile to `.js` first, or write `.ts` with the JSX-free
+`h()`/`dir()`/`file()` builders). The same applies to `.tsx` partials
+loaded through `src`. TypeScript 7 has no in-process transpile API and
+doesn't count. These loader hooks are CLI-only: `render()` doesn't install
+them.
+
+With no `<template>`, `build` and `watch` read the project manifest (below).
+
+### Machine interface: `--json`, error codes, `watch`, manifest
+
+Built for programs that drive fileable (Sitefile Desktop's JSX-project
+engine first). The full reference, with every event, field and code, is
+[docs/machine-interface.md](docs/machine-interface.md).
+
+- **`--json`** (build, watch, clean, eject, manifest, `--version`): stdout
+  carries only NDJSON events, each `{"v":1,"event":<name>,"time":<ISO-8601>,
+  ...}` -- the same envelope, shared events and exit codes as
+  `@johnhenry/servable` and `@johnhenry/hostable`. A build is `start`, one
+  `file` per output (`written`/`unchanged`/`skipped`/`removed`, with kind,
+  encode and hash), any `warning`/`error`, then `done` (ok, exit code,
+  counts, `buildHash`, output shape). `stopped` {exitCode} is always the
+  last line. Anything the template prints goes to stderr. `v` changes only
+  when a field is removed or retyped.
+- **Error codes** (`E_MODULE_NOT_FOUND`, `E_EXEC_DENIED`, `E_SYMLINK`,
+  `E_ACCESS_DENIED`, ...) appear in `error` events and in text mode
+  (`fileable: error E_CODE: message`), and are `FileableError.code` in the
+  SDK. **Exit codes:** 0 ok; 1 the build failed (or `E_INTERNAL`); 2
+  `E_USAGE`/`E_MANIFEST`; 3 the template couldn't be loaded; 5
+  `E_ACCESS_DENIED` (Node's permission model). Before #25 every failure
+  exited 1.
+- **`fileable watch [template]`** builds, then rebuilds on any change under
+  the project (debounced, using the lock-file cache, never triggered by its
+  own output). A broken template is reported (`error` with `fatal: false`)
+  and watching continues. SIGINT/SIGTERM emit `stopping` and stop cleanly.
+  Templates and partials are re-imported fresh each time; it's not a
+  process restart, so old module copies stay in memory.
+- **Project manifest**: `fileable.config.json`, or a `"fileable"` field in
+  `package.json`, in the project directory: `template` (required),
+  `outDir`, `cwd`, `vars`, `encode`, `strict`, `cache`, `lockFile`,
+  `ipfsGateway`, `watch` `{debounceMs, ignore}`. Flags override it. Only the
+  project directory is checked, both files at once is an error, and
+  `allowExec` is deliberately not a key.
+- **SDK**: `FileableError` has a `code`; `ERROR_CODES` and
+  `describeError(error)` give the exit code and a JSON-safe description;
+  `render()` takes `onWarning(warning)` (coded warnings instead of stderr)
+  and `encode` (the manifest's default), and its summary adds `outputs`
+  (per-path action/kind/encode/hash), `warningDetails` and `buildHash`.
+- **Node's permission model**: works under `node --permission` with
+  `--allow-fs-read` for the project, the output directory and fileable
+  itself, and `--allow-fs-write` for the output directory. A missing write
+  grant, or a `cmd` without `--allow-child-process`, is `E_ACCESS_DENIED`
+  (exit 5) before anything runs, naming the flag to add.
 
 ### `clean` -- build's dual
 
@@ -824,6 +886,15 @@ shells out and uses its stdout as file content -- everything else (`src`,
   a `cmd` prop throws immediately rather than silently skipping or no-op'ing
   the node. There is no per-template or per-node override that re-enables it
   once the render call has `allowExec` unset.
+- **A project manifest can't enable `cmd`.** `fileable.config.json` /
+  package.json `"fileable"` reject an `allowExec` key; whoever runs fileable
+  passes `--allow-exec` themselves, so opening a project is never enough to
+  run its shell commands.
+- **Works under Node's permission model.** Run the CLI with `node
+  --permission` and grant only the project (read) and output directory
+  (read/write); `cmd` additionally needs `--allow-child-process`, and
+  fileable says so (`E_ACCESS_DENIED`) instead of failing deep inside
+  `exec`. See [docs/machine-interface.md](docs/machine-interface.md).
 - **Malformed input fails loudly, not silently.** An unrecognized `encode`,
   `join`, `onConflict`, or `decode` value throws rather than falling back to
   a default; malformed `base64` throws rather than writing corrupted bytes.

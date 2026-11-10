@@ -20,7 +20,7 @@ export function decodeBase64Strict(value: string, path: string): Uint8Array {
   const cleaned = value.replace(/\s+/g, "");
   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(cleaned) || cleaned.length % 4 !== 0) {
     const preview = value.length > 40 ? `${value.slice(0, 40)}...` : value;
-    throw new FileableError(`invalid base64 content: "${preview}"`, path);
+    throw new FileableError(`invalid base64 content: "${preview}"`, path, undefined, "E_INVALID_PROP");
   }
   const binary = atob(cleaned);
   const bytes = new Uint8Array(binary.length);

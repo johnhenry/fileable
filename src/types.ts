@@ -370,6 +370,52 @@ export interface RenderOptions {
    * `${ipfsGateway}${cid}/${path}`. Default: `"https://ipfs.io/ipfs/"`.
    */
   ipfsGateway?: string;
+  /**
+   * Called once per warning instead of printing it to stderr (#25). The CLI's
+   * `--json` mode uses this to emit `warning` events. Default: each warning
+   * is printed with `console.warn("fileable: warning: ...")`.
+   */
+  onWarning?: (warning: FileableWarning) => void;
+  /**
+   * Default `encode` for every root `<Dir>` that doesn't set its own (#25;
+   * the CLI's `--encode` and the manifest's `"encode"`). A root's explicit
+   * `encode` wins. "zip"/"wbn" with a root that isn't a `<Dir>` throws
+   * (E_INVALID_OPTION) rather than silently leaving it loose.
+   */
+  encode?: RenderTarget;
+}
+
+/**
+ * Stable warning codes (#25). Same E_* style as `ErrorCode` (and as
+ * servable/hostable's warning codes, e.g. E_WATCH); a warning never fails
+ * the build. Only ever added to.
+ */
+export type WarningCode =
+  | "E_WARN"
+  | "E_SYMLINK_FALLBACK"
+  | "E_RM_NO_MATCH"
+  | "E_CACHE_UNREADABLE"
+  | "E_VARS_IGNORED"
+  | "E_WATCH";
+
+export interface FileableWarning {
+  code: WarningCode;
+  message: string;
+}
+
+/** One real output on disk (a loose file/dir, or a whole `.zip`/`.wbn`), as reported by `render()` (#25). */
+export interface OutputEntry {
+  /** Relative POSIX path under outDir. */
+  path: string;
+  /** "written": (re)written this run. "unchanged": skipped by the lock-file cache. "skipped": left alone by onConflict="skip". */
+  action: "written" | "unchanged" | "skipped";
+  kind: "file" | "dir";
+  /** "loose" for a plain file/dir; "zip"/"wbn" for an archive root. */
+  encode: RenderTarget;
+  /** The artifact's content hash (same value as in .fileable-lock.json). */
+  hash: string;
+  /** True for a top-level output (a root of the rendered tree). */
+  root: boolean;
 }
 
 /**
@@ -455,14 +501,61 @@ export interface WriteSummary {
   skipped: string[];
   removed: string[];
   warnings: string[];
+  /** The same warnings with their stable codes (#25). */
+  warningDetails: FileableWarning[];
+  /** Every written/skipped path above with its kind, encode, hash and whether it's a root (#25). */
+  outputs: OutputEntry[];
+  /**
+   * sha256 over every artifact's id and hash (sorted), so two builds with
+   * the same output have the same value whether or not anything was
+   * rewritten (#25).
+   */
+  buildHash: string;
 }
+
+/**
+ * Stable machine-readable error codes (#25). Every `FileableError` carries
+ * one; the CLI prints it in text mode and puts it in `--json` `error` events,
+ * and maps it to a documented exit code (see `ERROR_CODES` in errors.ts and
+ * the README's "Error codes" table). Codes are only ever added, never
+ * renamed or reused for a different meaning.
+ */
+export type ErrorCode =
+  | "E_USAGE"
+  | "E_MANIFEST"
+  | "E_MODULE_NOT_FOUND"
+  | "E_MODULE_LOAD"
+  | "E_JSX_COMPILER"
+  | "E_NOT_A_TEMPLATE"
+  | "E_INVALID_TREE"
+  | "E_INVALID_PROP"
+  | "E_INVALID_OPTION"
+  | "E_PATH_CONFLICT"
+  | "E_UNSAFE_PATH"
+  | "E_CONFLICT"
+  | "E_SRC"
+  | "E_DECODE"
+  | "E_EXEC_DENIED"
+  | "E_EXEC_FAILED"
+  | "E_SYMLINK"
+  | "E_LINK"
+  | "E_RM"
+  | "E_EJECT_BINARY"
+  | "E_BROWSER_UNSUPPORTED"
+  | "E_ACCESS_DENIED"
+  | "E_INTERNAL";
 
 export class FileableError extends Error {
   path: string;
-  constructor(message: string, path: string, cause?: unknown) {
+  /** Stable machine-readable code (#25); see `ErrorCode`. */
+  code: ErrorCode;
+  /** For E_ACCESS_DENIED raised by fileable's own up-front checks: Node's permission scope, e.g. "ChildProcess". */
+  permission?: string;
+  constructor(message: string, path: string, cause?: unknown, code: ErrorCode = "E_INTERNAL") {
     super(`${message} (at ${path})`);
     this.name = "FileableError";
     this.path = path;
+    this.code = code;
     if (cause !== undefined) {
       (this as { cause?: unknown }).cause = cause;
     }

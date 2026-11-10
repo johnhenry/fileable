@@ -53,6 +53,7 @@ import { execCommand } from "./exec.js";
 import { recordWarning } from "./context.js";
 import { splitGlobBase, toPosixPattern } from "./glob-util.js";
 import { archiveBase, archiveUrlToPath } from "./wbn-constants.js";
+import { assertPermitted } from "./errors.js";
 import { markdownToHtml } from "./markdown.js";
 
 const CODE_EXTENSIONS = new Set([".jsx", ".tsx", ".js", ".mjs", ".ts"]);
@@ -70,7 +71,7 @@ async function fetchIpfs(src: string, gateway: string, path: string): Promise<Bu
   const url = gateway.endsWith("/") ? `${gateway}${rest}` : `${gateway}/${rest}`;
   const res = await fetch(url);
   if (!res.ok) {
-    throw new FileableError(`ipfs fetch failed: ${src} via ${url} (${res.status})`, path);
+    throw new FileableError(`ipfs fetch failed: ${src} via ${url} (${res.status})`, path, undefined, "E_SRC");
   }
   return Buffer.from(await res.arrayBuffer());
 }
@@ -88,14 +89,14 @@ async function loadSrc(
     const varName = src.slice("env://".length);
     const value = process.env[varName];
     if (value === undefined) {
-      throw new FileableError(`env fetch failed: "${varName}" is not set`, path);
+      throw new FileableError(`env fetch failed: "${varName}" is not set`, path, undefined, "E_SRC");
     }
     return { content: value };
   }
   if (/^https?:\/\//.test(src)) {
     const res = await fetch(src);
     if (!res.ok) {
-      throw new FileableError(`src fetch failed: ${src} (${res.status})`, path);
+      throw new FileableError(`src fetch failed: ${src} (${res.status})`, path, undefined, "E_SRC");
     }
     // Binary-safe: decide text vs. binary by round-trip rather than assuming
     // text (see content-util.ts) -- a fetched image/font/etc. must come back
@@ -112,7 +113,7 @@ async function loadSrc(
         `failed to import src module "${src}" -- .jsx/.tsx partials must already be ` +
           "compiled to JS (or loadable via a registered Node loader) before render() runs",
         path,
-        cause,
+        cause, "E_SRC",
       );
     }
     const { build } = await import("./build.js");
@@ -128,7 +129,7 @@ async function loadSrc(
     // back as a replacement character).
     return { content: bufferToContent(await readFile(absolute)) };
   } catch (cause) {
-    throw new FileableError(`failed to read src file "${src}"`, path, cause);
+    throw new FileableError(`failed to read src file "${src}"`, path, cause, "E_SRC");
   }
 }
 
@@ -142,7 +143,7 @@ async function resolveFromGlob(
     try {
       return await pattern;
     } catch (cause) {
-      throw new FileableError("`from` promise rejected", path, cause);
+      throw new FileableError("`from` promise rejected", path, cause, "E_SRC");
     }
   }
   let matches: string[];
@@ -179,7 +180,7 @@ async function resolveFromGlob(
       matches.push(match);
     }
   } catch (cause) {
-    throw new FileableError(`\`from\` glob expansion failed for "${pattern}"`, path, cause);
+    throw new FileableError(`\`from\` glob expansion failed for "${pattern}"`, path, cause, "E_SRC");
   }
   return matches;
 }
@@ -195,7 +196,7 @@ function decodeZip(buffer: Buffer, path: string): DecodedEntry[] {
   try {
     unzipped = unzipSync(buffer);
   } catch (cause) {
-    throw new FileableError("`decode=\"zip\"` failed -- not a valid zip archive", path, cause);
+    throw new FileableError("`decode=\"zip\"` failed -- not a valid zip archive", path, cause, "E_DECODE");
   }
   const entries: DecodedEntry[] = [];
   for (const [name, data] of Object.entries(unzipped)) {
@@ -210,7 +211,7 @@ function decodeWbn(buffer: Buffer, path: string): DecodedEntry[] {
   try {
     bundle = new wbn.Bundle(new Uint8Array(gunzipSync(buffer)));
   } catch (cause) {
-    throw new FileableError("`decode=\"wbn\"` failed -- not a valid gzip(application/webbundle) archive", path, cause);
+    throw new FileableError("`decode=\"wbn\"` failed -- not a valid gzip(application/webbundle) archive", path, cause, "E_DECODE");
   }
   const entries: DecodedEntry[] = [];
   // Exchange URLs are percent-encoded (encode="wbn" and packfile both encode
@@ -222,7 +223,7 @@ function decodeWbn(buffer: Buffer, path: string): DecodedEntry[] {
     if ("reason" in result) {
       throw new FileableError(
         `\`decode="wbn"\` failed -- entry ${JSON.stringify(url)} is not a safe path under ${base} (${result.reason})`,
-        path,
+        path, undefined, "E_DECODE",
       );
     }
     const name = result.path;
@@ -236,13 +237,13 @@ async function resolveDirSrc(node: Descriptor, baseDir: string, path: string): P
   const decode = node.props.decode as string | undefined;
   if (src === undefined && decode === undefined) return [];
   if (src === undefined) {
-    throw new FileableError('`decode` requires `src` to say which archive to decode', path);
+    throw new FileableError('`decode` requires `src` to say which archive to decode', path, undefined, "E_INVALID_PROP");
   }
   if (decode === undefined) {
-    throw new FileableError('`<Dir src>` requires `decode="zip"` or `decode="wbn"` to say how to read it', path);
+    throw new FileableError('`<Dir src>` requires `decode="zip"` or `decode="wbn"` to say how to read it', path, undefined, "E_INVALID_PROP");
   }
   if (!DECODE_FORMATS.has(decode)) {
-    throw new FileableError(`invalid decode="${decode}" -- expected "zip" or "wbn"`, path);
+    throw new FileableError(`invalid decode="${decode}" -- expected "zip" or "wbn"`, path, undefined, "E_INVALID_PROP");
   }
 
   const absolute = isAbsolute(src) ? src : resolvePath(baseDir, src);
@@ -250,7 +251,7 @@ async function resolveDirSrc(node: Descriptor, baseDir: string, path: string): P
   try {
     buffer = await readFile(absolute);
   } catch (cause) {
-    throw new FileableError(`failed to read archive "${src}"`, path, cause);
+    throw new FileableError(`failed to read archive "${src}"`, path, cause, "E_SRC");
   }
 
   const decoded = decode === "zip" ? decodeZip(buffer, path) : decodeWbn(buffer, path);
@@ -280,7 +281,7 @@ export async function resolve(
     if (node.tag === "ipfs") {
       const src = node.props.src as string | undefined;
       if (typeof src !== "string") {
-        throw new FileableError("<IPFS> requires a `src` attribute", path);
+        throw new FileableError("<IPFS> requires a `src` attribute", path, undefined, "E_INVALID_PROP");
       }
       const props = node.props as { __resolvedContent?: string | Buffer; src?: string };
       props.__resolvedContent = combineContent(props.__resolvedContent, bufferToContent(await fetchIpfs(src, ipfsGateway, path)));
@@ -294,14 +295,14 @@ export async function resolve(
     if (node.tag === "markdownhtml") {
       const src = node.props.src as string | undefined;
       if (typeof src !== "string") {
-        throw new FileableError("<MarkdownHTML> requires a `src` attribute", path);
+        throw new FileableError("<MarkdownHTML> requires a `src` attribute", path, undefined, "E_INVALID_PROP");
       }
       const loaded = await loadSrc(src, baseDir, path, ipfsGateway);
       if (typeof loaded.content !== "string") {
         throw new FileableError(
           `<MarkdownHTML src="${src}"> must resolve to text content -- got ` +
             `${loaded.children ? "a code module (children)" : "binary data"} instead`,
-          path,
+          path, undefined, "E_SRC",
         );
       }
       const props = node.props as { __resolvedContent?: string | Buffer; src?: string };
@@ -385,7 +386,7 @@ export async function resolve(
           try {
             props.__resolvedContent = combineContent(props.__resolvedContent, await src);
           } catch (cause) {
-            throw new FileableError("`src` promise rejected", path, cause);
+            throw new FileableError("`src` promise rejected", path, cause, "E_SRC");
           }
         } else {
           const loaded = await loadSrc(src, baseDir, path, ipfsGateway);
@@ -403,11 +404,15 @@ export async function resolve(
         if (!options.allowExec) {
           throw new FileableError(
             `\`cmd\` attribute requires the renderer to be configured with allowExec: true (cmd="${cmd}")`,
-            path,
+            path, undefined, "E_EXEC_DENIED",
           );
         }
+        // Under `node --permission`, spawning a shell also needs
+        // --allow-child-process. Say so up front instead of surfacing Node's
+        // generic ERR_ACCESS_DENIED from deep inside exec (#25).
+        assertPermitted("child", undefined, `\`cmd\` needs to spawn a shell (cmd="${cmd}")`);
         const stdout = await execCommand(cmd, baseDir).catch((cause: unknown) => {
-          throw new FileableError(`cmd execution failed: ${cmd}`, path, cause);
+          throw new FileableError(`cmd execution failed: ${cmd}`, path, cause, "E_EXEC_FAILED");
         });
         props.__resolvedContent = combineContent(props.__resolvedContent, bufferToContent(stdout));
       }
@@ -420,7 +425,7 @@ export async function resolve(
         try {
           node.props[key] = await value;
         } catch (cause) {
-          throw new FileableError(`prop "${key}" promise rejected`, path, cause);
+          throw new FileableError(`prop "${key}" promise rejected`, path, cause, "E_SRC");
         }
       }
     }
