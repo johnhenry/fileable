@@ -130,7 +130,7 @@
     `--json`, `--debounce`, `--version`.
 
 ### Fixed
-- **`encode="zip"` silently dropped an entry named `__proto__` (#36).** The
+- **`encode="zip"` silently dropped an entry named `__proto__` (#36, PR #40).** The
   archive was built with fflate's `zipSync()`, which takes a plain object
   keyed by entry name, so `<File name="__proto__">` set the object's
   prototype instead of adding a key and was missing from the `.zip`. The
