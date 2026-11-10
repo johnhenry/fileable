@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Fixed
+- **`encode="wbn"` file names with `#`, `?` or `%` (#20).** Each path segment
+  is now percent-encoded the way `@johnhenry/packfile`'s `toWebBundle()` does
+  it. Before, a `#` in a name made the render throw, and packfile's
+  `fromArchive()`/`createRouter()` dropped names with `?` or `%`.
+- **`<Dir src decode="wbn">` returned encoded names (#20).** Entry URLs are now
+  percent-decoded, so `a b.txt` and `ü.txt` come back as themselves instead of
+  `a%20b.txt` and `%C3%BC.txt`. Entries are stripped against the root of the
+  bundle's primary URL, as packfile 0.2.x does. An entry that isn't a safe
+  relative path (an encoded or raw `..`, absolute path, backslash, control
+  character, query/fragment, malformed escape, or a URL outside that root)
+  now throws a `FileableError` naming the entry and the reason; before, it
+  was passed through as the file name. A `.wbn` written by fileable 0.1.1 or
+  earlier that holds a name with a literal `%` or `?` now fails to decode
+  for the same reason (packfile never read those entries either).
+
 ### Changed
 - **Faster loose writes and warm (lock-cache) runs at large sizes (#22, #23).** The
   loose writer creates each distinct directory once instead of once per file
@@ -18,6 +34,14 @@
   1,180 ms -> 530 ms, warm 296 ms -> 240 ms on macOS.
 
 ### Tests
+- `test/packfile-interop.test.ts` now also renders names with `#`, `?`, `%`,
+  `%41`, spaces, reserved characters and non-ASCII (one nested under a
+  directory with a space) and checks them against `@johnhenry/packfile` 0.2.2:
+  exchange URLs, `fromArchive()` with nothing skipped, `createRouter()` and
+  `createWebBundleRouter()` (with its johnhenry/packfile#35 decode fix) by `Request` and by
+  string, and fileable's own `decode="wbn"` on both fileable- and
+  packfile-written archives. The `@johnhenry/packfile` devDependency floor is
+  now `^0.2.2` (#20).
 - Test HTTP servers now listen on `127.0.0.1`, the address their requests go
   to, through a shared `test/local-server.ts` helper (`examples/05-ipfs-src/run.mjs`
   too). `listen(0)` with no host bound `::`, so another process holding the

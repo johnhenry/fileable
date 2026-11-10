@@ -223,7 +223,13 @@ to guard against. `decode="zip"` uses `fflate` (already a dependency);
 `.wbn` this package wrote is always readable by this same `<Dir src decode>`
 (and vice versa) -- verified for real, including against archives built
 directly via `fflate`/`wbn` rather than by this package itself, not just
-internal round-tripping (`test/dir-decode.test.ts`). `src`/`decode` must be
+internal round-tripping (`test/dir-decode.test.ts`). `decode="wbn"`
+percent-decodes each entry's URL back to its file name, relative to the root
+of the bundle's primary URL (the same rule as `@johnhenry/packfile`'s
+`fromArchive()`), and throws on an entry that isn't a safe relative path
+(`..`, an absolute path, a backslash, a control character, a query or
+fragment, a malformed `%` escape, or a URL outside that root) where
+packfile skips it. `src`/`decode` must be
 used together -- either alone throws, and so does an unrecognized `decode`
 value, matching this codebase's fail-loudly convention everywhere else.
 
@@ -889,13 +895,15 @@ shares its archive format with a third.
   an intermediate, and packfile isn't even published to npm as a runtime
   dependency of this package). The resulting `.wbn` file is directly
   readable by packfile's own `fromArchive()`/`createRouter()` with no
-  unpacking to disk needed. Three limits (checked by a packfile interop
-  test, johnhenry/fileable#21): file names containing `#` make the `wbn`
-  render throw, and names with `?` or `%` are dropped when packfile reads
-  the archive (johnhenry/fileable#20); an empty `<Dir>` isn't kept, since a
-  Web Bundle has no directory entries; and `createRouter()` works out
-  `Content-Type` from its own MIME table rather than the one fileable
-  wrote (they agree on the common extensions).
+  unpacking to disk needed. Each path segment is percent-encoded the way
+  packfile's own `toWebBundle()` does it, so names with `#`, `?`, `%`,
+  spaces or non-ASCII characters read back unchanged through `fromArchive()`,
+  `createRouter()` and `createWebBundleRouter()` (checked against packfile
+  0.2.2 by `test/packfile-interop.test.ts`; johnhenry/fileable#20, #21). Two
+  limits: an empty `<Dir>` isn't kept, since a Web Bundle has no directory
+  entries; and `createRouter()` works out `Content-Type` from its own MIME
+  table rather than the one fileable wrote (they agree on the common
+  extensions).
 - **[`@johnhenry/sitefile`](https://github.com/johnhenry/sitefile)** --
   a fileable build's output is an ordinary Sitefile input: a loose
   directory (`COPY ./generated/ /`) or an `encode="zip"` archive (`IMPORT gen

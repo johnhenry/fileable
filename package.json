@@ -74,7 +74,7 @@
     "wbn": "^0.0.9"
   },
   "devDependencies": {
-    "@johnhenry/packfile": "^0.2.0",
+    "@johnhenry/packfile": "^0.2.2",
     "@types/node": "^26.6.1",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2"

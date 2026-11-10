@@ -25,7 +25,7 @@ import { dirname, join } from "node:path";
 import * as wbn from "wbn";
 import type { HashedArtifact } from "../types.js";
 import { getContentType } from "../mime.js";
-import { ARCHIVE_BASE_URL } from "../wbn-constants.js";
+import { ARCHIVE_BASE_URL, encodeArchivePath } from "../wbn-constants.js";
 
 const gzipAsync = promisify(gzip);
 
@@ -47,7 +47,7 @@ export async function writeWbn(
         if (artifact.containerPath !== root.containerPath || artifact === root || artifact.kind !== "file") continue;
         const data: Uint8Array =
           typeof artifact.content === "string" ? Buffer.from(artifact.content, "utf8") : (artifact.content ?? Buffer.alloc(0));
-        const url = new URL(artifact.outputPath, ARCHIVE_BASE_URL).toString();
+        const url = new URL(encodeArchivePath(artifact.outputPath), ARCHIVE_BASE_URL).toString();
         builder.addExchange(url, 200, { "Content-Type": getContentType(artifact.outputPath) }, data);
       }
       builder.setPrimaryURL(ARCHIVE_BASE_URL);
