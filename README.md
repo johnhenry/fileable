@@ -523,7 +523,9 @@ engine first). The full reference, with every event, field and code, is
   (per-path action/kind/encode/hash), `warningDetails` and `buildHash`.
 - **Node's permission model**: works under `node --permission` with
   `--allow-fs-read` for the project, the output directory and fileable
-  itself, and `--allow-fs-write` for the output directory. A missing write
+  itself, and `--allow-fs-write` for the output directory (as
+  `--allow-fs-write=<out>/*` if it doesn't exist yet; see
+  docs/machine-interface.md). A missing write
   or output-directory read grant, or a `cmd` without
   `--allow-child-process`, is `E_ACCESS_DENIED`
   (exit 5) before anything runs, naming the flag to add.

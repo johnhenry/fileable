@@ -1,6 +1,53 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-11-10)
+
+A minor release: it adds the machine interface (#25) and closes five
+security holes, several of which change what fileable accepts or how it
+fails. Details for each item are in the sections below.
+
+**Security fixes**
+- #28 (PR #30): `<Dir src decode="zip">` could write outside the output
+  directory (zip-slip).
+- #31 (PR #33): the loose writer could write outside `outDir` through
+  `../` names, `<Rm>` targets, existing symlinks/junctions or hard links,
+  and case/normalization collisions.
+- #32 (PR #37): `decode="zip"`/`"wbn"` had no limit on decompressed size
+  (zip bombs).
+- #34 (PR #38): `fileable clean` removed whatever paths the lock file
+  listed, including outside its directory and through symlinks.
+- #35 (PR #39): names that are only hazardous on Windows (reserved device
+  names, `:` streams, trailing dots/spaces) were accepted.
+
+**Behaviour changes to check when upgrading**
+- CLI exit codes are by class now (1 build failed, 2 usage/manifest, 3
+  template couldn't load, 5 permission denied), not always 1; unknown
+  options are usage errors; text-mode errors are one line with a code (#25).
+- Every `FileableError` has a stable `code`, among them `E_UNSAFE_ENTRY`
+  (unsafe archive entry), `E_UNSAFE_PATH` (unsafe output path),
+  `E_ARCHIVE_LIMIT` (decode size limit) and `E_PATH_CONFLICT`
+  (case/normalization collision) (#25, #28, #31, #32).
+- Output paths that climb out of `outDir`, and writes through links that
+  lead outside it, now throw instead of writing (#31).
+- Paths differing only in case or Unicode normalization now throw on every
+  platform instead of the last write winning on macOS/Windows (#31).
+- Replacing a file that is a symlink or hard link replaces the link with a
+  regular file instead of writing through it (#31).
+- Under `node --permission`, `outDir` needs `--allow-fs-read` as well as
+  `--allow-fs-write` (#31).
+- `decode="zip"`/`"wbn"` refuse archives over 1 GiB total, 100,000 entries,
+  256 MiB per entry, or a compression ratio over 100 by default;
+  configurable (#32).
+- `fileable clean` fails with `E_UNSAFE_PATH` and removes nothing if any
+  lock-file entry is unsafe (#34).
+- Names such as `aux.js`, `con.ts`, `nul.txt`, `a:b` or `notes.` are now
+  refused on every platform (#35).
+- `encode="wbn"` percent-encodes names and `decode="wbn"` decodes them; a
+  `.wbn` from 0.1.1 or earlier with a literal `%` or `?` in a name no
+  longer decodes (#20).
+- `encode="zip"` keeps an entry named `__proto__` (it was dropped), and its
+  entries now use data descriptors (#36).
+
 
 ### Security
 - **`<Dir src decode="zip">` could write outside the output directory
@@ -59,7 +106,7 @@
   listed path that is itself a symlink or junction is removed as a link,
   never its target, and a removed directory's links are not followed.
 
-- **Names that are only hazardous on Windows were accepted (#35).** A
+- **Names that are only hazardous on Windows were accepted (#35, PR #39).** A
   reserved device name (`CON`, `PRN`, `AUX`, `NUL`, `CONIN$`, `CONOUT$`,
   `COM0`-`COM9`, `LPT0`-`LPT9`, superscript `COM¹`-`³`/`LPT¹`-`³`; any case,
   with any extension, such as `nul.txt`) opened the device on Windows, a
@@ -130,6 +177,11 @@
     `--json`, `--debounce`, `--version`.
 
 ### Fixed
+- **Docs: granting write to an output directory that doesn't exist yet.** Node 26's
+  permission model needs `--allow-fs-write=<out>/*` (or the directory created
+  first); a plain `--allow-fs-write=<out>` fails on the first file. Found while
+  testing the packed 0.2.0 tarball; documented in docs/machine-interface.md and
+  the README.
 - **The installed CLI did nothing when run through npm's bin link (#41, PR #42).**
   `node_modules/.bin/fileable`, `npx fileable` and a global install start
   the CLI through a symlink, and the "am I the entry point" check compared

@@ -73,7 +73,7 @@ rewritten, so an app can tell "nothing changed" without diffing files.
 ### A build, start to finish
 
 ```json
-{"v":1,"event":"start","time":"…","command":"build","template":"/p/template.tsx","manifest":"/p/fileable.config.json","outDir":"/p/out","cwd":"/p/out","dryRun":false,"cache":true,"fileable":"0.1.1","node":"v26.11.1"}
+{"v":1,"event":"start","time":"…","command":"build","template":"/p/template.tsx","manifest":"/p/fileable.config.json","outDir":"/p/out","cwd":"/p/out","dryRun":false,"cache":true,"fileable":"0.2.0","node":"v26.11.1"}
 {"v":1,"event":"file","time":"…","path":"site","action":"written","kind":"dir","encode":"loose","hash":"sha256:91fa…","root":true}
 {"v":1,"event":"file","time":"…","path":"site/index.html","action":"written","kind":"file","encode":"loose","hash":"sha256:8741…","root":false}
 {"v":1,"event":"done","time":"…","command":"build","ok":true,"exitCode":0,"durationMs":25,"dryRun":false,"counts":{"written":2,"unchanged":0,"skipped":0,"removed":0,"warnings":0},"buildHash":"db01…","output":{"outDir":"/p/out","shape":"loose","roots":[{"path":"site","kind":"dir","encode":"loose","hash":"sha256:91fa…"}]}}
@@ -264,14 +264,19 @@ The CLI runs under `node --permission`. It needs:
   and the fileable package with its dependencies (Node reads module files
   through the same check). In a project with fileable in its own
   `node_modules`, the project directory covers it.
-- `--allow-fs-write` for the output directory.
+- `--allow-fs-write` for the output directory. If the output directory
+  doesn't exist yet when Node starts, grant it as `--allow-fs-write=<out>/*`:
+  Node 26 doesn't extend a grant for a path that doesn't exist to files
+  created under it later, so `--allow-fs-write=<out>` (or `<out>/`) fails
+  with `E_ACCESS_DENIED` on the first file. Creating the directory first
+  also works.
 - `--allow-child-process` only for `cmd` (with `--allow-exec`), or, together
   with `--allow-worker`, for `.tsx`/`.jsx` compiled by esbuild. With
   `typescript` 5.x/6.x as the compiler, `.tsx` needs no extra grants.
 
 ```sh
 node --permission \
-  --allow-fs-read="$PWD" --allow-fs-read="$PWD/out" --allow-fs-write="$PWD/out" \
+  --allow-fs-read="$PWD" --allow-fs-read="$PWD/out" --allow-fs-write="$PWD/out/*" \
   node_modules/@johnhenry/fileable/dist/bin/fileable.js build --json
 ```
 
