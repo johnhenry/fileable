@@ -13,7 +13,7 @@
  * Throws a plain `Error` for a malformed archive; the caller wraps it as
  * `E_DECODE`.
  */
-import { inflateSync } from "fflate";
+import { Inflate } from "fflate";
 
 export interface ZipEntry {
   /** The entry name as stored (UTF-8 if general-purpose flag bit 11 is set, else Latin-1, as fflate reads it). */
@@ -22,8 +22,17 @@ export interface ZipEntry {
   unixType: number;
   /** True for a directory entry: a trailing `/`, the Unix directory type, or the MS-DOS directory attribute on an empty entry. */
   isDirectory: boolean;
-  /** Inflates the entry's bytes. */
-  read(): Uint8Array;
+  /** Uncompressed size the central directory declares (untrusted). */
+  size: number;
+  /** Compressed size the central directory declares. */
+  compressedSize: number;
+  /**
+   * Inflates the entry's bytes in small steps. `onProgress(produced,
+   * consumed)` runs after each step with the running output and input sizes;
+   * throwing from it stops inflation there (#32). Nothing is preallocated
+   * from the declared size.
+   */
+  read(onProgress?: (produced: number, consumed: number) => void): Uint8Array;
 }
 
 export const S_IFMT = 0o170000;
@@ -44,6 +53,37 @@ function latin1(bytes: Uint8Array): string {
   let s = "";
   for (let i = 0; i < bytes.length; i += 16384) s += String.fromCharCode(...bytes.subarray(i, i + 16384));
   return s;
+}
+
+/** Compressed bytes fed to the inflater per step: at deflate's ~1032:1 maximum, at most ~16 MiB of output between checks. */
+const INFLATE_STEP = 16 * 1024;
+
+function inflateInSteps(raw: Uint8Array, onProgress?: (produced: number, consumed: number) => void): Uint8Array {
+  const chunks: Uint8Array[] = [];
+  let produced = 0;
+  let consumed = 0;
+  let finished = false;
+  const inflater = new Inflate((chunk, final) => {
+    chunks.push(chunk);
+    produced += chunk.length;
+    if (final) finished = true;
+    onProgress?.(produced, consumed);
+  });
+  if (raw.length === 0) inflater.push(raw, true);
+  for (let at = 0; at < raw.length; at += INFLATE_STEP) {
+    const end = Math.min(raw.length, at + INFLATE_STEP);
+    consumed = end;
+    inflater.push(raw.subarray(at, end), end === raw.length);
+  }
+  if (!finished) throw new Error("truncated deflate stream");
+  if (chunks.length === 1) return chunks[0];
+  const out = new Uint8Array(produced);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return out;
 }
 
 export function readZipEntries(data: Uint8Array): ZipEntry[] {
@@ -121,14 +161,19 @@ export function readZipEntries(data: Uint8Array): ZipEntry[] {
       name,
       unixType,
       isDirectory,
-      read() {
+      size,
+      compressedSize,
+      read(onProgress) {
         if (flags & 0x1) throw new Error(`entry ${entryIndex} is encrypted`);
         if (u32(localOffset) !== LOCAL_HEADER) throw new Error(`bad local header for entry ${entryIndex}`);
         const start = localOffset + 30 + u16(localOffset + 26) + u16(localOffset + 28);
         if (start + compressedSize > data.length) throw new Error("truncated zip");
         const raw = data.subarray(start, start + compressedSize);
-        if (method === 0) return raw.slice();
-        if (method === 8) return inflateSync(raw, { out: new Uint8Array(size) });
+        if (method === 0) {
+          onProgress?.(raw.length, raw.length);
+          return raw.slice();
+        }
+        if (method === 8) return inflateInSteps(raw, onProgress);
         throw new Error(`entry ${entryIndex} uses unsupported compression method ${method}`);
       },
     });

@@ -104,7 +104,7 @@ codes: `FileableError.code`, `ERROR_CODES` and `describeError()` from
 | --- | --- | --- |
 | 0 | | Success. `watch` stopped by a signal also exits 0. |
 | 1 | `E_INTERNAL` | An unexpected error (probably a fileable bug). |
-| 1 | `E_INVALID_TREE`, `E_INVALID_PROP`, `E_INVALID_OPTION`, `E_PATH_CONFLICT`, `E_UNSAFE_PATH`, `E_CONFLICT`, `E_SRC`, `E_DECODE`, `E_UNSAFE_ENTRY`, `E_EXEC_DENIED`, `E_EXEC_FAILED`, `E_SYMLINK`, `E_LINK`, `E_RM`, `E_EJECT_BINARY`, `E_BROWSER_UNSUPPORTED` | The build failed; the code says why (see below). |
+| 1 | `E_INVALID_TREE`, `E_INVALID_PROP`, `E_INVALID_OPTION`, `E_PATH_CONFLICT`, `E_UNSAFE_PATH`, `E_CONFLICT`, `E_SRC`, `E_DECODE`, `E_UNSAFE_ENTRY`, `E_ARCHIVE_LIMIT`, `E_EXEC_DENIED`, `E_EXEC_FAILED`, `E_SYMLINK`, `E_LINK`, `E_RM`, `E_EJECT_BINARY`, `E_BROWSER_UNSUPPORTED` | The build failed; the code says why (see below). |
 | 2 | `E_USAGE`, `E_MANIFEST` | Bad command line, or the manifest is missing, invalid or ambiguous. |
 | 3 | `E_MODULE_NOT_FOUND`, `E_MODULE_LOAD`, `E_JSX_COMPILER`, `E_NOT_A_TEMPLATE` | The template couldn't be loaded. Not fatal under `watch`. |
 | 5 | `E_ACCESS_DENIED` | Node's permission model refused something. `permission` names the scope, and the message names the `--allow-*` flag to add. |
@@ -128,6 +128,7 @@ Exit code 4 is not used by fileable (it's servable's `E_LISTEN`).
 | `E_SRC` | A `src`/`from`/prop value couldn't be read, fetched or awaited. |
 | `E_DECODE` | `<Dir src decode>` couldn't decode the archive, or couldn't read an entry (encrypted, unsupported compression, truncated). |
 | `E_UNSAFE_ENTRY` | `<Dir src decode>` found an entry that could land outside the `<Dir>`: a `..` segment, an absolute path or drive letter, a backslash, a control character (including NUL), an empty, `.` or dots-and-spaces segment; for `zip`, also a symlink, a device/FIFO, or a duplicate name; for `wbn`, also a query/fragment, a malformed `%` escape, or a URL outside the bundle's root. The message ends with the reason in parentheses. Nothing from the archive is written. |
+| `E_ARCHIVE_LIMIT` | `<Dir src decode>` stopped inflating an archive because it crossed a size limit: `maxBytes` (total uncompressed bytes, default 1 GiB), `maxEntries` (default 100,000), `maxEntryBytes` (per entry, default 256 MiB) or `maxRatio` (uncompressed/compressed past the first 1 MiB, default 100). Checked against the declared sizes before reading and against the real output while inflating. The message names the limit and the prop, option and flag that raise it. Nothing from the archive is written. |
 | `E_EXEC_DENIED` | `cmd` without `--allow-exec`. |
 | `E_EXEC_FAILED` | The `cmd` command failed. |
 | `E_SYMLINK` | A symlink can't be made, or `--strict` refused a copy fallback. |
@@ -189,6 +190,7 @@ A project names its template and settings in `fileable.config.json`, or a
   "cache": true,
   "lockFile": ".fileable-lock.json",
   "ipfsGateway": "https://ipfs.io/ipfs/",
+  "decodeLimits": { "maxBytes": 1073741824, "maxEntries": 100000, "maxEntryBytes": 268435456, "maxRatio": 100 },
   "watch": { "debounceMs": 100, "ignore": ["drafts/**"] }
 }
 ```
@@ -200,6 +202,11 @@ A project names its template and settings in `fileable.config.json`, or a
 - `encode` is the default encode for root `<Dir>`s that don't set their
   own. A root's own `encode` wins. `zip`/`wbn` with a root that isn't a
   `<Dir>` is an error.
+- `decodeLimits` sets the size limits for every `<Dir src decode>` archive
+  (any subset of the keys; positive numbers). `--max-decoded-bytes`,
+  `--max-decoded-entries`, `--max-entry-bytes` and
+  `--max-compression-ratio` override it per key, and a `<Dir decodeLimits>`
+  prop overrides both.
 - Command-line flags override the manifest.
 - Only the project directory is checked, not its parents. Both files
   defining a manifest is `E_MANIFEST`, not a precedence rule.

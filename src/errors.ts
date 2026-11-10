@@ -36,6 +36,7 @@ export const ERROR_CODES: Readonly<Record<ErrorCode, ErrorCodeInfo>> = Object.fr
   E_SRC: { exitCode: 1, summary: "A src, from, or prop value couldn't be read, fetched, or awaited." },
   E_DECODE: { exitCode: 1, summary: "<Dir src decode> couldn't decode the archive or read an entry." },
   E_UNSAFE_ENTRY: { exitCode: 1, summary: "<Dir src decode>: an archive entry's name would land outside the <Dir> (\"..\", absolute, drive letter, backslash, control character, empty or dot segment), or it is a symlink, special file or duplicate." },
+  E_ARCHIVE_LIMIT: { exitCode: 1, summary: "<Dir src decode>: the archive crossed a size limit while inflating (total bytes, entry count, per-entry bytes, or compression ratio)." },
   E_EXEC_DENIED: { exitCode: 1, summary: "The cmd attribute was used without --allow-exec (allowExec: true)." },
   E_EXEC_FAILED: { exitCode: 1, summary: "The cmd command exited with an error." },
   E_SYMLINK: { exitCode: 1, summary: "A symlink can't be made (bad target, target inside an archive, or --strict fallback)." },

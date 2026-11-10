@@ -41,6 +41,7 @@
  */
 import { readFile, stat } from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
+import { kMaxLength } from "node:buffer";
 import { extname, isAbsolute, relative as relativePath, resolve as resolvePath } from "node:path";
 import { pathToFileURL } from "node:url";
 import { glob } from "glob";
@@ -56,6 +57,8 @@ import { unsafeArchivePathReason } from "./archive-path.js";
 import { readZipEntries, S_IFDIR, S_IFLNK, S_IFREG } from "./zip-read.js";
 import type { ZipEntry } from "./zip-read.js";
 import { assertPermitted } from "./errors.js";
+import { DecodeMeter, RATIO_GRACE_BYTES, archiveLimitError, effectiveDecodeLimits, formatBytes, validateDecodeLimits } from "./archive-limits.js";
+import type { DecodeLimits } from "./archive-limits.js";
 import { markdownToHtml } from "./markdown.js";
 
 const CODE_EXTENSIONS = new Set([".jsx", ".tsx", ".js", ".mjs", ".ts"]);
@@ -193,7 +196,7 @@ interface DecodedEntry {
   data: Buffer;
 }
 
-function decodeZip(buffer: Buffer, path: string): DecodedEntry[] {
+function decodeZip(buffer: Buffer, path: string, limits: Required<DecodeLimits>): DecodedEntry[] {
   let zipEntries: ZipEntry[];
   try {
     zipEntries = readZipEntries(buffer);
@@ -220,21 +223,44 @@ function decodeZip(buffer: Buffer, path: string): DecodedEntry[] {
     seen.add(name);
     if (!entry.isDirectory) files.push(entry);
   }
+  // Size limits (#32): the entry count and the declared sizes first, then
+  // the real output as each entry inflates -- a declared size can lie.
+  const meter = new DecodeMeter(limits, "zip", path);
+  meter.checkDeclared(zipEntries.length, files.map((entry) => [entry.name, entry.size]));
   return files.map((entry) => {
     let data: Uint8Array;
+    meter.entry(entry.name);
     try {
-      data = entry.read();
+      data = entry.read((produced, consumed) => meter.progress(produced, consumed));
     } catch (cause) {
+      if (cause instanceof FileableError) throw cause;
       throw new FileableError(`\`decode="zip"\` failed -- couldn't read entry ${JSON.stringify(entry.name)}`, path, cause, "E_DECODE");
     }
+    meter.done(data.length);
     return { name: entry.name, data: Buffer.from(data.buffer, data.byteOffset, data.byteLength) };
   });
 }
 
-function decodeWbn(buffer: Buffer, path: string): DecodedEntry[] {
+function decodeWbn(buffer: Buffer, path: string, limits: Required<DecodeLimits>): DecodedEntry[] {
   let bundle: InstanceType<typeof wbn.Bundle>;
+  // Size limits (#32): a .wbn is one gzip stream, so the total and the ratio
+  // both cap how far zlib may inflate (maxOutputLength stops it mid-stream).
+  const byRatio = Math.max(RATIO_GRACE_BYTES, limits.maxRatio * buffer.length);
+  const cap = Math.min(limits.maxBytes, byRatio, kMaxLength);
+  let raw: Buffer;
   try {
-    bundle = new wbn.Bundle(new Uint8Array(gunzipSync(buffer)));
+    raw = gunzipSync(buffer, { maxOutputLength: Math.floor(cap) });
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code === "ERR_BUFFER_TOO_LARGE") {
+      if (cap === limits.maxBytes) throw archiveLimitError("wbn", `the bundle inflates past ${formatBytes(limits.maxBytes)}`, "maxBytes", limits.maxBytes, path);
+      if (cap === byRatio) {
+        throw archiveLimitError("wbn", `the bundle inflates past ${formatBytes(Math.floor(byRatio))} from ${formatBytes(buffer.length)} of compressed data`, "maxRatio", limits.maxRatio, path);
+      }
+    }
+    throw new FileableError("`decode=\"wbn\"` failed -- not a valid gzip(application/webbundle) archive", path, cause, "E_DECODE");
+  }
+  try {
+    bundle = new wbn.Bundle(new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength));
   } catch (cause) {
     throw new FileableError("`decode=\"wbn\"` failed -- not a valid gzip(application/webbundle) archive", path, cause, "E_DECODE");
   }
@@ -243,6 +269,9 @@ function decodeWbn(buffer: Buffer, path: string): DecodedEntry[] {
   // each segment), so decode them back to file names (#20). An entry that
   // cannot be a safe relative path throws rather than being skipped.
   const base = archiveBase(bundle.primaryURL);
+  if (bundle.urls.length > limits.maxEntries) {
+    throw archiveLimitError("wbn", `the bundle has ${bundle.urls.length} entries`, "maxEntries", limits.maxEntries, path);
+  }
   for (const url of bundle.urls) {
     const result = archiveUrlToPath(url, base);
     if ("reason" in result) {
@@ -252,12 +281,16 @@ function decodeWbn(buffer: Buffer, path: string): DecodedEntry[] {
       );
     }
     const name = result.path;
-    entries.push({ name, data: Buffer.from(bundle.getResponse(url).body) });
+    const body = bundle.getResponse(url).body;
+    if (body.length > limits.maxEntryBytes) {
+      throw archiveLimitError("wbn", `entry ${JSON.stringify(name)} is ${formatBytes(body.length)}`, "maxEntryBytes", limits.maxEntryBytes, path);
+    }
+    entries.push({ name, data: Buffer.from(body) });
   }
   return entries;
 }
 
-async function resolveDirSrc(node: Descriptor, baseDir: string, path: string): Promise<Descriptor[]> {
+async function resolveDirSrc(node: Descriptor, baseDir: string, path: string, optionLimits: DecodeLimits | undefined): Promise<Descriptor[]> {
   const src = node.props.src as string | undefined;
   const decode = node.props.decode as string | undefined;
   if (src === undefined && decode === undefined) return [];
@@ -279,7 +312,9 @@ async function resolveDirSrc(node: Descriptor, baseDir: string, path: string): P
     throw new FileableError(`failed to read archive "${src}"`, path, cause, "E_SRC");
   }
 
-  const decoded = decode === "zip" ? decodeZip(buffer, path) : decodeWbn(buffer, path);
+  const propLimits = validateDecodeLimits(node.props.decodeLimits, "decodeLimits", path, "E_INVALID_PROP");
+  const limits = effectiveDecodeLimits(optionLimits, propLimits);
+  const decoded = decode === "zip" ? decodeZip(buffer, path, limits) : decodeWbn(buffer, path, limits);
   return decoded.map((entry) => ({
     tag: "file" as const,
     props: { name: entry.name, __resolvedContent: bufferToContent(entry.data) },
@@ -294,6 +329,7 @@ export async function resolve(
 ): Promise<Descriptor[]> {
   const baseDir = options.cwd ?? options.outDir ?? process.cwd();
   const ipfsGateway = options.ipfsGateway ?? DEFAULT_IPFS_GATEWAY;
+  const optionLimits = validateDecodeLimits(options.decodeLimits, "decodeLimits option", "<render options>", "E_INVALID_OPTION");
 
   async function resolveNode(node: Descriptor, path: string): Promise<void> {
     // EXAMPLE: <IPFS> is a genuinely new tag, not a File in disguise
@@ -368,7 +404,7 @@ export async function resolve(
     }
 
     if (node.tag === "dir") {
-      const decoded = await resolveDirSrc(node, baseDir, path);
+      const decoded = await resolveDirSrc(node, baseDir, path, optionLimits);
       if (decoded.length > 0) {
         // Editable, not a collision: an explicit child sharing a decoded
         // entry's name wins outright (unlike every other artifact-path

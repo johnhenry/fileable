@@ -48,6 +48,26 @@ import { parseVarFlag } from "./vars.js";
 import { Emitter, defaultIo, outputShape, withStdoutToStderr, EVENTS_SCHEMA_VERSION } from "./events.js";
 import type { Command, Io } from "./events.js";
 import { findManifest } from "./manifest.js";
+import type { DecodeLimitKey, DecodeLimits } from "../src/archive-limits.js";
+
+const DECODE_LIMIT_FLAGS: Record<string, DecodeLimitKey> = {
+  "--max-decoded-bytes": "maxBytes",
+  "--max-decoded-entries": "maxEntries",
+  "--max-entry-bytes": "maxEntryBytes",
+  "--max-compression-ratio": "maxRatio",
+};
+
+/** A limit flag's value: a positive number; byte limits also take a K/M/G (binary) suffix. */
+function parseLimitValue(raw: string, key: DecodeLimitKey): number | undefined {
+  const match = /^(\d+(?:\.\d+)?)([KMG])?$/i.exec(raw.trim());
+  if (!match) return undefined;
+  const unit = match[2]?.toUpperCase();
+  if (unit && key !== "maxBytes" && key !== "maxEntryBytes") return undefined;
+  const n = Number(match[1]) * (unit === "K" ? 1024 : unit === "M" ? 1024 ** 2 : unit === "G" ? 1024 ** 3 : 1);
+  if (!(n > 0)) return undefined;
+  if (key !== "maxRatio" && !Number.isSafeInteger(n)) return undefined;
+  return n;
+}
 import type { LoadedManifest } from "./manifest.js";
 import { installLoader } from "./loader.js";
 import { runWatch } from "./watch.js";
@@ -116,6 +136,17 @@ Options:
       --strict            Promote symlink-fallback warnings to hard errors
       --no-cache          Force a full rebuild, ignoring .fileable-lock.json
       --lock-file <path>  Path to the incremental-build lock file
+      --max-decoded-bytes <n>
+                          <Dir src decode> limits (build, watch): total
+                          uncompressed bytes per archive (default 1G);
+                          K/M/G suffixes are KiB/MiB/GiB
+      --max-decoded-entries <n>
+                          ...entries per archive (default 100000)
+      --max-entry-bytes <n>
+                          ...uncompressed bytes per entry (default 256M)
+      --max-compression-ratio <n>
+                          ...uncompressed:compressed ratio, checked past
+                          1 MiB of output (default 100)
       --dry-run           Report what would happen without touching disk
       --json              Print NDJSON events on stdout instead of text
                           (schema v${EVENTS_SCHEMA_VERSION}; see docs/machine-interface.md)
@@ -165,6 +196,7 @@ interface ParsedArgs {
   json: boolean;
   debounceMs?: number;
   lockFile?: string;
+  decodeLimits: DecodeLimits;
   help: boolean;
   version: boolean;
   out?: string;
@@ -191,6 +223,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     version: false,
     content: [],
     copyAssets: false,
+    decodeLimits: {},
   };
   const positionals: string[] = [];
   const value = (i: number, flag: string): string => {
@@ -263,6 +296,19 @@ function parseArgs(argv: string[]): ParsedArgs {
       case "--lock-file":
         args.lockFile = value(++i, arg);
         break;
+      case "--max-decoded-bytes":
+      case "--max-decoded-entries":
+      case "--max-entry-bytes":
+      case "--max-compression-ratio": {
+        const key = DECODE_LIMIT_FLAGS[arg];
+        const raw = value(++i, arg);
+        const parsed = parseLimitValue(raw, key);
+        if (parsed === undefined) {
+          usage(`invalid ${arg} "${raw}" -- expected ${key === "maxRatio" ? "a number > 0" : key === "maxEntries" ? "an integer > 0" : "an integer > 0, optionally with K, M or G (KiB, MiB, GiB)"}`);
+        }
+        args.decodeLimits[key] = parsed;
+        break;
+      }
       case "--out":
         args.out = value(++i, arg);
         break;
@@ -355,6 +401,7 @@ async function resolveBuildConfig(args: ParsedArgs): Promise<BuildConfig> {
       lockFile: fromArgs(args.lockFile) ?? fromManifest(m?.lockFile),
       encode: args.encode ?? m?.encode,
       ipfsGateway: m?.ipfsGateway,
+      decodeLimits: { ...(m?.decodeLimits ?? {}), ...args.decodeLimits },
     },
   };
 }

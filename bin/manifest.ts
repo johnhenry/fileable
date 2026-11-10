@@ -15,6 +15,8 @@ import { readFile } from "node:fs/promises";
 import { join, resolve as resolvePath } from "node:path";
 import { FileableError } from "../src/types.js";
 import type { RenderTarget } from "../src/types.js";
+import { validateDecodeLimits } from "../src/archive-limits.js";
+import type { DecodeLimits } from "../src/archive-limits.js";
 
 export interface Manifest {
   /** Template module, relative to the project directory. Required. */
@@ -32,6 +34,8 @@ export interface Manifest {
   lockFile?: string;
   ipfsGateway?: string;
   watch?: { debounceMs?: number; ignore?: string[] };
+  /** Size limits for <Dir src decode> archives (#32); flags override per key. */
+  decodeLimits?: DecodeLimits;
 }
 
 export interface LoadedManifest {
@@ -43,7 +47,7 @@ export interface LoadedManifest {
   manifest: Manifest;
 }
 
-const KEYS = new Set(["$schema", "template", "outDir", "cwd", "vars", "encode", "strict", "cache", "lockFile", "ipfsGateway", "watch"]);
+const KEYS = new Set(["$schema", "template", "outDir", "cwd", "vars", "encode", "strict", "cache", "lockFile", "ipfsGateway", "watch", "decodeLimits"]);
 const ENCODES = new Set(["loose", "zip", "wbn"]);
 
 function fail(message: string, path: string): never {
@@ -100,6 +104,7 @@ export function validateManifest(value: unknown, path: string): Manifest {
       fail('manifest "watch.ignore" must be an array of glob strings', path);
     }
   }
+  validateDecodeLimits(m.decodeLimits, 'manifest "decodeLimits"', path, "E_MANIFEST");
   const { $schema: _schema, ...rest } = m;
   return rest as unknown as Manifest;
 }

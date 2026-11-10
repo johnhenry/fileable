@@ -228,7 +228,11 @@ percent-decodes each entry's URL back to its file name, relative to the root
 of the bundle's primary URL (the same rule as `@johnhenry/packfile`'s
 `fromArchive()`). Both decoders refuse an entry whose name isn't a safe
 relative path, with `E_UNSAFE_ENTRY` (see [Security model](#security-model)
-for the exact rules); `decode="wbn"` throws where packfile skips.
+for the exact rules); `decode="wbn"` throws where packfile skips. Both
+stop inflating at a size limit, with `E_ARCHIVE_LIMIT` (see below and
+[Security model](#security-model)); `decodeLimits` on the `<Dir>` (or the
+`decodeLimits` render option, manifest key, or `--max-*` flags) changes
+them.
 `src`/`decode` must be
 used together -- either alone throws, and so does an unrecognized `decode`
 value, matching this codebase's fail-loudly convention everywhere else.
@@ -446,6 +450,10 @@ fileable --version [--json]
       --strict            Promote symlink-fallback warnings to hard errors
       --no-cache          Force a full rebuild, ignoring .fileable-lock.json
       --lock-file <path>  Path to the incremental-build lock file
+      --max-decoded-bytes <n>, --max-decoded-entries <n>,
+      --max-entry-bytes <n>, --max-compression-ratio <n>
+                          <Dir src decode> size limits (see Security model);
+                          byte values take K/M/G (KiB/MiB/GiB)
       --dry-run           Report what would happen without touching disk
       --out <file>        eject only: write generated source here instead of stdout
       --content-mode <infer|inline|ref|ask>
@@ -936,6 +944,31 @@ shells out and uses its stdout as file content -- everything else (`src`,
   artifact that is a file (a decoded `link/x` next to a `<File name="link"
   symlink>`). Folding is NFC plus lowercase; other filesystem-specific
   equivalences are not modelled.
+- **A decoded archive can't inflate without bound (#32).** `<Dir src
+  decode="zip"|"wbn">` stops as soon as one archive crosses a limit and
+  throws `E_ARCHIVE_LIMIT`, naming the limit and how to raise it. Nothing
+  from that archive is written. The limits are enforced while inflating,
+  not measured afterwards: a zip entry is inflated 16 KiB of input at a
+  time, and a `.wbn` is gunzipped with zlib's `maxOutputLength`. The count
+  and the sizes a zip's central directory declares are checked before any
+  entry is read, and the real output is counted too, because declared sizes
+  can lie. Defaults (`DEFAULT_DECODE_LIMITS`):
+
+  | Limit | Default | Why |
+  | --- | --- | --- |
+  | `maxBytes`: total uncompressed bytes per archive | 1 GiB | Decoded entries are held in memory until written, so this bounds memory as well as disk; far above a site or package bundle. |
+  | `maxEntries`: entries per archive (directory entries included) | 100,000 | More than real bundles carry; an archive of millions of tiny entries is refused before any is read. |
+  | `maxEntryBytes`: uncompressed bytes per entry | 256 MiB | Room for large media files. For `.wbn`, checked per entry after gunzip, which `maxBytes` already bounds. |
+  | `maxRatio`: uncompressed / compressed, per zip entry and per `.wbn` | 100 | Text and code compress about 3-20x; deflate tops out near 1032x, which is what a bomb uses. Only checked once the output passes 1 MiB, so small, very compressible files are fine. |
+
+  Change them per archive with `<Dir decodeLimits={{ maxEntryBytes: ... }}>`,
+  or for a whole build with the `decodeLimits` render option, the
+  manifest's `"decodeLimits"` (same keys), or `--max-decoded-bytes`,
+  `--max-decoded-entries`, `--max-entry-bytes` and
+  `--max-compression-ratio`. Precedence per key: prop, then flag, then
+  manifest, then default. `Infinity` turns a limit off (SDK and prop only).
+  Not covered: the size of the archive file itself, which is read whole,
+  and content that isn't decoded (`src` on a `<File>`).
 - **Malformed input fails loudly, not silently.** An unrecognized `encode`,
   `join`, `onConflict`, or `decode` value throws rather than falling back to
   a default; malformed `base64` throws rather than writing corrupted bytes.
@@ -955,8 +988,8 @@ shells out and uses its stdout as file content -- everything else (`src`,
   decodes it and synthesizes `<File>` children from its entries. Entry
   *names* are checked (above), but the *content* is not vetted -- an archive
   from an untrusted source is untrusted input, the same as any other file
-  your template points `src` at -- and there is no limit on decompressed
-  size.
+  your template points `src` at. Its *size* is limited (next item), but
+  what it says is yours to check.
 - **fileable does not sandbox its own output.** It writes exactly what the
   tree describes; validating that a generated site/bundle is safe to serve
   (CSP, sanitizing user-authored content embedded in a template, ...) is the

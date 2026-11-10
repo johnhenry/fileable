@@ -47,6 +47,23 @@
     as `--allow-fs-write`; without it the build stops with `E_ACCESS_DENIED`
     naming the flag.
 
+- **`<Dir src decode="zip"|"wbn">` had no limit on decompressed size (zip
+  bombs, #32).** A small archive could inflate to gigabytes in memory. Each
+  archive now has four limits, enforced while inflating: `maxBytes` (total
+  uncompressed, default 1 GiB), `maxEntries` (default 100,000),
+  `maxEntryBytes` (default 256 MiB) and `maxRatio` (uncompressed /
+  compressed past the first 1 MiB, default 100). Crossing one throws the new
+  code `E_ARCHIVE_LIMIT` (exit 1) and nothing from the archive is written.
+  A zip's entry count and declared sizes are checked before reading, and
+  its entries are inflated in 16 KiB steps with the real output counted, so
+  a lying declared size doesn't help; nothing is preallocated from a
+  declared size any more. A `.wbn` is gunzipped with `maxOutputLength`.
+  Configure with the `<Dir decodeLimits>` prop, the `decodeLimits` render
+  option, the manifest's `"decodeLimits"`, or `--max-decoded-bytes`,
+  `--max-decoded-entries`, `--max-entry-bytes` and
+  `--max-compression-ratio`. `DEFAULT_DECODE_LIMITS` and the `DecodeLimits`
+  type are exported.
+
 ### Added
 - **Machine interface for desktop apps (#25).** Full reference:
   `docs/machine-interface.md`.
