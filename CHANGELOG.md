@@ -130,6 +130,17 @@
     `--json`, `--debounce`, `--version`.
 
 ### Fixed
+- **`encode="zip"` silently dropped an entry named `__proto__` (#36, PR #40).** The
+  archive was built with fflate's `zipSync()`, which takes a plain object
+  keyed by entry name, so `<File name="__proto__">` set the object's
+  prototype instead of adding a key and was missing from the `.zip`. The
+  writer now uses fflate's streaming `Zip` class (`ZipDeflate` for files,
+  `ZipPassThrough` for directory entries), which takes each name
+  explicitly, so every entry is kept. Entries now carry a data descriptor
+  (general-purpose flag bit 3), as fflate's streaming writer always does;
+  sizes and CRCs are still in the central directory, and fileable's own
+  `decode="zip"` (and other extractors) read them as before. No new
+  dependency.
 - **`encode="wbn"` file names with `#`, `?` or `%` (#20).** Each path segment
   is now percent-encoded the way `@johnhenry/packfile`'s `toWebBundle()` does
   it. Before, a `#` in a name made the render throw, and packfile's
