@@ -226,10 +226,10 @@ directly via `fflate`/`wbn` rather than by this package itself, not just
 internal round-tripping (`test/dir-decode.test.ts`). `decode="wbn"`
 percent-decodes each entry's URL back to its file name, relative to the root
 of the bundle's primary URL (the same rule as `@johnhenry/packfile`'s
-`fromArchive()`), and throws on an entry that isn't a safe relative path
-(`..`, an absolute path, a backslash, a control character, a query or
-fragment, a malformed `%` escape, or a URL outside that root) where
-packfile skips it. `src`/`decode` must be
+`fromArchive()`). Both decoders refuse an entry whose name isn't a safe
+relative path, with `E_UNSAFE_ENTRY` (see [Security model](#security-model)
+for the exact rules); `decode="wbn"` throws where packfile skips.
+`src`/`decode` must be
 used together -- either alone throws, and so does an unrecognized `decode`
 value, matching this codebase's fail-loudly convention everywhere else.
 
@@ -895,6 +895,22 @@ shells out and uses its stdout as file content -- everything else (`src`,
   (read/write); `cmd` additionally needs `--allow-child-process`, and
   fileable says so (`E_ACCESS_DENIED`) instead of failing deep inside
   `exec`. See [docs/machine-interface.md](docs/machine-interface.md).
+- **A decoded archive can't write outside its `<Dir>`.** `<Dir src
+  decode="zip"|"wbn">` checks every entry name before using any of them, and
+  throws `E_UNSAFE_ENTRY` (nothing from the archive is written) if one is: a
+  `..` segment (the zip-slip shape, #28), an absolute path (`/etc/x`,
+  `//server/share`), a drive letter (`C:x`, `C:/x`), a backslash (a
+  separator on Windows), a control character including NUL, an empty
+  segment (`a//b`), `.`, or a segment of only dots and spaces (`...`,
+  `.. `, which Windows trims to `.`/`..`). The two decoders share one rule
+  (`src/archive-path.ts`). `decode="zip"` also refuses symlink entries and
+  device/FIFO entries (fileable never creates a link from an archive, so no
+  entry can point outside the root, or be written through by a later
+  entry) and duplicate names; `decode="wbn"` also refuses a query or
+  fragment, a malformed `%` escape, and a URL outside the bundle's root.
+  This covers names from archives only: a name your template writes itself
+  (`<File name="../x">`) is trusted like the rest of the template, and the
+  loose writer does not check for symlinks already on disk inside `outDir`.
 - **Malformed input fails loudly, not silently.** An unrecognized `encode`,
   `join`, `onConflict`, or `decode` value throws rather than falling back to
   a default; malformed `base64` throws rather than writing corrupted bytes.
@@ -911,10 +927,11 @@ shells out and uses its stdout as file content -- everything else (`src`,
   templates you trust, the same discipline as any other `eval`-adjacent
   feature.
 - **`<Dir src decode="zip"|"wbn">` reads an archive you supply.** fileable
-  decodes it and synthesizes `<File>` children from its entries, but it does
-  not vet the archive's *provenance* -- an archive from an untrusted source
-  is untrusted input, the same as any other file your template points `src`
-  at.
+  decodes it and synthesizes `<File>` children from its entries. Entry
+  *names* are checked (above), but the *content* is not vetted -- an archive
+  from an untrusted source is untrusted input, the same as any other file
+  your template points `src` at -- and there is no limit on decompressed
+  size.
 - **fileable does not sandbox its own output.** It writes exactly what the
   tree describes; validating that a generated site/bundle is safe to serve
   (CSP, sanitizing user-authored content embedded in a template, ...) is the

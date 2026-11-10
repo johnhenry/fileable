@@ -1,3 +1,5 @@
+import { unsafeArchivePathReason } from "./archive-path.js";
+
 /**
  * Shared between write/wbn.ts (encode) and resolve.ts's `<Dir src decode="wbn">`
  * (decode) -- an internal-only base URL used purely to satisfy the Web
@@ -45,7 +47,8 @@ export function archiveBase(primaryURL: string | null | undefined): string {
  * validated relative POSIX path, or the reason it can't be one. The reasons
  * and checks match `@johnhenry/packfile`'s `urlToPath()`/`checkPath()`, so
  * the two packages agree on which entries are readable -- except that
- * fileable throws on an unreadable entry where packfile skips it.
+ * fileable throws on an unreadable entry where packfile skips it. The path
+ * checks are `unsafeArchivePathReason()`, shared with `decode="zip"` (#28).
  */
 export function archiveUrlToPath(url: string, base: string): { path: string } | { reason: string } {
   if (!url.startsWith(base)) return { reason: "outside-base" };
@@ -57,14 +60,7 @@ export function archiveUrlToPath(url: string, base: string): { path: string } | 
   } catch {
     return { reason: "malformed-encoding" };
   }
-  if (path === "") return { reason: "empty" };
-  if (path.includes("\\")) return { reason: "backslash" };
-  if (/[\u0000-\u001f\u007f]/.test(path)) return { reason: "control-character" };
-  if (path.startsWith("/") || /^[a-zA-Z]:/.test(path)) return { reason: "absolute" };
-  for (const segment of path.split("/")) {
-    if (segment === "") return { reason: "empty-segment" };
-    if (segment === ".") return { reason: "dot-segment" };
-    if (segment === "..") return { reason: "traversal" };
-  }
+  const reason = unsafeArchivePathReason(path);
+  if (reason !== undefined) return { reason };
   return { path };
 }

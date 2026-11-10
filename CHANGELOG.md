@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+### Security
+- **`<Dir src decode="zip">` could write outside the output directory
+  (zip-slip, #28, PR #30).** Entry names were used as file names unchecked, so an
+  entry named `../../escaped.txt` was written two levels above the `<Dir>`.
+  Every entry name is now checked before any is used, with the same rule
+  `decode="wbn"` uses (one shared helper, `src/archive-path.ts`): a `..`
+  segment, an absolute path (`/x`, `//server/share`), a drive letter (`C:x`,
+  `C:/x`), a backslash, a control character including NUL, an empty or `.`
+  segment, or a segment of only dots and spaces (`...`, `.. `, which Windows
+  trims) is refused, and nothing from the archive is written. Symlink and
+  device/FIFO entries (Unix type in the external attributes) and duplicate
+  names are refused too; fileable never creates links from an archive.
+  Unsafe entries in either decoder now throw the new error code
+  `E_UNSAFE_ENTRY` (exit 1) with the reason in parentheses; `E_DECODE` now
+  means only that the archive or an entry couldn't be read. The zip central
+  directory is read by fileable itself (Zip64 included); fflate is still
+  used to inflate.
+
 ### Added
 - **Machine interface for desktop apps (#25).** Full reference:
   `docs/machine-interface.md`.

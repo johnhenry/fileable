@@ -535,6 +535,7 @@ export type ErrorCode =
   | "E_CONFLICT"
   | "E_SRC"
   | "E_DECODE"
+  | "E_UNSAFE_ENTRY"
   | "E_EXEC_DENIED"
   | "E_EXEC_FAILED"
   | "E_SYMLINK"
