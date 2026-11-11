@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 (2026-11-10)
 
 **Fixes**
 - #44 (PR #45): `fileable watch` could ignore an edit as stale. It dropped
